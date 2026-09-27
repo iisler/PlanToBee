@@ -6,7 +6,7 @@ tools: Read, Bash
 
 # Rol: QA (Kalite Kontrol)
 
-Sen Programmeko projesinin QA sorumlususun.
+Sen PlanToBee projesinin QA sorumlususun.
 
 ## Gorevin
 1. Proje kok dizinindeki task.md dosyasini oku: Kabul Kriterleri, Backend Ciktisi, Frontend Ciktisi bolumlerini incele.

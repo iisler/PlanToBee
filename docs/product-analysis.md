@@ -1,14 +1,14 @@
-# PlanMee (Programmeko) – Ürün Analizi ve Öneriler
+# PlanToBee (Programmeko) – Ürün Analizi ve Öneriler
 
 Hazırlayan: Ürün Yöneticisi · Tarih: 25 Eylül 2026
-Kapsam: Canlıdaki `index.html` (Firebase sürümü), yeni React frontend (`frontend/`) ve .NET API (`backend/PlanMee.API/`).
+Kapsam: Canlıdaki `index.html` (Firebase sürümü), yeni React frontend (`frontend/`) ve .NET API (`backend/PlanToBee.API/`).
 
 ---
 
 ## 1. Mevcut Durum Özeti
 
 ### Uygulama bugün ne yapıyor
-PlanMee, bir öğrencinin günlük **ders çalışma planını**, **voleybol antrenmanlarını** ve **etkinliklerini** (deneme sınavı, maç vb.) tek ekranda takip ettiği bir planlayıcı.
+PlanToBee, bir öğrencinin günlük **ders çalışma planını**, **voleybol antrenmanlarını** ve **etkinliklerini** (deneme sınavı, maç vb.) tek ekranda takip ettiği bir planlayıcı.
 
 | Alan | Yetenekler |
 |---|---|
@@ -235,7 +235,7 @@ Değer: Yüksek / Orta / Düşük · Efor: S (küçük) / M (orta) / L (büyük)
 
 ## 5. Açık Sorular (karar Ilker'e ait)
 
-1. **Hedef kitle:** PlanMee sadece Ela için mi kalacak, yoksa başka öğrencilerin (takım arkadaşları, kardeşler) de kullanacağı bir ürün mü olacak? Bu cevap, E1, A5 ve kayıt ekranının önceliğini doğrudan belirliyor.
+1. **Hedef kitle:** PlanToBee sadece Ela için mi kalacak, yoksa başka öğrencilerin (takım arkadaşları, kardeşler) de kullanacağı bir ürün mü olacak? Bu cevap, E1, A5 ve kayıt ekranının önceliğini doğrudan belirliyor.
 2. **Ebeveyn/antrenör rolü:** Ela'nın planını kim görmeli? Sadece görme mi, yoksa plan ekleyebilme (örn. antrenörün antrenman programını girmesi) de mi?
 3. **Geçiş planı:** index.html ne zaman kapatılacak? Geçiş sırasında bir süre iki sürüm paralel çalışacak mı? Eski linke gelenler yeni sürüme yönlendirilmeli mi?
 4. **Veri aktarımı:** Firebase'deki tüm geçmiş mi aktarılsın, yoksa belirli bir tarihten sonrası yeterli mi? Aktarım sonrası Firebase verisi silinsin mi, yedek olarak kalsın mı?

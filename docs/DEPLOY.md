@@ -1,6 +1,6 @@
-# PlanMee: Canlıya Çıkış Rehberi
+# PlanToBee: Canlıya Çıkış Rehberi
 
-Bu rehber PlanMee'yi ücretsiz servislerle internete açmak için adım adım yol gösterir. Sırayla ilerle; her adım bir öncekinde not aldığın bilgileri kullanır.
+Bu rehber PlanToBee'yi ücretsiz servislerle internete açmak için adım adım yol gösterir. Sırayla ilerle; her adım bir öncekinde not aldığın bilgileri kullanır.
 
 > Servislerin ekranları ve düğme adları zamanla değişebilir. Bir düğmeyi bulamazsan menü yolunu ve alan adını takip et, gerekirse ilgili servisin belgesine bak (bağlantılar her bölümün başında).
 
@@ -13,7 +13,7 @@ Bu rehber PlanMee'yi ücretsiz servislerle internete açmak için adım adım yo
 | Parça | Servis | Ne yapar |
 |---|---|---|
 | Veritabanı | **Neon** (yönetilen PostgreSQL) | Kullanıcılar, aileler, planlar burada durur. |
-| API (backend) | **Render** (Docker web servisi) | `backend/PlanMee.API`. Tarayıcıdan gelen istekleri işler, veritabanına bağlanır, e-posta gönderir. |
+| API (backend) | **Render** (Docker web servisi) | `backend/PlanToBee.API`. Tarayıcıdan gelen istekleri işler, veritabanına bağlanır, e-posta gönderir. |
 | Site (frontend) | **Cloudflare Pages** | `frontend/`. Kullanıcının tarayıcısına inen React uygulaması. |
 | E-posta | **Brevo** (SMTP) | Doğrulama, şifre sıfırlama ve davet e-postalarını gönderir. |
 
@@ -22,7 +22,7 @@ Nasıl konuşurlar:
 ```
 Tarayıcı ──(1) siteyi indirir──> Cloudflare Pages  (https://<proje>.pages.dev)
    │
-   └──(2) API istekleri (VITE_API_URL)──> Render proxy ──> PlanMee API konteyneri
+   └──(2) API istekleri (VITE_API_URL)──> Render proxy ──> PlanToBee API konteyneri
                                                               │
                                    (3) SSL ile ──> Neon PostgreSQL
                                    (4) SMTP 587 + STARTTLS ──> Brevo ──> kullanıcının gelen kutusu
@@ -53,16 +53,16 @@ Varsayılanı olan değişkenleri girmen gerekmez; varsayılanlar `appsettings.j
 | `Jwt__Key` | Oturum belirteçlerini (giriş anahtarlarını) imzalayan anahtar. | **Zorunlu**, en az 32 karakter | 64 karakterlik rastgele metin | Kendin üretirsin (aşağıya bak) | **Evet** |
 | `Email__Smtp__Username` | Brevo SMTP kullanıcı adı. | **Zorunlu** | `8a1b2c001@smtp-brevo.com` | Brevo > SMTP & API > SMTP sekmesi > **Login** | Evet (hassas) |
 | `Email__Smtp__Password` | Brevo SMTP anahtarı (Brevo hesap şifren **değil**). | **Zorunlu** | `xsmtpsib-...` | Brevo > SMTP & API > SMTP > Generate a new SMTP key | **Evet** |
-| `Email__From` | E-postaların gönderen adresi. Brevo'da **doğrulanmış** olmalı. | **Zorunlu** | `planmee@alanadin.com` | Brevo > Senders'ta doğruladığın adres | Hayır |
-| `App__FrontendBaseUrl` | Sitenin adresi: e-posta linkleri ve CORS izni. `https://` ile başlar, sonunda `/` ve yol yok. | **Zorunlu** | `https://planmee.pages.dev` | Cloudflare Pages proje adresi | Hayır |
-| `Email__FromName` | Gönderen adı (gelen kutusunda görünen). | İsteğe bağlı, `PlanMee` | `PlanMee` | Sen seçersin | Hayır |
+| `Email__From` | E-postaların gönderen adresi. Brevo'da **doğrulanmış** olmalı. | **Zorunlu** | `plantobee@alanadin.com` | Brevo > Senders'ta doğruladığın adres | Hayır |
+| `App__FrontendBaseUrl` | Sitenin adresi: e-posta linkleri ve CORS izni. `https://` ile başlar, sonunda `/` ve yol yok. | **Zorunlu** | `https://plantobee.pages.dev` | Cloudflare Pages proje adresi | Hayır |
+| `Email__FromName` | Gönderen adı (gelen kutusunda görünen). | İsteğe bağlı, `PlanToBee` | `PlanToBee` | Sen seçersin | Hayır |
 | `Email__Smtp__Host` | SMTP sunucusu. | İsteğe bağlı, `smtp-relay.brevo.com` | `smtp-relay.brevo.com` | Brevo > SMTP sekmesi | Hayır |
 | `Email__Smtp__Port` | SMTP portu (STARTTLS). | İsteğe bağlı, `587` | `587` (engelliyse `2525`) | Brevo > SMTP sekmesi | Hayır |
 | `Email__Smtp__EnableSsl` | STARTTLS ile şifreli bağlantı. Üretimde `false` kabul edilmez. | İsteğe bağlı, `true` | `true` | Değiştirme | Hayır |
 | `Email__Provider` | E-posta sağlayıcısı. Üretimde yalnızca `Smtp` kabul edilir. | İsteğe bağlı, `Smtp` | `Smtp` | Değiştirme | Hayır |
 | `ASPNETCORE_ENVIRONMENT` | Ortam adı. Docker imajı zaten `Production` ile açılır. | İsteğe bağlı, `Production` | `Production` | Değiştirme | Hayır |
 | `PORT` | API'nin dinlediği port. **Render kendisi verir, girme.** | Otomatik (Render: `10000`). Yoksa `8080`. | `10000` | Render | Hayır |
-| `Jwt__Issuer` / `Jwt__Audience` | Belirteç düzenleyici / hedef adı. | İsteğe bağlı, `planmeee` | `planmeee` | Değiştirme | Hayır |
+| `Jwt__Issuer` / `Jwt__Audience` | Belirteç düzenleyici / hedef adı. | İsteğe bağlı, `plantobee` | `plantobee` | Değiştirme | Hayır |
 | `ForwardedHeaders__Enabled` | Proxy'nin eklediği gerçek istemci IP'si ve HTTPS bilgisini kullan. | İsteğe bağlı, üretimde `true` | `true` | Değiştirme | Hayır |
 | `ForwardedHeaders__ForwardLimit` | `X-Forwarded-For` listesinde sağdan kaç girişe güvenileceği (Render için **1**). | İsteğe bağlı, `1` | `1` | Bölüm 5'teki kontrolle doğrulanır | Hayır |
 | `ForwardedHeaders__KnownProxies` | Güvenilen proxy IP'leri (virgülle). Render'da boş kalır. | İsteğe bağlı, boş | `10.0.0.5` | - | Hayır |
@@ -73,13 +73,13 @@ Varsayılanı olan değişkenleri girmen gerekmez; varsayılanlar `appsettings.j
 | `RateLimits__InviteSend` | Davet gönderme: kullanıcı başına saatte en fazla istek. | İsteğe bağlı, `20` | `20` | - | Hayır |
 | `RateLimits__Session` | Oturum bilgisi (`/auth/me`): kullanıcı başına dakikada en fazla istek. | İsteğe bağlı, `120` | `120` | - | Hayır |
 
-> Kullanma: `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Bu, .NET'in kendi kısayolu; PlanMee kendi `ForwardedHeaders__*` ayarlarını kullanır, ikisi birlikte kafa karıştırır.
+> Kullanma: `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Bu, .NET'in kendi kısayolu; PlanToBee kendi `ForwardedHeaders__*` ayarlarını kullanır, ikisi birlikte kafa karıştırır.
 
 ### Cloudflare Pages (site)
 
 | Değişken | Ne işe yarar | Zorunlu mu / varsayılan | Örnek biçim | Değer nereden | Gizli mi |
 |---|---|---|---|---|---|
-| `VITE_API_URL` | Sitenin istek atacağı API adresi, **sonunda `/api`**. Build sırasında koda gömülür. | **Zorunlu** (yoksa build durur) | `https://planmee-api.onrender.com/api` | Render servis adresi + `/api` | Hayır (tarayıcıya gider) |
+| `VITE_API_URL` | Sitenin istek atacağı API adresi, **sonunda `/api`**. Build sırasında koda gömülür. | **Zorunlu** (yoksa build durur) | `https://plantobee-api.onrender.com/api` | Render servis adresi + `/api` | Hayır (tarayıcıya gider) |
 | `NODE_VERSION` | Build'de kullanılacak Node.js sürümü. | İsteğe bağlı (`frontend/.node-version` = 22) | `22` | - | Hayır |
 
 ### JWT anahtarı nasıl üretilir
@@ -118,14 +118,14 @@ Belge: https://neon.tech/docs/connect/connect-from-any-app
 
 1. https://neon.tech adresinde hesap aç (GitHub ile giriş yapılabilir). Ücretsiz plan (Free) yeterli.
 2. **Create project** (yeni proje):
-   - **Project name:** `planmee`
+   - **Project name:** `plantobee`
    - **Postgres version:** önerileni bırak.
    - **Region:** Render'da seçeceğin bölgeye yakın olsun. Öneri: **AWS Europe Central (Frankfurt)**, Render'da da **Frankfurt** seçilir.
-   - **Database name:** `neondb` kalabilir (ya da `planmee`).
+   - **Database name:** `neondb` kalabilir (ya da `plantobee`).
 3. Proje açılınca **Dashboard**'da **Connect** düğmesine tıkla. Açılan pencerede:
    - **Branch:** `main`, **Database:** oluşturduğun veritabanı, **Role:** `neondb_owner` (varsayılan).
    - **Connection pooling** anahtarını **KAPAT**. Adresteki sunucu adında `-pooler` **olmamalı**.
-     Neden: Havuzlu (pooled) bağlantı PgBouncer üzerinden geçer; API'nin açılışta çalıştırdığı migration adımları ve oturum düzeyindeki özellikler doğrudan bağlantıda güvenilir çalışır. PlanMee tek sunucuyla çalıştığı için havuza ihtiyaç yok. (Havuzlu adres girilirse API açılır ama logda uyarı verir.)
+     Neden: Havuzlu (pooled) bağlantı PgBouncer üzerinden geçer; API'nin açılışta çalıştırdığı migration adımları ve oturum düzeyindeki özellikler doğrudan bağlantıda güvenilir çalışır. PlanToBee tek sunucuyla çalıştığı için havuza ihtiyaç yok. (Havuzlu adres girilirse API açılır ama logda uyarı verir.)
    - Biçim olarak **Connection string** (ya da `psql`/URI) seçili olsun. Şuna benzer bir satır görürsün:
      ```
      postgresql://neondb_owner:<şifre>@ep-cool-name-123456.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
@@ -144,13 +144,13 @@ Belge: https://help.brevo.com/hc/en-us/articles/7924908994450 (SMTP ayarları), 
 
 1. https://www.brevo.com adresinde ücretsiz hesap aç. Ücretsiz plan günde **300 e-posta** gönderir; bu aşama için yeterli.
 2. **Gönderen adresini doğrula:** Sağ üstte hesap menüsü > **Senders, Domains & Dedicated IPs** > **Senders** > **Add sender**.
-   - **From name:** `PlanMee`
+   - **From name:** `PlanToBee`
    - **From email:** e-postaların gönderileceği adres (ör. kendi adresin).
    - Brevo bu adrese bir doğrulama e-postası (ya da kod) gönderir; onayla.
    - Doğrulanmamış adresle gönderim **reddedilir** ya da e-postalar **spam'e düşer**.
    - Not: Gmail/Hotmail gibi ücretsiz bir adresi gönderen olarak kullanmak çalışır ama e-postalar alıcıda spam'e düşebilir. Kalıcı çözüm kendi alan adını Brevo'da doğrulamaktır (**Domains** sekmesi, SPF/DKIM kayıtları); bu adım şimdilik kapsam dışı.
 3. **SMTP anahtarı oluştur:** Hesap menüsü > **SMTP & API** > **SMTP** sekmesi > **Generate a new SMTP key**.
-   - İsim: `planmee-render`. Oluşan anahtarı (`xsmtpsib-...`) **hemen kopyala**; Brevo bir daha göstermez. Bu `Email__Smtp__Password` değeridir. **Gizlidir.**
+   - İsim: `plantobee-render`. Oluşan anahtarı (`xsmtpsib-...`) **hemen kopyala**; Brevo bir daha göstermez. Bu `Email__Smtp__Password` değeridir. **Gizlidir.**
 4. Aynı ekranda şunları not al:
    - **SMTP Server:** `smtp-relay.brevo.com` (varsayılan, girmen gerekmez)
    - **Port:** `587` (Render'da `2525` gireceğiz, bkz. 3.3)
@@ -166,13 +166,13 @@ Belge: https://render.com/docs/docker, https://render.com/docs/health-checks, ht
 2. **Dashboard** > **New** > **Web Service**.
 3. **Source Code / Git Provider:** GitHub reposunu (`Programmeko`) seç. Liste boşsa **Configure account** ile Render'a bu repoya erişim izni ver.
 4. Ayarlar:
-   - **Name:** `planmee-api` (adres buna göre oluşur: `https://planmee-api.onrender.com`; ad alınmışsa Render sonuna ek koyar, gerçek adresi 8. adımda göreceksin).
+   - **Name:** `plantobee-api` (adres buna göre oluşur: `https://plantobee-api.onrender.com`; ad alınmışsa Render sonuna ek koyar, gerçek adresi 8. adımda göreceksin).
    - **Language / Runtime:** **Docker**
    - **Branch:** `main`
    - **Region:** **Frankfurt (EU Central)** (Neon ile aynı bölge).
-   - **Root Directory:** `backend/PlanMee.API`
-   - **Dockerfile Path:** `./Dockerfile` (kök klasöre göre; yani `backend/PlanMee.API/Dockerfile`)
-   - **Docker Build Context Directory:** `.` (kök klasörün kendisi). Render bu alanları kök klasöre göre değil repo köküne göre isterse: Dockerfile Path `backend/PlanMee.API/Dockerfile`, Build Context `backend/PlanMee.API`.
+   - **Root Directory:** `backend/PlanToBee.API`
+   - **Dockerfile Path:** `./Dockerfile` (kök klasöre göre; yani `backend/PlanToBee.API/Dockerfile`)
+   - **Docker Build Context Directory:** `.` (kök klasörün kendisi). Render bu alanları kök klasöre göre değil repo köküne göre isterse: Dockerfile Path `backend/PlanToBee.API/Dockerfile`, Build Context `backend/PlanToBee.API`.
    - **Instance Type:** **Free**
 5. **Environment Variables** bölümünde (sonradan: servis > **Environment** sekmesi) **Add Environment Variable** ile şunları tek tek ekle:
 
@@ -183,7 +183,7 @@ Belge: https://render.com/docs/docker, https://render.com/docs/health-checks, ht
    | `Email__Smtp__Username` | Brevo **Login** (3.2) |
    | `Email__Smtp__Password` | Brevo SMTP anahtarı (3.2) |
    | `Email__From` | Brevo'da doğruladığın gönderen adresi (3.2) |
-   | `App__FrontendBaseUrl` | Şimdilik `https://planmee.pages.dev` yaz; 3.5'te Cloudflare'in verdiği gerçek adresle değiştireceksin. |
+   | `App__FrontendBaseUrl` | Şimdilik `https://plantobee.pages.dev` yaz; 3.5'te Cloudflare'in verdiği gerçek adresle değiştireceksin. |
    | `Email__Smtp__Port` | `2525` (Render'ın ücretsiz planı giden 587 portunu engelleyebilir; Brevo 2525'te de STARTTLS destekler. E-posta sorunsuz gidiyorsa böyle bırak.) |
 
    Diğer değişkenlerin varsayılanları doğrudur; ekleme. **`PORT`'u ekleme**, Render kendisi verir.
@@ -201,8 +201,8 @@ Belge: https://render.com/docs/docker, https://render.com/docs/health-checks, ht
    ```
    - Boş veritabanında ilk açılışta `fail: ... Failed executing DbCommand ... "__EFMigrationsHistory"` satırları görünür. Bu **normaldir**: tablo henüz yoktur, hemen ardından oluşturulur.
    - `warn: ... Overriding HTTP_PORTS` ve `warn: ... No XML encryptor configured` satırları da **normaldir**: port Render'ın verdiği `PORT`'tan alınır, link imzalama anahtarları veritabanında saklanır.
-   - `PlanMee API başlatılamadı ... ayar hatası` görürsen hangi ayarın eksik olduğu satır satır yazar; Bölüm 4'e bak.
-10. Servis sayfasının üstündeki adresi (ör. `https://planmee-api.onrender.com`) not al. Tarayıcıda `https://planmee-api.onrender.com/health` aç; şunu görmelisin:
+   - `PlanToBee API başlatılamadı ... ayar hatası` görürsen hangi ayarın eksik olduğu satır satır yazar; Bölüm 4'e bak.
+10. Servis sayfasının üstündeki adresi (ör. `https://plantobee-api.onrender.com`) not al. Tarayıcıda `https://plantobee-api.onrender.com/health` aç; şunu görmelisin:
     ```json
     {"status":"ok","api":"ok","database":"ok"}
     ```
@@ -225,16 +225,16 @@ Belge: https://developers.cloudflare.com/pages/configuration/build-configuration
 2. **Workers & Pages** > **Create** > **Pages** sekmesi > **Connect to Git** (Import an existing Git repository).
 3. GitHub hesabını bağla ve `Programmeko` reposunu seç > **Begin setup**.
 4. **Set up builds and deployments** ekranında:
-   - **Project name:** `planmee` (adres buna göre olur: `https://planmee.pages.dev`; ad alınmışsa farklı olur).
+   - **Project name:** `plantobee` (adres buna göre olur: `https://plantobee.pages.dev`; ad alınmışsa farklı olur).
    - **Production branch:** `main`
    - **Framework preset:** `Vite` (ya da `None`; aşağıdaki alanları elle doldur)
    - **Root directory (advanced):** `frontend`
    - **Build command:** `npm run build`
    - **Build output directory:** `dist`
    - **Environment variables (advanced)** > **Add variable**:
-     - `VITE_API_URL` = `https://planmee-api.onrender.com/api` (3.3'teki Render adresi + `/api`)
+     - `VITE_API_URL` = `https://plantobee-api.onrender.com/api` (3.3'teki Render adresi + `/api`)
      - `NODE_VERSION` = `22`
-5. **Save and Deploy**. Build bittiğinde Cloudflare sitenin adresini gösterir (ör. `https://planmee.pages.dev`). **Not al.**
+5. **Save and Deploy**. Build bittiğinde Cloudflare sitenin adresini gösterir (ör. `https://plantobee.pages.dev`). **Not al.**
 
 Bilmen gerekenler:
 - `VITE_API_URL` **build sırasında** koda gömülür. Değeri değiştirirsen yeniden dağıtım gerekir (**Deployments** > son dağıtım > **Retry deployment**, ya da yeni bir commit). Yalnızca değişkeni kaydetmek yetmez.
@@ -244,9 +244,9 @@ Bilmen gerekenler:
 
 ### 3.5 Birbirine bağlama
 
-1. **Render** > `planmee-api` > **Environment** > `App__FrontendBaseUrl` değerini Cloudflare'in verdiği adresle değiştir. Biçim: `https://planmee.pages.dev` (`https://` ile, **sonunda `/` yok**, yol yok).
+1. **Render** > `plantobee-api` > **Environment** > `App__FrontendBaseUrl` değerini Cloudflare'in verdiği adresle değiştir. Biçim: `https://plantobee.pages.dev` (`https://` ile, **sonunda `/` yok**, yol yok).
    **Save Changes** (ya da **Save, rebuild, and deploy**). Render API'yi yeniden başlatır; Cloudflare tarafında bir şey yapmana gerek yok.
-2. **Cloudflare Pages** > `planmee` > **Settings** > **Variables and Secrets**: `VITE_API_URL` Render'ın **gerçek** adresiyle aynı mı kontrol et (`https://<render-adı>.onrender.com/api`). Farklıysa düzelt, sonra **Deployments** > **Retry deployment** ile siteyi yeniden derle.
+2. **Cloudflare Pages** > `plantobee` > **Settings** > **Variables and Secrets**: `VITE_API_URL` Render'ın **gerçek** adresiyle aynı mı kontrol et (`https://<render-adı>.onrender.com/api`). Farklıysa düzelt, sonra **Deployments** > **Retry deployment** ile siteyi yeniden derle.
 
 Hangi değişiklikten sonra ne yapılır:
 
@@ -255,7 +255,7 @@ Hangi değişiklikten sonra ne yapılır:
 | Render'da herhangi bir ortam değişkeni (ör. `App__FrontendBaseUrl`, SMTP bilgisi) | Render (kaydedince kendisi yeniden başlatır). Cloudflare'e dokunma. |
 | Cloudflare'de `VITE_API_URL` | Cloudflare Pages (Retry deployment). Render'a dokunma. |
 | Render servis adı/adresi | Cloudflare'de `VITE_API_URL` güncelle + Cloudflare yeniden dağıt. |
-| Cloudflare proje adı/adresi ya da ileride özel alan adı (ör. `https://planmee.com`) | Render'da `App__FrontendBaseUrl` güncelle (tek ayar yeter; e-posta linkleri ve CORS birlikte değişir). |
+| Cloudflare proje adı/adresi ya da ileride özel alan adı (ör. `https://plantobee.com`) | Render'da `App__FrontendBaseUrl` güncelle (tek ayar yeter; e-posta linkleri ve CORS birlikte değişir). |
 
 ### 3.6 Test
 
@@ -263,7 +263,7 @@ Sırayla dene; hepsi geçerse kurulum tamamdır.
 
 1. **Sağlık:** `https://<render-adı>.onrender.com/health` > `{"status":"ok","api":"ok","database":"ok"}`. (Uykudaysa ilk açılış 30-60 sn sürebilir.)
 2. **Kayıt:** `https://<proje>.pages.dev` aç > kayıt ol (kendi e-posta adresinle).
-3. **Doğrulama e-postası:** Gelen kutuna (yoksa spam klasörüne) "PlanMee: E-posta adresini doğrula" gelmeli. Linke tıkla; site açılmalı ve doğrulama başarılı olmalı. Link `https://<proje>.pages.dev/verify-email?...` ile başlamalı.
+3. **Doğrulama e-postası:** Gelen kutuna (yoksa spam klasörüne) "PlanToBee: E-posta adresini doğrula" gelmeli. Linke tıkla; site açılmalı ve doğrulama başarılı olmalı. Link `https://<proje>.pages.dev/verify-email?...` ile başlamalı.
 4. **Aile kurma:** Aileni oluştur.
 5. **Davet:** Başka bir e-posta adresine (ör. ikinci adresin) davet gönder. Davet e-postasındaki linke tıkla; davet ekranı açılmalı, şifre belirleyip katıl.
 6. **Şifre sıfırlama:** Çıkış yap > "Şifremi unuttum" > e-postadaki linkle yeni şifre belirle > yeni şifreyle giriş yap.
@@ -275,7 +275,7 @@ Sırayla dene; hepsi geçerse kurulum tamamdır.
 
 ## 4. Sorun giderme
 
-**API açılışta duruyor: "PlanMee API başlatılamadı (Production): N ayar hatası bulundu"**
+**API açılışta duruyor: "PlanToBee API başlatılamadı (Production): N ayar hatası bulundu"**
 Render > Logs'ta hemen altında eksik/hatalı her ayar ayrı satırda yazar (değerler güvenlik için yazılmaz). Render > Environment'ta adı **birebir** kontrol et (`__` iki alt çizgi, büyük/küçük harf). Sık olanlar:
 - `Jwt:Key ... 32 karakterden kısa`: Bölüm 2'deki komutla yeni anahtar üret.
 - `Jwt:Key repo geçmişinde açıkça yer almış eski anahtar`: Eski anahtarı kopyalamışsın; yenisini üret.
@@ -312,7 +312,7 @@ Cloudflare Pages > Settings > Variables and Secrets'ta `VITE_API_URL` yok ya da 
 - CORS olabilir (aşağıda).
 
 **Tarayıcı konsolunda CORS hatası ("blocked by CORS policy")**
-- Render'daki `App__FrontendBaseUrl`, sitenin adres çubuğundaki adresle **birebir** aynı olmalı: `https://` dahil, sonunda `/` yok. `https://planmee.pages.dev` ile `https://www...` ya da önizleme adresi (`https://abc123.planmee.pages.dev`) farklı sayılır; yalnızca üretim adresi çalışır.
+- Render'daki `App__FrontendBaseUrl`, sitenin adres çubuğundaki adresle **birebir** aynı olmalı: `https://` dahil, sonunda `/` yok. `https://plantobee.pages.dev` ile `https://www...` ya da önizleme adresi (`https://abc123.plantobee.pages.dev`) farklı sayılır; yalnızca üretim adresi çalışır.
 - Değiştirince Render kendini yeniden başlatır; birkaç dakika bekle.
 
 **E-postadaki linke tıklayınca ya da yenileyince 404**
@@ -359,7 +359,7 @@ Kalan risk: Güvenlik, Render'ın konteynere yalnızca kendi proxy'si üzerinden
 ## 6. Güncelleme (yeni sürüm yayına nasıl çıkar)
 
 - Kod `main` dalına geldiğinde (merge ya da push) iki servis de **otomatik** yayınlar:
-  - **Render:** Auto-Deploy açıksa, `backend/PlanMee.API` altında değişiklik varsa imajı yeniden derler ve yeni sürümü yayına alır. Sağlık kontrolü (`/health`) tanımlı olduğu için Render yeni sürüm sağlıklı cevap verene kadar bekler; açılamazsa dağıtım başarısız görünür ve Logs'ta nedeni yazar. Yeni migration'lar açılışta kendiliğinden uygulanır.
+  - **Render:** Auto-Deploy açıksa, `backend/PlanToBee.API` altında değişiklik varsa imajı yeniden derler ve yeni sürümü yayına alır. Sağlık kontrolü (`/health`) tanımlı olduğu için Render yeni sürüm sağlıklı cevap verene kadar bekler; açılamazsa dağıtım başarısız görünür ve Logs'ta nedeni yazar. Yeni migration'lar açılışta kendiliğinden uygulanır.
   - **Cloudflare Pages:** Her `main` commit'inde `frontend`'i yeniden derler ve yayınlar. Diğer dallar önizleme build'i üretir (bu build'ler `VITE_API_URL` yoksa bilerek hata verir).
 - Elle yeniden dağıtmak için: Render > **Manual Deploy** > **Deploy latest commit**; Cloudflare > **Deployments** > **Retry deployment**.
 - Veritabanı şemasını değiştiren bir sürüm çıkmadan önce Neon'da yedek almak istersen: Neon > **Branches** > **Create branch** (o anki verinin kopyası).
@@ -368,15 +368,15 @@ Kalan risk: Güvenlik, Render'ın konteynere yalnızca kendi proxy'si üzerinden
 
 ## 7. Yerel geliştirme (değişmedi)
 
-- Backend: `backend/PlanMee.API` içinde `dotnet run` (port 5002, `Development` ortamı). Yerel bağlantı dizesi `appsettings.Development.json`'da, e-postalar `dev-emails/` klasörüne yazılır, JWT anahtarı `dotnet user-secrets` ile verilir. Üretimdeki sıkı ayar kontrolleri geliştirmede uygulanmaz.
+- Backend: `backend/PlanToBee.API` içinde `dotnet run` (port 5002, `Development` ortamı). Yerel bağlantı dizesi `appsettings.Development.json`'da, e-postalar `dev-emails/` klasörüne yazılır, JWT anahtarı `dotnet user-secrets` ile verilir. Üretimdeki sıkı ayar kontrolleri geliştirmede uygulanmaz.
 - Frontend: `frontend` içinde `npm run dev` (port 5173, API varsayılanı `http://localhost:5002/api`).
 - Docker imajını yerelde denemek için (Docker Desktop kuruluysa):
   ```bash
-  cd backend/PlanMee.API
-  docker build -t planmee-api .
+  cd backend/PlanToBee.API
+  docker build -t plantobee-api .
   docker run --rm -p 10000:10000 -e PORT=10000 \
     -e ConnectionStrings__Default='postgresql://...' -e Jwt__Key='...' \
     -e Email__Smtp__Username='...' -e Email__Smtp__Password='...' -e Email__From='...' \
-    -e App__FrontendBaseUrl='https://planmee.pages.dev' planmee-api
+    -e App__FrontendBaseUrl='https://plantobee.pages.dev' plantobee-api
   # sonra: curl http://localhost:10000/health
   ```

@@ -4,7 +4,7 @@ export default function AuthLayout({ subtitle, children, footer }) {
     <div className="auth-wrap">
       <div className="auth-card">
         <img className="auth-logo" src="/favicon.svg" alt="" />
-        <h1>PlanMee</h1>
+        <h1>PlanToBee</h1>
         {subtitle && <p className="auth-sub">{subtitle}</p>}
         {children}
         {footer}

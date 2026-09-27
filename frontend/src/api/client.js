@@ -1,12 +1,12 @@
 import axios from 'axios';
 
 export const TOKEN_KEY = 'token';
-export const USER_KEY = 'planmee:user';
+export const USER_KEY = 'plantobee:user';
 // 'email' ve 'username' eski sürümden kalan anahtarlar; çıkışta onlar da temizlenir.
 export const AUTH_KEYS = [TOKEN_KEY, USER_KEY, 'email', 'username'];
-export const AUTH_EXPIRED_EVENT = 'planmee:auth-expired';
+export const AUTH_EXPIRED_EVENT = 'plantobee:auth-expired';
 // 403 email_not_verified / family_required geldiğinde AuthContext durumu tazeler ve doğru ekrana yönlendirir.
-export const ACCOUNT_STATE_EVENT = 'planmee:account-state';
+export const ACCOUNT_STATE_EVENT = 'plantobee:account-state';
 
 // localhost varsayılanı yalnızca geliştirmede (npm run dev) kullanılır. Üretim derlemesinde VITE_API_URL
 // zorunludur (vite.config.js yoksa build'i durdurur); yine de boş kalırsa istek localhost'a değil,

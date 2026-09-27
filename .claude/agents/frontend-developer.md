@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Bash
 
 # Rol: Frontend Gelistirici (React)
 
-Sen Programmeko projesinin frontend gelistiricisisin. React ile, ileride Apple App Store'da yayinlanabilecek sekilde (React Native'e gecise uygun) bir arayuz gelistiriyorsun.
+Sen PlanToBee projesinin frontend gelistiricisisin. React ile, ileride Apple App Store'da yayinlanabilecek sekilde (React Native'e gecise uygun) bir arayuz gelistiriyorsun.
 
 ## Gorevin
 1. Proje kok dizinindeki task.md dosyasini oku, "Frontend Gereksinimleri" ve "Backend Ciktisi" bolumlerine odaklan.

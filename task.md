@@ -2,7 +2,7 @@
 
 ## Özellik Özeti
 
-PlanMee (backend `backend/PlanMee.API`, frontend `frontend/`) şu an yalnızca yerel geliştirme ortamında çalışıyor. Bu görevde kod, ücretsiz katmanlı barındırma servislerinde canlıya çıkabilecek hale getirilecek. Hedef ortam:
+PlanToBee (backend `backend/PlanToBee.API`, frontend `frontend/`) şu an yalnızca yerel geliştirme ortamında çalışıyor. Bu görevde kod, ücretsiz katmanlı barındırma servislerinde canlıya çıkabilecek hale getirilecek. Hedef ortam:
 
 | Parça | Servis | Önemli özellikler |
 |---|---|---|
@@ -188,7 +188,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 ## Kapsam Dışı (bu görevde yok)
 
 - Neon, Brevo, Render ve Cloudflare hesaplarının açılması ve gerçek dağıtım (sonraki adım).
-- Özel alan adı (ör. planmee.com) bağlama ve DNS ayarları. E-posta için alan adı doğrulaması (SPF/DKIM) yalnızca DEPLOY.md'de bilgi olarak anılır.
+- Özel alan adı (ör. plantobee.com) bağlama ve DNS ayarları. E-posta için alan adı doğrulaması (SPF/DKIM) yalnızca DEPLOY.md'de bilgi olarak anılır.
 - Firebase verisinin aktarımı (iptal edildi).
 - Kökteki `index.html` ve GitHub Pages yayını.
 - Otomatik test ve dağıtım hattı (CI/CD) kurulumu. Render ve Cloudflare'in kendi GitHub bağlantısıyla otomatik dağıtımı dışında ek bir hat kurulmaz.
@@ -238,7 +238,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 
 ### Doğrulama (yerelde gerçekten yapılanlar)
 - `npm run lint`: 0 hata, 8 uyarı (hepsi önceden var olan `set-state-in-effect`/`only-export-components` uyarıları; değişen dosyalarda uyarı yok).
-- `npm run build` senaryoları: değişkensiz → build durdu; `VITE_API_URL=foo` → durdu; `http://localhost:5002/api/` → uyarıyla derlendi; `https://planmee-api.onrender.com/api` → uyarısız derlendi; `.env.local` dosyasından okuma → çalıştı; `public/404.html` eklendiğinde → build durdu (dosya sonra silindi).
+- `npm run build` senaryoları: değişkensiz → build durdu; `VITE_API_URL=foo` → durdu; `http://localhost:5002/api/` → uyarıyla derlendi; `https://plantobee-api.onrender.com/api` → uyarısız derlendi; `.env.local` dosyasından okuma → çalıştı; `public/404.html` eklendiğinde → build durdu (dosya sonra silindi).
 - `dist`, Cloudflare'in kendi yerel emülatörü **`wrangler pages dev`** (wrangler 4, geçici klasöre kuruldu, repoya eklenmedi) ile sunuldu:
   - `/invite?token=...`, `/invite/`, `/invite-code`, `/verify-email?userId=..&token=..`, `/reset-password?userId=..&token=..`, `/forgot-password`, `/login`, `/family`, `/some/unknown/deep/path` → hepsi 200 ve gövde birebir `dist/index.html`; adres ve sorgu parametreleri korunuyor (yönlendirme yok).
   - JS, CSS, `favicon.svg`, `apple-touch-icon.png`, `icons.svg` → 200 ve doğru içerik tipi.
@@ -254,7 +254,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 
 ## Backend Çıktısı
 
-### Değişen / eklenen dosyalar (`backend/PlanMee.API/` altında)
+### Değişen / eklenen dosyalar (`backend/PlanToBee.API/` altında)
 - `Dockerfile` (yeni): iki aşamalı imaj (sdk:10.0 ile `dotnet publish`, aspnet:10.0 ile çalışma). `ASPNETCORE_ENVIRONMENT=Production`, varsayılan port 8080, yetkisiz `app` kullanıcısı.
 - `.dockerignore` (yeni): `bin/`, `obj/`, `dev-emails/`, `.env*`, `*.pfx/*.pem/*.key`, `appsettings.Development.json`, `launchSettings.json`, `*.http`, `.git`, `node_modules`, `frontend/`.
 - `Program.cs`: açılış ayar doğrulaması (hata varsa mesaj + çıkış kodu 1), `PORT` desteği (Development dışında), Data Protection anahtarlarının DB'de saklanması, forwarded header, HSTS (yalnızca HTTPS isteklere), `/health`, migration hatasının anlaşılır mesajla durdurulması.
@@ -265,7 +265,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 - `Infrastructure/RateLimitPolicies.cs`: IP bölümleme anahtarı normalize edildi (IPv4-mapped -> IPv4, IPv6 -> /64 önek).
 - `Services/Email/SmtpEmailSender.cs`: 30 sn gönderim zaman aşımı, gizli bilgi içermeyen hata logu (sunucu:port, SMTP durum kodu, hata türü, konu), STARTTLS açıklaması.
 - `Data/AppDbContext.cs` + `Migrations/20260926180002_DataProtectionKeys*.cs` + snapshot: `DataProtectionKeys` tablosu (yalnızca yeni tablo; mevcut tablolara dokunmaz).
-- `PlanMee.API.csproj`: `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` 10.0.12.
+- `PlanToBee.API.csproj`: `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` 10.0.12.
 - `appsettings.json`: yerel bağlantı dizesi, `Email:Provider=Smtp` ve `Email:From` varsayılanı çıkarıldı (üretim yanlışlıkla localhost'a ya da doğrulanmamış gönderene düşmesin). `ForwardedHeaders` varsayılanı kapalı.
 - `appsettings.Development.json`: yerel bağlantı dizesi buraya taşındı (yerel çalışma aynı).
 - `appsettings.Production.json` (yeni, gizli bilgi yok): `ForwardedHeaders:Enabled=true`, `ForwardLimit=1`, `Email:Provider=Smtp`, Brevo sunucusu/587/SSL, EF komut logları Warning.
@@ -284,7 +284,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 - **Data Protection anahtarları DB'de:** Şifre sıfırlama ve e-posta doğrulama belirteçleri Data Protection ile imzalanıyor; konteynerde anahtarlar dosya sisteminde kalsaydı Render her uyku/yeniden başlatmada (15 dk boşluk) anahtarları kaybedecek ve e-postadaki linkler geçersiz olacaktı. Bu yüzden `DataProtectionKeys` tablosu eklendi. Anahtarlar DB'de şifrelenmemiş XML olarak durur (DB erişimi olan anahtarları görür; DB zaten tüm veriyi içerdiği için kabul edildi).
 
 ### Gerçekten test edilenler
-- **Docker:** Bu makinede Docker (ve podman/colima vb.) **yok**; `docker build` ve konteyner çalıştırma **yapılamadı**. Yerine: `.dockerignore` kurallarıyla temiz bir bağlam kopyalandı, Dockerfile'daki aynı `dotnet restore` + `dotnet publish -c Release /p:UseAppHost=false` komutları çalıştırıldı (uyarısız), çıktı `ASPNETCORE_ENVIRONMENT=Production` ve `PORT=18080` ile `dotnet PlanMee.API.dll` olarak açıldı: `0.0.0.0:18080` dinlendi, `/health` 200. Development'ta `PORT` yok sayıldığı doğrulandı. Dockerfile'ın base imaj adımları (`USER $APP_UID`, `ASPNETCORE_HTTP_PORTS`) denenmedi.
+- **Docker:** Bu makinede Docker (ve podman/colima vb.) **yok**; `docker build` ve konteyner çalıştırma **yapılamadı**. Yerine: `.dockerignore` kurallarıyla temiz bir bağlam kopyalandı, Dockerfile'daki aynı `dotnet restore` + `dotnet publish -c Release /p:UseAppHost=false` komutları çalıştırıldı (uyarısız), çıktı `ASPNETCORE_ENVIRONMENT=Production` ve `PORT=18080` ile `dotnet PlanToBee.API.dll` olarak açıldı: `0.0.0.0:18080` dinlendi, `/health` 200. Development'ta `PORT` yok sayıldığı doğrulandı. Dockerfile'ın base imaj adımları (`USER $APP_UID`, `ASPNETCORE_HTTP_PORTS`) denenmedi.
 - **Boş veritabanı + SSL + URI (Production modu):** Geçici bir PostgreSQL 18 kümesi (port 55432, yalnızca `hostssl`, scram, kendi CA'mızla imzalı sertifika) açıldı. `postgresql://neon_user:p%40ss%3Aw%2Frd%231@localhost:55432/...?sslmode=require&channel_binding=require&sslrootcert=...` ile: 3 migration (InitialCreate, FamilyAccounts, DataProtectionKeys) hatasız uygulandı, `/health` 200. İkinci açılışta "No migrations were applied". Küme durdurulunca `/health` 503 + `database:unreachable`, `/health/live` 200; küme açılınca tekrar 200. `sslrootcert` verilmeden (sistem güveni) bağlantı sertifika hatasıyla reddedildi (VerifyFull gerçekten doğruluyor). SSL'siz sunucuya sslmode'suz URI -> "SSL connection requested" ile durdu. Anahtar=değer + `SSL Mode=Disable` -> ayar hatası.
 - **Uçtan uca akış (Development modu, `postgres://` URI, yerel 5432'de yeni boş DB):** kayıt -> doğrulanmadan aile kurma 403 -> e-posta doğrulama -> aile kurma -> davet -> davet linki çözme -> davetle yeni hesap -> çocuk plana kayıt ekleme ve okuma -> ebeveynin çocuğun planını görmesi -> şifre sıfırlama isteği -> **API yeniden başlatıldı** -> eski sıfırlama linkiyle şifre değiştirme -> yeni şifreyle giriş ve `/auth/me`. Hepsi başarılı; ikinci açılışta migration tekrar uygulanmadı.
 - **Production modunda kısmi akış (SSL DB):** giriş, aile kurma (doğrulama SQL ile işaretlendi), plan kaydı ekleme/okuma, davet oluşturma, şifremi unuttum: hepsi 200; SMTP başarısız olduğu için e-postalar gitmedi ve bu, akışı bozmadan loglandı.
@@ -292,10 +292,10 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 - **CORS:** İzinli kökene preflight `Access-Control-Allow-Origin` döndü, başka kökene dönmedi.
 - **Ayar doğrulama:** Hiç ayar yokken 6 hata, hatalı değerlerle 8 hata tek listede basıldı (JWT kısa, SSL kapalı, Provider=Log, From yok, frontend http/localhost, ForwardLimit=0, RateLimits geçersiz, PORT geçersiz), çıkış kodu 1. Geçmişte sızan JWT anahtarı reddedildi. Pooler ve bilinmeyen URI parametresi uyarıları loglandı. Hiçbir çıktıda şifre/bağlantı dizesi/test anahtarı geçmedi (grep ile kontrol edildi).
 - **SMTP (STARTTLS, 587 yolu):** Python `aiosmtpd` ile STARTTLS ve AUTH zorunlu, TLS'siz AUTH'u reddeden sahte sunucu kuruldu. (1) API Production modunda bu sunucuya bağlandı: EHLO -> STARTTLS -> TLS el sıkışması; sertifika macOS'ta güvenilir olmadığı için .NET reddetti (sertifika doğrulaması çalışıyor), AUTH TLS öncesi gönderilmedi, hata `SMTP gönderimi başarısız (sunucu ..., durum GeneralFailure, AuthenticationException ...)` olarak gizli bilgi olmadan loglandı, kayıt/davet 200 döndü. (2) Uygulamanın `SmtpEmailSender` sınıfı, yalnızca test sunucusunun sertifika parmak izini kabul eden küçük bir test programıyla çalıştırıldı: EHLO (TLS yok) -> STARTTLS -> EHLO (TLS) -> AUTH LOGIN (TLS, başarılı) -> DATA; e-posta alındı (UTF-8 konu, text + html). Yanlış anahtarla sahte sunucu cevap vermeden bağlantıyı açık tuttu ve 30 sn zaman aşımı devreye girdi (sahte sunucunun tuhaflığı; gerçek sunucular 535 döner). Not: .NET `AUTH login` (küçük harf) gönderiyor; RFC'ye göre sorun değil ama aiosmtpd için yama gerekti.
-- Yerel çalışma: 5002'deki süreç ve `planmee` veritabanı kullanılmadı; testler için ayrı çıktı klasörleri, geçici küme ve `planmee_deploytest_dev` veritabanı kullanıldı, hepsi silindi. (Not: ilk derleme bir kez `bin/Debug`'a yazıldı; 5002'deki süreç etkilenmeden cevap vermeye devam etti.)
+- Yerel çalışma: 5002'deki süreç ve `plantobee` veritabanı kullanılmadı; testler için ayrı çıktı klasörleri, geçici küme ve `plantobee_deploytest_dev` veritabanı kullanıldı, hepsi silindi. (Not: ilk derleme bir kez `bin/Debug`'a yazıldı; 5002'deki süreç etkilenmeden cevap vermeye devam etti.)
 
 ### Repo ve geçmişte bulunan gizli bilgiler (yalnızca rapor, geçmiş temizlenmedi)
-- **JWT anahtarı:** `664694a` commit'inde `backend/PlanMee.API/appsettings.json` içinde `Jwt:Key` açık metin (`planmeee-super-secret-...` ile başlayan değer); `f7d4073`'te kaldırılmış. Herkese açık sayılmalı. Canlıda yeni anahtar zorunlu; API bu değeri (SHA-256 özetiyle karşılaştırarak) her ortamda reddediyor. DEPLOY.md'de vurgulandı.
+- **JWT anahtarı:** `664694a` commit'inde `backend/PlanToBee.API/appsettings.json` içinde `Jwt:Key` açık metin (`plantobee-super-secret-...` ile başlayan değer); `f7d4073`'te kaldırılmış. Herkese açık sayılmalı. Canlıda yeni anahtar zorunlu; API bu değeri (SHA-256 özetiyle karşılaştırarak) her ortamda reddediyor. DEPLOY.md'de vurgulandı.
 - **Firebase web yapılandırması:** Kökteki `index.html`'de Firebase `apiKey` (`AIza...`), proje kimliği ve veritabanı adresi. Firebase web anahtarları tasarım gereği istemciye açıktır, güvenlik Firebase kurallarına dayanır; `index.html` görev gereği değiştirilmedi. Eski Firebase veritabanının kurallarının hâlâ kısıtlı olduğu kontrol edilmeli.
 - Yerel bağlantı dizesi (`Username=ilkerisler;Password=` boş) geçmişte ve şimdi Development ayarında: gizli değil.
 - Başka SMTP/Brevo anahtarı, özel anahtar, parola bulunmadı (tüm commit'lerde `git log -p` desen taraması + her ayar dosyasının tüm sürümleri).
@@ -317,7 +317,7 @@ Bu görevde "kullanıcı" çoğunlukla **Ilker (operatör)**, yani uygulamayı c
 
 ## QA Sonuçları
 
-Test ortamı: `feature/aile-hesabi` dalı, commit edilmemiş değişiklikler. Derlemeler ve testler kaynak klasörün dışında yapıldı (scratchpad `qa-deploy/`). Gerçek `planmee` veritabanına ve 5002/5173 süreçlerine dokunulmadı. Test için yalnızca `hostssl` + scram kabul eden, kendi CA'mızla imzalanmış sertifikalı geçici bir PostgreSQL kümesi (port 55433) açıldı. Testler bitince küme, veritabanları, derleme çıktıları ve başlatılan tüm süreçler (API, wrangler) kapatılıp silindi.
+Test ortamı: `feature/aile-hesabi` dalı, commit edilmemiş değişiklikler. Derlemeler ve testler kaynak klasörün dışında yapıldı (scratchpad `qa-deploy/`). Gerçek `plantobee` veritabanına ve 5002/5173 süreçlerine dokunulmadı. Test için yalnızca `hostssl` + scram kabul eden, kendi CA'mızla imzalanmış sertifikalı geçici bir PostgreSQL kümesi (port 55433) açıldı. Testler bitince küme, veritabanları, derleme çıktıları ve başlatılan tüm süreçler (API, wrangler) kapatılıp silindi.
 
 ### A. Gerçekten çalıştırılarak doğrulananlar
 
@@ -366,8 +366,8 @@ Proxy'yi gerçekçi taklit etmek için istekler loopback değil LAN IP'sinden (1
 
 **CORS**
 - Preflight sonuçları:
-  - `https://planmee-qa.pages.dev` (ayardaki adres): `Access-Control-Allow-Origin` döndü.
-  - `https://evil.example.com`, önizleme alt alan adı `https://abc.planmee-qa.pages.dev`, `http://` varyantı ve `https://planmee-qa.pages.dev.evil.com`: ACAO **dönmedi**.
+  - `https://plantobee-qa.pages.dev` (ayardaki adres): `Access-Control-Allow-Origin` döndü.
+  - `https://evil.example.com`, önizleme alt alan adı `https://abc.plantobee-qa.pages.dev`, `http://` varyantı ve `https://plantobee-qa.pages.dev.evil.com`: ACAO **dönmedi**.
 
   **GEÇTİ**
 
@@ -421,11 +421,11 @@ Development modunda, yayın çıktısıyla, boş SSL veritabanına `postgres://`
   - İki aşamalı derleme var ve çalışma imajında SDK yok.
   - `ASPNETCORE_ENVIRONMENT=Production` ve `ASPNETCORE_HTTP_PORTS=8080` tanımlı. Render'ın verdiği `PORT`'u uygulama `UseUrls` ile uyguluyor.
   - Uygulama `USER $APP_UID` ile resmi aspnet:10.0 imajındaki root olmayan `app` kullanıcısıyla çalışıyor.
-  - Çalışma dizini `WORKDIR /app`, giriş noktası `ENTRYPOINT ["dotnet","PlanMee.API.dll"]`. Ayar dosyaları ContentRoot `/app` içinde bulunuyor.
+  - Çalışma dizini `WORKDIR /app`, giriş noktası `ENTRYPOINT ["dotnet","PlanToBee.API.dll"]`. Ayar dosyaları ContentRoot `/app` içinde bulunuyor.
   - Restore katmanı önbelleğe uygun kurulmuş.
 
   Gerçek `docker build` ve konteyner çalıştırma **yapılamadı**, çünkü makinede Docker yok. `USER $APP_UID` satırı ve base imaj davranışı ilk Render dağıtımında doğrulanacak. **Kod açısından GEÇTİ**
-- **.dockerignore:** `bin/obj`, `dev-emails/`, `.env*`, `*.pfx/pem/key`, `appsettings.Development.json`, `launchSettings.json`, `*.http`, `.git` ve `frontend/` dışarıda bırakılıyor. Derleme bağlamı zaten `backend/PlanMee.API`. **GEÇTİ**
+- **.dockerignore:** `bin/obj`, `dev-emails/`, `.env*`, `*.pfx/pem/key`, `appsettings.Development.json`, `launchSettings.json`, `*.http`, `.git` ve `frontend/` dışarıda bırakılıyor. Derleme bağlamı zaten `backend/PlanToBee.API`. **GEÇTİ**
 - **SMTP 587 + STARTTLS:**
   - `System.Net.Mail.SmtpClient` ile `EnableSsl=true` kullanılıyor. Bu ayar düz bağlantı + EHLO + STARTTLS (explicit TLS) anlamına geliyor. Kimlik bilgisi TLS kurulduktan sonra gönderiliyor.
   - Sertifika doğrulaması kapatılmamış.
@@ -451,7 +451,7 @@ Development modunda, yayın çıktısıyla, boş SSL veritabanına `postgres://`
 **Bulgu 1 (Düşük, Frontend): `VITE_API_URL` sonunda boşluk varsa build sessizce geçiyor, canlı site bozuk adrese istek atıyor.**
 - Kriter: "Frontend: Cloudflare Pages". `VITE_API_URL` hatalıysa bu fark edilmeli.
 - Tekrar üretme:
-  1. `VITE_API_URL="https://planmee-api.onrender.com/api " npm run build` komutunu çalıştır. Build exit 0 ile biter ve uyarı vermez.
+  1. `VITE_API_URL="https://plantobee-api.onrender.com/api " npm run build` komutunu çalıştır. Build exit 0 ile biter ve uyarı vermez.
   2. `dist/assets/*.js` içinde `onrender.com/api \`` görünür: sondaki boşluk koda gömülmüş.
   3. axios istekleri `.../api%20/auth/login` adresine gider ve 404 alır. Kullanıcı yalnızca "Sunucuya ulaşılamadı" görür.
 - Neden: `vite.config.js` denetimi `.trim()` edilmiş değeri kontrol ediyor. `client.js` ise ham değeri kullanıyor ve yalnızca sondaki `/` işaretini siliyor.

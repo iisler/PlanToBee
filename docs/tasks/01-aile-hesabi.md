@@ -2,7 +2,7 @@
 
 ## Özellik Özeti
 
-PlanMee herkese açık bir uygulama olacak ve kullanım birimi **aile** olacak.
+PlanToBee herkese açık bir uygulama olacak ve kullanım birimi **aile** olacak.
 
 - **Aileyi kuran:** Aileyi bir ebeveyn açar ve ailenin **yöneticisi** olur.
 - **Davet:** Yönetici eşini ve çocuklarını adları, rolleri ve e-posta adresleriyle aileye davet eder. Davet edilen kişiye **tek kullanımlık, süreli bir davet linki** ve **6 haneli yedek kod** içeren bir e-posta gider. Kişi linke tıklayıp şifresini belirleyerek katılır.
@@ -95,7 +95,7 @@ Kavramlar:
 - **Aile ekranında davet durumları:** Her davetin durumu görünür: **Bekliyor** (kalan süreyle), **Katıldı**, **Süresi doldu**, **İptal**.
 - **Yönetici işlemleri:** Bekleyen veya süresi dolmuş bir daveti **yeniden gönderebilir**, bekleyen bir daveti **iptal edebilir**.
 - **Varsayım:** Yeniden gönderim yeni bir link ve yeni bir kod üretir. Eski link ve kod anında geçersiz olur, süre yeniden 7 gün başlar.
-- **Varsayım:** Davet edilen e-postanın zaten bir PlanMee hesabı varsa kişi yeni şifre belirlemez, mevcut hesabıyla giriş yaparak daveti kabul eder. Yalnızca başka üyesi olmayan tek kişilik bir ailesi varsa katılabilir; bu durumda kendi planı yeni aileye taşınır.
+- **Varsayım:** Davet edilen e-postanın zaten bir PlanToBee hesabı varsa kişi yeni şifre belirlemez, mevcut hesabıyla giriş yaparak daveti kabul eder. Yalnızca başka üyesi olmayan tek kişilik bir ailesi varsa katılabilir; bu durumda kendi planı yeni aileye taşınır.
 - Kötüye kullanıma karşı kod denemeleri ve davet gönderimleri sınırlandırılır.
 
 ### E-postası olmayan çocuk: hesapsız profil (H7, H8)
@@ -326,14 +326,14 @@ E-postalar Türkçe olmalı, aile adını ve gönderen kişiyi açıkça göster
 
 Kapsam: 1-3. fazlar (hesap temeli, aile ve davet, rol tabanlı yetki ve kayıt izleri) ve mevcut hesapların tek kişilik aileye geçişi. **4. faz (Firebase verisinin Ela'nın planına aktarımı) bu turda yapılmadı, sonraki tura bırakıldı.** Veri modelinde `IsImported` alanı bu aktarım için hazır.
 
-### Değişen / eklenen dosyalar (`backend/PlanMee.API/`)
+### Değişen / eklenen dosyalar (`backend/PlanToBee.API/`)
 - **Modeller:** `Models/User.cs` (DisplayName), `Models/Family.cs`, `Models/FamilyMember.cs`, `Models/Invitation.cs`, `Models/AuditedEntity.cs` (yeni); `Day.cs`, `Subject.cs` (UserId → MemberId), `StudyEntry.cs`, `TrainingEntry.cs`, `Event.cs` (kayıt izleri).
 - **Veri:** `Data/AppDbContext.cs`, `Migrations/20260925213316_FamilyAccounts.cs` (+ Designer, Snapshot).
 - **Controller'lar:** `Controllers/AuthController.cs` (yeniden yazıldı), `Controllers/FamilyController.cs` (yeni), `Controllers/InvitationsController.cs` (yeni), `Controllers/DaysController.cs`, `Controllers/SubjectsController.cs`.
 - **DTO'lar:** `DTOs/AuthDtos.cs`, `DTOs/FamilyDtos.cs` (yeni), `DTOs/DayDtos.cs`.
 - **Servisler:** `Services/MemberContext.cs` (üyelik ve plan yetkisi), `Services/FamilyService.cs` (aile açma, ayrılma, plan taşıma), `Services/InvitationService.cs`, `Services/AuthTokenService.cs`, `Services/AuditLookup.cs`, `Services/Email/*` (e-posta soyutlaması, Log ve SMTP uygulaması, Türkçe şablonlar).
 - **Altyapı:** `Infrastructure/ApiErrors.cs`, `RateLimitPolicies.cs`, `SendThrottle.cs`, `RequireVerifiedEmailAttribute.cs`, `EmailConfirmationTokenProvider.cs`, `SecureCodes.cs`, `AppOptions.cs`.
-- **Ayar:** `Program.cs`, `appsettings.json`, `appsettings.Development.json`, `PlanMee.API.http` (örnek istekler), `backend/.gitignore` (`dev-emails/`).
+- **Ayar:** `Program.cs`, `appsettings.json`, `appsettings.Development.json`, `PlanToBee.API.http` (örnek istekler), `backend/.gitignore` (`dev-emails/`).
 
 ### Veri modeli
 - **AspNetUsers:** + `DisplayName`. Yeni hesaplarda `UserName` = e-posta. `EmailConfirmed` doğrulama durumudur.
@@ -353,11 +353,11 @@ Kapsam: 1-3. fazlar (hesap temeli, aile ve davet, rol tabanlı yetki ve kayıt i
 - Mevcut günler ve ders listesi bu üyenin planına bağlanır. Mevcut kayıtların ekleyeni hesap sahibi, eklenme zamanı geçiş anı olarak işaretlenir.
 - Tüm mevcut hesaplar `EmailConfirmed = false` yapılır.
 - Adım `NOT EXISTS` koşuluyla korunur, yani idempotenttir. `Down` geri alması plan sahipliğini kullanıcıya geri yazar. Hesapsız profillerin planları geri almada silinir.
-- `Program.cs` açılışta `Migrate()` çağırır. Bu yüzden API ilk çalıştığında yerel `planmee` veritabanı otomatik geçirilir. Öncesinde yedek almak önerilir.
+- `Program.cs` açılışta `Migrate()` çağırır. Bu yüzden API ilk çalıştığında yerel `plantobee` veritabanı otomatik geçirilir. Öncesinde yedek almak önerilir.
 
 ### E-posta
 - **Soyutlama:** `IAppEmailSender`. Sağlayıcı `Email:Provider` ayarıyla seçilir.
-  - **Development:** `Log` sağlayıcısı e-postayı göndermez. Link ve kod dahil tüm içeriği konsola ve `backend/PlanMee.API/dev-emails/*.txt` dosyalarına yazar. Bu klasör git'e girmez.
+  - **Development:** `Log` sağlayıcısı e-postayı göndermez. Link ve kod dahil tüm içeriği konsola ve `backend/PlanToBee.API/dev-emails/*.txt` dosyalarına yazar. Bu klasör git'e girmez.
   - **Üretim:** `Smtp` sağlayıcısı kullanılır. `Email:Smtp:Host/Port/EnableSsl/Username` ayarları appsettings'ten, `Email:Smtp:Password` user-secrets veya `Email__Smtp__Password` ortam değişkeninden gelir.
 - **Bağlantılar:** `App:FrontendBaseUrl` ayarından üretilir (dev: `http://localhost:5173`). CORS izni de bu adrese verilir.
 - **Frontend'in karşılaması gereken rotalar:**
@@ -531,12 +531,12 @@ Tüm uç noktalar isteğe bağlı `?memberId={üyeId}` alır. Verilmezse giriş 
 
 ### Neler gerçekten test edildi
 - `dotnet build`: hatasız ve uyarısız.
-- **Migration:** Yerel PostgreSQL'deki `planmee` veritabanının kopyasına (`planmee_familytest`) uygulandı.
+- **Migration:** Yerel PostgreSQL'deki `plantobee` veritabanının kopyasına (`plantobee_familytest`) uygulandı.
   - 6 kullanıcı 6 tek kişilik aileye dönüştü.
   - 200 gün, 40 ders, tüm ders, antrenman ve etkinlik kayıtları korundu. Sahipsiz kayıt yok, ekleyen alanı boş kayıt yok.
   - Tüm hesaplar doğrulanmamış işaretlendi.
   - `Down` ve tekrar `Up` ayrı bir kopyada denendi.
-  - Gerçek `planmee` veritabanına **dokunulmadı**. Test kopyaları silindi.
+  - Gerçek `plantobee` veritabanına **dokunulmadı**. Test kopyaları silindi.
 - **Uçtan uca test:** API test kopyasına karşı çalıştırıldı, Python ve urllib ile yazılmış bir betik 132 kontrolün tamamını geçti. Kapsanan akışlar:
   - Kayıt, doğrulanmamış erişim reddi, doğrulama, aile oluşturma.
   - Davet (link ve kod, yanlış e-posta, yanlış kod, tekrar kullanım).
@@ -581,14 +581,14 @@ QA'nın 1, 2 ve 3. bulguları ile /auth/me sınırı düzeltildi. Giriş kilidin
 
 **Doğrulama:**
 - `dotnet build` hatasız ve uyarısız.
-- `planmee` veritabanının geçici bir kopyasında (`planmee_qafix`) API çalıştırılıp 15 yeni kontrol denendi, hepsi geçti. Kapsanan durumlar:
+- `plantobee` veritabanının geçici bir kopyasında (`plantobee_qafix`) API çalıştırılıp 15 yeni kontrol denendi, hepsi geçti. Kapsanan durumlar:
   - Kullanılmış, iptal edilmiş ve süresi dolmuş davetin doğru kodu; kullanılmış davetin yanlış kodu.
   - Kilit regresyonu: 4 kez 400, ardından 429; kilitte doğru kod 429, link çalışıyor.
   - Kayıttan hemen sonra oturumlu yeniden gönderim 429.
   - Oturumsuz yeniden gönderim: kayıtlı-doğrulanmamış ve kayıtsız adres için 4 cevap aynı; ek e-posta gitmedi.
   - `RateLimits:Auth=3` ayarında `/auth/me` 10 kez 200, giriş sınırı ise çalışmaya devam ediyor.
 - Önceki uçtan uca betik yeniden çalıştırıldı: 132 kontrolün 131'i geçti. Kalan kontrol, kullanılmış davetin koduna eski davranışı (400) bekliyordu; artık 1. düzeltme gereği 410 `invite_used` dönüyor.
-- Gerçek `planmee` veritabanına dokunulmadı. Kopya ve `dev-emails` klasörü silindi.
+- Gerçek `plantobee` veritabanına dokunulmadı. Kopya ve `dev-emails` klasörü silindi.
 
 ## Frontend Çıktısı
 
@@ -654,7 +654,7 @@ Kapsam: 1-3. fazlar (hesap akışları, aile ve davet, kişi seçici, salt okunu
 - `npm run build`: hatasız.
 - `npm run lint`: hata yok, 8 uyarı. Uyarılar önceki sürümdeki türlerle aynıdır: veri çeken effect'lerde `set-state-in-effect`, hook dışa aktarımında `only-export-components`.
 - **Uçtan uca (gerçek tarayıcı):** Headless Chrome ve puppeteer ile denendi.
-  - API, `planmee` veritabanının `pg_dump` ile alınmış kopyasında (`planmee_fe`) ayrı portta çalıştırıldı. Vite de ayrı portta çalıştırıldı. Migration kopyaya uygulandı. **Gerçek `planmee` veritabanına dokunulmadı.** İş sonunda süreçler kapatıldı, kopya veritabanı ve test e-postaları silindi.
+  - API, `plantobee` veritabanının `pg_dump` ile alınmış kopyasında (`plantobee_fe`) ayrı portta çalıştırıldı. Vite de ayrı portta çalıştırıldı. Migration kopyaya uygulandı. **Gerçek `plantobee` veritabanına dokunulmadı.** İş sonunda süreçler kapatıldı, kopya veritabanı ve test e-postaları silindi.
   - Ana senaryo 74 kontrolün tamamını geçti, ek senaryolar 8 kontrolün tamamını geçti.
 - **Ana senaryoda denenenler:**
   - Kayıt, doğrulama ekranı, "tekrar gönder" (60 sn sınırı mesajı), e-postadaki bağlantıyla doğrulama, aile kurma.
@@ -703,7 +703,7 @@ Kapsam: 1-3. fazlar (hesap akışları, aile ve davet, kişi seçici, salt okunu
 
 Kapsam: 1-3. fazlar. 4. faz (Firebase aktarımı) bilinçli olarak kapsam dışı, hata sayılmadı.
 
-**Test ortamı:** Gerçek `planmee` veritabanının `pg_dump` kopyası (`planmee_qa`) kullanıldı. API ayrı klasöre derlenip 5102 portunda, Vite 5174 portunda çalıştırıldı. E-postalar geçici bir klasöre yazıldı. Gerçek `planmee` veritabanına dokunulmadı; hâlâ yalnızca `InitialCreate` migration'ında. 5002 ve 5173 portlarındaki süreçlere dokunulmadı. İş sonunda süreçler kapatıldı, `planmee_qa` silindi, geçici e-postalar temizlendi.
+**Test ortamı:** Gerçek `plantobee` veritabanının `pg_dump` kopyası (`plantobee_qa`) kullanıldı. API ayrı klasöre derlenip 5102 portunda, Vite 5174 portunda çalıştırıldı. E-postalar geçici bir klasöre yazıldı. Gerçek `plantobee` veritabanına dokunulmadı; hâlâ yalnızca `InitialCreate` migration'ında. 5002 ve 5173 portlarındaki süreçlere dokunulmadı. İş sonunda süreçler kapatıldı, `plantobee_qa` silindi, geçici e-postalar temizlendi.
 
 **Özet:** Kritik ve yüksek önemde hata yok. Sunucu tarafındaki yetki kuralları, IDOR koruması, davetin tek kullanımlık olması, süre, yeniden gönderim, deneme sınırı, migration ve frontend'deki salt okunur görünüm, geri alma ve yönlendirmeler bağımsız testlerde geçti. Bir kabul kriteri (davet hata mesajlarının açıklığı) yedek kod yolunda tam karşılanmıyor. Ayrıca düşük önemde birkaç bulgu var.
 
@@ -794,7 +794,7 @@ Bulgu 1 bir kabul kriterini yedek kod yolunda karşılamadığı için durum **Q
 
 Kapsam: Backend Çıktısı → "QA düzeltmeleri (1. tur)" bölümündeki 4 düzeltmenin bağımsız doğrulanması ve kısa bir regresyon turu.
 
-**Ortam:** 1. turdakiyle aynı. Gerçek `planmee` veritabanının kopyası (`planmee_qa`) kullanıldı. API 5102 portunda çalıştırıldı, güncel koddan yeniden derlendi (`dotnet build` hatasız ve uyarısız). Vite 5174 portunda çalıştırıldı. Gerçek `planmee` veritabanına dokunulmadı; hâlâ yalnızca `InitialCreate` migration'ında. 5002 ve 5173 portlarındaki süreçlere dokunulmadı. İş sonunda süreçler kapatıldı, kopya silindi, geçici e-postalar temizlendi.
+**Ortam:** 1. turdakiyle aynı. Gerçek `plantobee` veritabanının kopyası (`plantobee_qa`) kullanıldı. API 5102 portunda çalıştırıldı, güncel koddan yeniden derlendi (`dotnet build` hatasız ve uyarısız). Vite 5174 portunda çalıştırıldı. Gerçek `plantobee` veritabanına dokunulmadı; hâlâ yalnızca `InitialCreate` migration'ında. 5002 ve 5173 portlarındaki süreçlere dokunulmadı. İş sonunda süreçler kapatıldı, kopya silindi, geçici e-postalar temizlendi.
 
 ### Düzeltmelerin doğrulanması (gerçekten çalıştırıldı)
 

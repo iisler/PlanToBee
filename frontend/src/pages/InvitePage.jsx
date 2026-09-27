@@ -159,7 +159,7 @@ export default function InvitePage({ codeMode = false }) {
         </>
       ) : (
         <form onSubmit={acceptExisting}>
-          <p className="auth-text">Bu e-posta adresinin zaten bir PlanMee hesabı var. Giriş yap ve aileye katıl. Tek kişilik bir ailen varsa planın bu aileye taşınır.</p>
+          <p className="auth-text">Bu e-posta adresinin zaten bir PlanToBee hesabı var. Giriş yap ve aileye katıl. Tek kişilik bir ailen varsa planın bu aileye taşınır.</p>
           <input type="email" value={preview.email} readOnly aria-label="E-posta" className="readonly" />
           <input type="password" placeholder="Şifre" autoComplete="current-password"
             value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
