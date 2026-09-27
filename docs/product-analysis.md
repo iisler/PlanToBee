@@ -1,4 +1,4 @@
-# PlanToBee (Programmeko) – Ürün Analizi ve Öneriler
+# PlanToBee – Ürün Analizi ve Öneriler
 
 Hazırlayan: Ürün Yöneticisi · Tarih: 25 Eylül 2026
 Kapsam: Canlıdaki `index.html` (Firebase sürümü), yeni React frontend (`frontend/`) ve .NET API (`backend/PlanToBee.API/`).

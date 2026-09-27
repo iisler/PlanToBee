@@ -164,7 +164,7 @@ Belge: https://render.com/docs/docker, https://render.com/docs/health-checks, ht
 
 1. https://render.com adresinde hesap aç (**GitHub ile** giriş yap; repoya erişim izni vermek için).
 2. **Dashboard** > **New** > **Web Service**.
-3. **Source Code / Git Provider:** GitHub reposunu (`Programmeko`) seç. Liste boşsa **Configure account** ile Render'a bu repoya erişim izni ver.
+3. **Source Code / Git Provider:** GitHub reposunu (`PlanToBee`) seç. Liste boşsa **Configure account** ile Render'a bu repoya erişim izni ver.
 4. Ayarlar:
    - **Name:** `plantobee-api` (adres buna göre oluşur: `https://plantobee-api.onrender.com`; ad alınmışsa Render sonuna ek koyar, gerçek adresi 8. adımda göreceksin).
    - **Language / Runtime:** **Docker**
@@ -223,7 +223,7 @@ Belge: https://developers.cloudflare.com/pages/configuration/build-configuration
 
 1. https://dash.cloudflare.com adresinde ücretsiz hesap aç.
 2. **Workers & Pages** > **Create** > **Pages** sekmesi > **Connect to Git** (Import an existing Git repository).
-3. GitHub hesabını bağla ve `Programmeko` reposunu seç > **Begin setup**.
+3. GitHub hesabını bağla ve `PlanToBee` reposunu seç > **Begin setup**.
 4. **Set up builds and deployments** ekranında:
    - **Project name:** `plantobee` (adres buna göre olur: `https://plantobee.pages.dev`; ad alınmışsa farklı olur).
    - **Production branch:** `main`
