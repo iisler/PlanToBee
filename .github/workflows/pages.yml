@@ -1,0 +1,83 @@
+# GitHub Pages yayını: https://iisler.github.io/PlanToBee/
+#   /PlanToBee/      → kökteki eski index.html (Firebase sürümü), olduğu gibi
+#   /PlanToBee/app/  → frontend/ (React sürümü)
+#
+# Gerekenler (bir kez, bkz. docs/DEPLOY.md):
+#   - Settings > Pages > Build and deployment > Source: "GitHub Actions"
+#   - Settings > Secrets and variables > Actions > Variables: VITE_API_URL (ör. https://plantobee-api.onrender.com/api)
+# VITE_API_URL tanımlı değilse yalnızca eski index.html yayınlanır; React sürümü atlanır.
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  APP_BASE: /PlanToBee/app/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Eski sürümü kopyala
+        run: |
+          mkdir -p _site
+          cp index.html favicon.svg apple-touch-icon.png _site/
+
+      - uses: actions/setup-node@v4
+        if: vars.VITE_API_URL != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: React sürümünü derle
+        if: vars.VITE_API_URL != ''
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_BASE_PATH: ${{ env.APP_BASE }}
+        run: |
+          npm ci
+          npm run build
+          cp -R dist ../_site/app
+
+      # GitHub Pages bilinmeyen yollar için kökteki 404.html'i gösterir. /PlanToBee/app/invite gibi derin
+      # linklerde React uygulaması açılsın diye 404.html uygulamanın index.html'inin kopyasıdır; uygulama
+      # dışındaki yollar eski sürümün ana sayfasına yönlendirilir.
+      - name: Derin linkler için 404.html
+        if: vars.VITE_API_URL != ''
+        run: |
+          sed "s|<head>|<head><script>if(!location.pathname.startsWith('${APP_BASE}'))location.replace('/PlanToBee/')</script>|" \
+            _site/app/index.html > _site/404.html
+          grep -q "location.replace('/PlanToBee/')" _site/404.html
+
+      - name: React sürümü atlandı
+        if: vars.VITE_API_URL == ''
+        run: echo "::warning::VITE_API_URL tanımlı değil; yalnızca eski index.html yayınlanıyor."
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

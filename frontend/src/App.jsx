@@ -63,9 +63,12 @@ function AppRoutes() {
   );
 }
 
+// Site bir alt yolda yayınlanıyorsa (GitHub Pages: /PlanToBee/app/) rotalar o yolun altında çözülür.
+const ROUTER_BASENAME = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <NoticeProvider>
         <AuthProvider>
           <AppRoutes />

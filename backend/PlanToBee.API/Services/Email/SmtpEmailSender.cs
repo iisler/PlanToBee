@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace PlanToBee.API.Services.Email;
 
-// SMTP ile gönderim (üretimde Brevo: smtp-relay.brevo.com, port 587).
+// SMTP ile gönderim (Gmail: smtp.gmail.com, Brevo: smtp-relay.brevo.com; ikisi de port 587).
 // EnableSsl=true iken System.Net.Mail.SmtpClient bağlantıyı düz başlatır ve EHLO'dan sonra STARTTLS ile
 // şifreler (açık/explicit TLS); sunucu sertifikası doğrulanır. Kimlik bilgileri yalnızca TLS kurulduktan
 // sonra gönderilir. (SmtpClient 465 portundaki doğrudan/implicit TLS'i desteklemez; 587 veya 2525 kullanın.)

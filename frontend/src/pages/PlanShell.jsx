@@ -109,7 +109,7 @@ export default function PlanShell() {
   return (
     <div className="wrap">
       <header className="top">
-        <h1><img className="logo" src="/favicon.svg" alt="" />PlanToBee</h1>
+        <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
         <div className="top-right">
           {family
             ? <PersonPicker members={family.members} selectedId={selectedId} onSelect={setSelectedId} />

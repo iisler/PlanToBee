@@ -59,20 +59,20 @@ public class StartupValidation
             else
             {
                 if (string.IsNullOrWhiteSpace(config["Email:Smtp:Host"]))
-                    v.Errors.Add("Email:Smtp:Host (Email__Smtp__Host) ayarlı değil. Brevo için: smtp-relay.brevo.com");
+                    v.Errors.Add("Email:Smtp:Host (Email__Smtp__Host) ayarlı değil. Gmail için: smtp.gmail.com, Brevo için: smtp-relay.brevo.com");
                 var portRaw = config["Email:Smtp:Port"];
                 if (!int.TryParse(portRaw, out var smtpPort) || smtpPort is < 1 or > 65535)
-                    v.Errors.Add("Email:Smtp:Port (Email__Smtp__Port) geçerli bir port değil. Brevo için: 587");
+                    v.Errors.Add("Email:Smtp:Port (Email__Smtp__Port) geçerli bir port değil. Gmail ve Brevo için: 587");
                 if (!bool.TryParse(config["Email:Smtp:EnableSsl"] ?? "true", out var ssl) || !ssl)
                     v.Errors.Add("Email:Smtp:EnableSsl üretimde true olmalı (STARTTLS ile şifreli bağlantı).");
                 if (string.IsNullOrWhiteSpace(config["Email:Smtp:Username"]))
-                    v.Errors.Add("Email:Smtp:Username (Email__Smtp__Username) ayarlı değil. Brevo > SMTP & API ekranındaki 'Login' değeri.");
+                    v.Errors.Add("Email:Smtp:Username (Email__Smtp__Username) ayarlı değil. Gmail: gönderen Gmail adresi; Brevo: SMTP & API ekranındaki 'Login' değeri.");
                 if (string.IsNullOrWhiteSpace(config["Email:Smtp:Password"]))
-                    v.Errors.Add("Email:Smtp:Password (Email__Smtp__Password) ayarlı değil. Brevo'da oluşturulan SMTP anahtarı.");
+                    v.Errors.Add("Email:Smtp:Password (Email__Smtp__Password) ayarlı değil. Gmail: uygulama şifresi; Brevo: SMTP anahtarı.");
             }
             var from = config["Email:From"];
             if (string.IsNullOrWhiteSpace(from) || !IsEmail(from))
-                v.Errors.Add("Email:From (Email__From) ayarlı değil veya geçerli bir e-posta adresi değil. Brevo'da doğrulanmış gönderen adresi olmalı.");
+                v.Errors.Add("Email:From (Email__From) ayarlı değil veya geçerli bir e-posta adresi değil. Gmail'de giriş yapılan adresin kendisi, Brevo'da doğrulanmış gönderen adresi olmalı.");
         }
 
         // ---- Frontend adresi (e-posta linkleri ve CORS) ----
@@ -82,9 +82,10 @@ public class StartupValidation
             if (string.IsNullOrWhiteSpace(frontend) ||
                 !Uri.TryCreate(frontend.Trim(), UriKind.Absolute, out var fu) ||
                 fu.Scheme != Uri.UriSchemeHttps || fu.IsLoopback ||
-                fu.AbsolutePath != "/" || fu.Query.Length > 0 || fu.Fragment.Length > 0 || fu.UserInfo.Length > 0)
+                fu.Query.Length > 0 || fu.Fragment.Length > 0 || fu.UserInfo.Length > 0)
                 v.Errors.Add("App:FrontendBaseUrl (App__FrontendBaseUrl) ayarlı değil veya geçerli değil. " +
-                             "https:// ile başlayan, yol içermeyen frontend adresi olmalı (örn. https://plantobee.pages.dev).");
+                             "https:// ile başlayan frontend adresi olmalı; site bir alt yoldaysa yol da yazılır " +
+                             "(örn. https://iisler.github.io/PlanToBee/app veya https://plantobee.pages.dev).");
         }
         else if (string.IsNullOrWhiteSpace(frontend) || !Uri.TryCreate(frontend, UriKind.Absolute, out _))
             v.Errors.Add("App:FrontendBaseUrl geçerli bir adres değil.");

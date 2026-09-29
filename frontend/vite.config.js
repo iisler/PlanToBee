@@ -49,9 +49,17 @@ const guardSpaFallback = {
 }
 
 // https://vite.dev/config/
+// Sitenin yayınlandığı alt yol. Cloudflare Pages / kendi alan adı: "/" (varsayılan).
+// GitHub Pages: VITE_BASE_PATH=/PlanToBee/app/ (bkz. .github/workflows/pages.yml).
+function basePath(mode) {
+  const raw = (process.env.VITE_BASE_PATH ?? loadEnv(mode, process.cwd(), 'VITE_').VITE_BASE_PATH ?? '/').trim()
+  return `/${raw.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/')
+}
+
 export default defineConfig(({ command, mode }) => {
   if (command === 'build' && mode === 'production') checkApiUrl(mode)
   return {
+    base: basePath(mode),
     plugins: [react(), guardSpaFallback],
   }
 })
