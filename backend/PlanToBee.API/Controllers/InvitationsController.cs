@@ -55,7 +55,7 @@ public class InvitationsController(
             return Err.BadRequest("validation", string.Join(" ", messages), messages);
         }
 
-        // Hesapsız profilin veya bekleyen üyenin mevcut planı olduğu gibi bu hesaba bağlanır.
+        // Hesapsız profil veya bekleyen üye bu hesaba bağlanır; ailenin ortak planını kullanır.
         var now = DateTime.UtcNow;
         member.UserId = user.Id;
         member.Status = MemberStatus.Joined;
@@ -75,7 +75,7 @@ public class InvitationsController(
     }
 
     // Davetle mevcut hesap: kullanıcı önce giriş yapar. Oturumdaki e-posta davetin adresiyle eşleşmeli.
-    // Kullanıcının başka üyesi olmayan tek kişilik ailesi varsa planı yeni aileye taşınır.
+    // Kullanıcının başka üyesi olmayan tek kişilik ailesi varsa o ailenin planı yeni aileye birleştirilir.
     [HttpPost("accept-existing")]
     [Authorize]
     public async Task<IActionResult> AcceptExisting(InviteCredentialsDto dto)
@@ -107,7 +107,8 @@ public class InvitationsController(
         {
             FamilyService.MarkLeft(current);
             await db.SaveChangesAsync(); // benzersiz UserId indeksi için önce eski bağ kaldırılır
-            await families.MovePlanAsync(current.Id, target.Id);
+            // Eski ailede başka üye kalmadı (yukarıda kontrol edildi): planı yeni aileye birleşir.
+            await families.MergeFamilyPlanAsync(current.FamilyId, target.FamilyId, current.Id, target.Id);
         }
 
         target.UserId = user.Id;

@@ -77,14 +77,14 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
 
         builder.Entity<Day>(b =>
         {
-            b.HasOne(d => d.Member).WithMany().HasForeignKey(d => d.MemberId).OnDelete(DeleteBehavior.Cascade);
-            b.HasIndex(d => new { d.MemberId, d.Date }).IsUnique();
+            b.HasOne(d => d.Family).WithMany().HasForeignKey(d => d.FamilyId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(d => new { d.FamilyId, d.Date }).IsUnique();
         });
 
         builder.Entity<Subject>(b =>
         {
-            b.HasOne(s => s.Member).WithMany().HasForeignKey(s => s.MemberId).OnDelete(DeleteBehavior.Cascade);
-            b.HasIndex(s => s.MemberId);
+            b.HasOne(s => s.Family).WithMany().HasForeignKey(s => s.FamilyId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(s => s.FamilyId);
         });
 
         ConfigureAudit<StudyEntry>(builder);

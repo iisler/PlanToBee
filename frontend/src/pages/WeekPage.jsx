@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
-import { errorCode, errorText } from '../api/errors';
+import { errorText } from '../api/errors';
 import useMutation from '../hooks/useMutation';
 import StatsBar from '../components/StatsBar';
 import AuditTag from '../components/AuditTag';
@@ -22,31 +22,26 @@ function removeFromWeek(weekDays, key, listKey, id) {
 }
 const LIST_KEY = { entries: 'studyEntries', training: 'trainingEntries', events: 'events' };
 
-export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, subjects, planParams, fallbackCanEdit, onAccessChanged }) {
+export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, subjects, myId, onAccessChanged }) {
   const [weekDays, setWeekDays] = useState([]);
-  const [loadedFor, setLoadedFor] = useState(undefined); // weekDays hangi kişinin planı
   const [loadError, setLoadError] = useState('');
   const [weekStart, setWeekStart] = useState(() => mondayOf(currentDate));
   const [mode, setMode] = useState(() => readPref('weekMode', 'table'));
-  const memberId = planParams.memberId;
   const requestId = useRef(0);
 
   const loadWeek = useCallback(async (mon) => {
     const id = ++requestId.current;
     const keys = Array.from({ length: 7 }, (_, i) => dkey(addDays(mon, i)));
-    const params = memberId ? { memberId } : {};
     try {
-      const results = await Promise.all(keys.map(k => client.get(`/days/${k}`, { params }).then(r => ({ key: k, data: r.data }))));
-      if (id !== requestId.current) return; // daha yeni bir istek var (kişi/hafta değişti)
+      const results = await Promise.all(keys.map(k => client.get(`/days/${k}`).then(r => ({ key: k, data: r.data }))));
+      if (id !== requestId.current) return; // daha yeni bir istek var (hafta değişti)
       setWeekDays(results);
-      setLoadedFor(memberId ?? null);
       setLoadError('');
     } catch (err) {
       if (id !== requestId.current) return;
       setLoadError(errorText(err));
-      if (errorCode(err) === 'plan_not_found') onAccessChanged?.('plan_not_found');
     }
-  }, [memberId, onAccessChanged]);
+  }, []);
 
   useEffect(() => { loadWeek(weekStart); }, [weekStart, loadWeek]);
 
@@ -57,12 +52,9 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
 
   const mutate = useMutation({ state: weekDays, setState: setWeekDays, reload, onAccessChanged });
 
-  // Gösterilen veri seçili kişiye ve haftaya ait değilse (yükleniyor) boş kabul et
+  // Gösterilen veri seçili haftaya ait değilse (yükleniyor) boş kabul et
   const shownKeys = Array.from({ length: 7 }, (_, i) => dkey(addDays(weekStart, i)));
-  const current = weekDays.length === 7 && weekDays[0].key === shownKeys[0]
-    && loadedFor === (memberId ?? null) ? weekDays : [];
-  const canEdit = current[0]?.data.canEdit ?? fallbackCanEdit;
-  const ownerId = current[0]?.data.memberId;
+  const current = weekDays.length === 7 && weekDays[0].key === shownKeys[0] ? weekDays : [];
 
   // İstatistikler gösterilen haftadan hesaplanır (seçili günün haftasından değil)
   const shownWeekSummaries = current.map(({ key, data }) => ({
@@ -79,7 +71,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
 
   // Kayıt işlemleri (iyimser güncelleme + hata olursa geri alma)
   const actions = {
-    add: (key, kindPath, body) => mutate(null, () => client.post(`/days/${key}/${kindPath}`, body, { params: planParams })),
+    add: (key, kindPath, body) => mutate(null, () => client.post(`/days/${key}/${kindPath}`, body)),
     remove: (key, kindPath, id) => mutate(w => removeFromWeek(w, key, LIST_KEY[kindPath], id), () => client.delete(`/days/${key}/${kindPath}/${id}`)),
     cycle: (key, entry) => {
       const status = nextStatus(entry.status);
@@ -120,8 +112,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
             weekStart={weekStart}
             weekDays={current}
             subjects={subjectNames}
-            canEdit={canEdit}
-            ownerId={ownerId}
+            myId={myId}
             actions={actions}
             onGoToDay={setCurrentDate}
           />
@@ -140,22 +131,21 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
                   data={data}
                   isToday={dkey(new Date()) === key}
                   subjects={subjectNames}
-                  canEdit={canEdit}
-                  ownerId={ownerId}
+                  myId={myId}
                   actions={actions}
                   onGoToDay={() => setCurrentDate(date)}
                 />
               );
             })}
 
-            {canEdit && <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders, antrenman ve etkinlik girebilirsiniz.</div>}
+            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders, antrenman ve etkinlik girebilirsiniz.</div>
           </>
         )}
     </>
   );
 }
 
-function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, onGoToDay }) {
+function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) {
   const todayKey = dkey(new Date());
   const keys = Array.from({ length: 7 }, (_, i) => dkey(addDays(weekStart, i)));
   const defaultDay = keys.includes(todayKey) ? todayKey : keys[0];
@@ -211,55 +201,53 @@ function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, o
   }
 
   const err = f => (invalid === f ? ' input-error' : '');
-  const plus = (key, k) => canEdit && (
+  const plus = (key, k) => (
     <button type="button" className="plus" aria-label="Ekle" onClick={() => prefill(key, k)}>+</button>
   );
-  const del = (key, path, id) => canEdit && (
-    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(key, path, id)}>×</button>
+  const del = (key, path, e) => e.canEdit && (
+    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(key, path, e.id)}>×</button>
   );
 
   return (
     <>
-      {canEdit && (
-        <form className="wkadd" data-kind={kind} ref={formRef} onSubmit={submit}>
-          <select id="wk-day" aria-label="Gün" value={day} onChange={set('day')}>
-            {keys.map((k, i) => (
-              <option key={k} value={k}>{WEEKDAYS[i]} {addDays(weekStart, i).getDate()}</option>
-            ))}
-          </select>
-          <div className="kind" role="group" aria-label="Tür">
-            <button type="button" data-k="study" onClick={() => setKind('study')}>Ders</button>
-            <button type="button" data-k="sport" onClick={() => setKind('sport')}>Antrenman</button>
-            <button type="button" data-k="event" onClick={() => setKind('event')}>Etkinlik</button>
-          </div>
+      <form className="wkadd" data-kind={kind} ref={formRef} onSubmit={submit}>
+        <select id="wk-day" aria-label="Gün" value={day} onChange={set('day')}>
+          {keys.map((k, i) => (
+            <option key={k} value={k}>{WEEKDAYS[i]} {addDays(weekStart, i).getDate()}</option>
+          ))}
+        </select>
+        <div className="kind" role="group" aria-label="Tür">
+          <button type="button" data-k="study" onClick={() => setKind('study')}>Ders</button>
+          <button type="button" data-k="sport" onClick={() => setKind('sport')}>Antrenman</button>
+          <button type="button" data-k="event" onClick={() => setKind('event')}>Etkinlik</button>
+        </div>
 
-          {kind === 'study' && (
-            <>
-              <select id="wk-subject" className={`grow${err('subject')}`} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
-                {subjects.length === 0 && <option value="">Önce ders ekleyin</option>}
-                {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <input id="wk-minutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
-            </>
-          )}
-          {kind === 'sport' && (
-            <>
-              <select id="wk-type" className="grow" aria-label="Antrenman türü" value={form.type} onChange={set('type')}>
-                <option value="Top">Top</option>
-                <option value="Kuvvet">Kuvvet</option>
-              </select>
-              <input id="wk-sminutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
-            </>
-          )}
-          {kind === 'event' && (
-            <>
-              <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
-              <input id="wk-time" placeholder="Saat" className="num" autoComplete="off" aria-label="Saat" value={form.time} onChange={set('time')} />
-            </>
-          )}
-          <button type="submit" className="go" disabled={busy}>Ekle</button>
-        </form>
-      )}
+        {kind === 'study' && (
+          <>
+            <select id="wk-subject" className={`grow${err('subject')}`} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
+              {subjects.length === 0 && <option value="">Önce ders ekleyin</option>}
+              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input id="wk-minutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
+          </>
+        )}
+        {kind === 'sport' && (
+          <>
+            <select id="wk-type" className="grow" aria-label="Antrenman türü" value={form.type} onChange={set('type')}>
+              <option value="Top">Top</option>
+              <option value="Kuvvet">Kuvvet</option>
+            </select>
+            <input id="wk-sminutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
+          </>
+        )}
+        {kind === 'event' && (
+          <>
+            <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
+            <input id="wk-time" placeholder="Saat" className="num" autoComplete="off" aria-label="Saat" value={form.time} onChange={set('time')} />
+          </>
+        )}
+        <button type="submit" className="go" disabled={busy}>Ekle</button>
+      </form>
 
       <div className="wktable-wrap">
         <table className="wktable">
@@ -287,11 +275,11 @@ function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, o
                     <div className="cell">
                       {data.studyEntries.map(e => (
                         <span key={e.id} className={`chip study status-${e.status}`}>
-                          {canEdit
+                          {e.canEdit
                             ? <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(key, e)}>{e.subject} · {e.minutes}dk</button>
                             : <span className="lbl">{e.subject} · {e.minutes}dk</span>}
-                          <AuditTag entry={e} ownerId={ownerId} compact />
-                          {del(key, 'entries', e.id)}
+                          <AuditTag entry={e} myId={myId} compact />
+                          {del(key, 'entries', e)}
                         </span>
                       ))}
                       {plus(key, 'study')}
@@ -302,8 +290,8 @@ function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, o
                       {data.trainingEntries.map(e => (
                         <span key={e.id} className="chip sport">
                           <span className="lbl">{e.type} · {formatDuration(e.minutes)}</span>
-                          <AuditTag entry={e} ownerId={ownerId} compact />
-                          {del(key, 'training', e.id)}
+                          <AuditTag entry={e} myId={myId} compact />
+                          {del(key, 'training', e)}
                         </span>
                       ))}
                       {plus(key, 'sport')}
@@ -314,8 +302,8 @@ function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, o
                       {data.events.map(e => (
                         <span key={e.id} className="chip event">
                           <span className="lbl">{e.title}{e.time ? ` · ${e.time}` : ''}</span>
-                          <AuditTag entry={e} ownerId={ownerId} compact />
-                          {del(key, 'events', e.id)}
+                          <AuditTag entry={e} myId={myId} compact />
+                          {del(key, 'events', e)}
                         </span>
                       ))}
                       {plus(key, 'event')}
@@ -337,15 +325,13 @@ function WeekTable({ weekStart, weekDays, subjects, canEdit, ownerId, actions, o
       </div>
 
       <div className="note">
-        {canEdit
-          ? 'Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.'
-          : 'Gün numarasına dokunarak o günün detayına geçebilirsiniz.'}
+        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.
       </div>
     </>
   );
 }
 
-function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, canEdit, ownerId, actions, onGoToDay }) {
+function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, actions, onGoToDay }) {
   const [studyForm, setStudyForm] = useState({ subject: '', minutes: '' });
   const [trainForm, setTrainForm] = useState({ type: 'Top', hours: '', minutes: '' });
   const [eventForm, setEventForm] = useState({ title: '', time: '' });
@@ -372,8 +358,8 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, canEdit
       setEventForm({ title: '', time: '' });
   }
 
-  const del = (path, id) => canEdit && (
-    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(dateKey, path, id)}>×</button>
+  const del = (path, e) => e.canEdit && (
+    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(dateKey, path, e.id)}>×</button>
   );
 
   return (
@@ -396,26 +382,24 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, canEdit
           <div className="chiprow">
             {data.studyEntries.map(e => (
               <span key={e.id} className={`chip study status-${e.status}`}>
-                {canEdit
+                {e.canEdit
                   ? <button type="button" className="clicktext" onClick={() => actions.cycle(dateKey, e)}>{e.subject} · {e.minutes}dk</button>
                   : <span className="lbl">{e.subject} · {e.minutes}dk</span>}
-                <AuditTag entry={e} ownerId={ownerId} compact />
-                {del('entries', e.id)}
+                <AuditTag entry={e} myId={myId} compact />
+                {del('entries', e)}
               </span>
             ))}
           </div>
         )}
-        {canEdit && (
-          <form className="quickrow" onSubmit={addStudy}>
-            <select aria-label="Ders" value={studyForm.subject} onChange={e => setStudyForm(f => ({ ...f, subject: e.target.value }))}>
-              <option value="">Ders</option>
-              {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <input type="number" min="1" max="1440" placeholder="dk" className="small" aria-label="Dakika"
-              value={studyForm.minutes} onChange={e => setStudyForm(f => ({ ...f, minutes: e.target.value }))} />
-            <button type="submit" aria-label="Ders ekle">+</button>
-          </form>
-        )}
+        <form className="quickrow" onSubmit={addStudy}>
+          <select aria-label="Ders" value={studyForm.subject} onChange={e => setStudyForm(f => ({ ...f, subject: e.target.value }))}>
+            <option value="">Ders</option>
+            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <input type="number" min="1" max="1440" placeholder="dk" className="small" aria-label="Dakika"
+            value={studyForm.minutes} onChange={e => setStudyForm(f => ({ ...f, minutes: e.target.value }))} />
+          <button type="submit" aria-label="Ders ekle">+</button>
+        </form>
 
         <div className="sectionlbl sport">Antrenman</div>
         {data.trainingEntries.length > 0 && (
@@ -423,25 +407,23 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, canEdit
             {data.trainingEntries.map(e => (
               <span key={e.id} className="chip sport">
                 <span className="lbl">{e.type} · {formatDuration(e.minutes)}</span>
-                <AuditTag entry={e} ownerId={ownerId} compact />
-                {del('training', e.id)}
+                <AuditTag entry={e} myId={myId} compact />
+                {del('training', e)}
               </span>
             ))}
           </div>
         )}
-        {canEdit && (
-          <form className="quickrow sport" onSubmit={addTraining}>
-            <select aria-label="Antrenman türü" value={trainForm.type} onChange={e => setTrainForm(f => ({ ...f, type: e.target.value }))}>
-              <option value="Top">Top</option>
-              <option value="Kuvvet">Kuvvet</option>
-            </select>
-            <input type="number" min="0" placeholder="sa" className="small" aria-label="Saat"
-              value={trainForm.hours} onChange={e => setTrainForm(f => ({ ...f, hours: e.target.value }))} />
-            <input type="number" min="0" max="59" placeholder="dk" className="small" aria-label="Dakika"
-              value={trainForm.minutes} onChange={e => setTrainForm(f => ({ ...f, minutes: e.target.value }))} />
-            <button type="submit" aria-label="Antrenman ekle">+</button>
-          </form>
-        )}
+        <form className="quickrow sport" onSubmit={addTraining}>
+          <select aria-label="Antrenman türü" value={trainForm.type} onChange={e => setTrainForm(f => ({ ...f, type: e.target.value }))}>
+            <option value="Top">Top</option>
+            <option value="Kuvvet">Kuvvet</option>
+          </select>
+          <input type="number" min="0" placeholder="sa" className="small" aria-label="Saat"
+            value={trainForm.hours} onChange={e => setTrainForm(f => ({ ...f, hours: e.target.value }))} />
+          <input type="number" min="0" max="59" placeholder="dk" className="small" aria-label="Dakika"
+            value={trainForm.minutes} onChange={e => setTrainForm(f => ({ ...f, minutes: e.target.value }))} />
+          <button type="submit" aria-label="Antrenman ekle">+</button>
+        </form>
 
         <div className="sectionlbl event">Etkinlik</div>
         {data.events.length > 0 && (
@@ -449,24 +431,19 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, canEdit
             {data.events.map(e => (
               <span key={e.id} className="chip event">
                 <span className="lbl">{e.title}{e.time ? ` · ${e.time}` : ''}</span>
-                <AuditTag entry={e} ownerId={ownerId} compact />
-                {del('events', e.id)}
+                <AuditTag entry={e} myId={myId} compact />
+                {del('events', e)}
               </span>
             ))}
           </div>
         )}
-        {canEdit && (
-          <form className="quickrow event" onSubmit={addEvent}>
-            <input placeholder="Etkinlik" aria-label="Etkinlik" value={eventForm.title}
-              onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
-            <input placeholder="Saat" className="small" aria-label="Saat" value={eventForm.time}
-              onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} />
-            <button type="submit" aria-label="Etkinlik ekle">+</button>
-          </form>
-        )}
-        {!canEdit && data.studyEntries.length + data.trainingEntries.length + data.events.length === 0 && (
-          <div className="empty-inline">Bu gün için kayıt yok.</div>
-        )}
+        <form className="quickrow event" onSubmit={addEvent}>
+          <input placeholder="Etkinlik" aria-label="Etkinlik" value={eventForm.title}
+            onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
+          <input placeholder="Saat" className="small" aria-label="Saat" value={eventForm.time}
+            onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} />
+          <button type="submit" aria-label="Etkinlik ekle">+</button>
+        </form>
       </div>
     </div>
   );

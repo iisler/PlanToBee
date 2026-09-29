@@ -25,7 +25,7 @@ public static class Err
     public static ObjectResult FamilyRequired() =>
         Forbidden("family_required", "Önce bir aile oluşturmalı ya da bir aileye katılmalısın.");
     public static ObjectResult ReadOnly() =>
-        Forbidden("plan_read_only", "Bu planı yalnızca görüntüleyebilirsin.");
+        Forbidden("plan_read_only", "Bu kaydı yalnızca ekleyen kişi ya da bir ebeveyn değiştirebilir.");
     public static ObjectResult AdminOnly() =>
         Forbidden("admin_only", "Bu işlemi yalnızca aile yöneticisi yapabilir.");
 }

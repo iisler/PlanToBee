@@ -7,7 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { formatRemaining, formatStamp, initial, INVITE_STATUS_LABEL, MEMBER_STATUS_LABEL, possessive, ROLE_LABEL } from '../utils/format';
 
 // "Ailem" ekranı: üyeler, roller, hesap ve davet durumları. Değişiklikler yalnızca yöneticiye açıktır.
-export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
+export default function FamilyPage({ family, reloadFamily }) {
   const { refreshMe } = useAuth();
   const { notify } = useNotice();
   const [dialog, setDialog] = useState(null); // { kind, member, role? }
@@ -87,7 +87,7 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
   }
 
   const resend = (inv) => run(() => client.post(`/family/invitations/${inv.id}/resend`), sentText);
-  const cancelInvite = (inv) => run(() => client.post(`/family/invitations/${inv.id}/cancel`), 'Davet iptal edildi. Üyenin planı korunuyor.');
+  const cancelInvite = (inv) => run(() => client.post(`/family/invitations/${inv.id}/cancel`), 'Davet iptal edildi.');
 
   async function confirmDialog() {
     const { kind, member, role } = dialog;
@@ -96,7 +96,7 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
       ok = await run(() => client.put(`/family/members/${member.id}/role`, { role }), `${member.displayName} artık ${ROLE_LABEL[role]}.`);
     } else if (kind === 'remove') {
       ok = await run(() => client.delete(`/family/members/${member.id}`),
-        (res) => (res.data.planDeleted ? `${member.displayName} ve planı silindi.` : `${member.displayName} aileden çıkarıldı.`));
+        `${member.displayName} aileden çıkarıldı.`);
     } else if (kind === 'transfer') {
       ok = await run(() => client.post('/family/transfer-admin', { memberId: member.id }), `Yöneticilik ${member.displayName} kişisine devredildi.`);
       if (ok) refreshMe().catch(() => {});
@@ -105,7 +105,7 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
       try {
         await client.post('/family/leave');
         setDialog(null);
-        notify('Aileden ayrıldın. Planın seninle birlikte yeni ailene taşındı.', 'info');
+        notify('Aileden ayrıldın. Artık yeni, tek kişilik ailendesin.', 'info');
         await refreshMe(); // yeni aile bilgisiyle ana ekran yeniden kurulur
       } catch (err) {
         notify(errorText(err));
@@ -158,9 +158,6 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
               {m.invitation && m.status !== 'Joined' && <InviteLine inv={m.invitation} />}
 
               <div className="member-actions">
-                <button className="link" onClick={() => onOpenPlan(m.id)}>
-                  {m.isMe ? 'Planımı aç' : `${possessive(m.displayName)} planını aç`}
-                </button>
                 {isAdmin && m.invitation && (m.invitation.status === 'Pending' || m.invitation.status === 'Expired') && (
                   <button className="link" disabled={busy} onClick={() => resend(m.invitation)}>Yeniden gönder</button>
                 )}
@@ -189,7 +186,6 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
                     value={profileInvite.email} onChange={e => setProfileInvite(p => ({ ...p, email: e.target.value }))} autoFocus />
                   <button type="submit" className="btn" disabled={busy}>Gönder</button>
                   <button type="button" className="btn-ghost" onClick={() => setProfileInvite({ id: null, email: '' })}>İptal</button>
-                  <div className="muted small-note">Davet kabul edilince mevcut planı yeni hesaba bağlanır.</div>
                 </form>
               )}
             </div>
@@ -222,7 +218,7 @@ export default function FamilyPage({ family, reloadFamily, onOpenPlan }) {
               <input placeholder="Çocuğun adı" aria-label="Çocuğun adı" maxLength={50} required value={profileName} onChange={e => setProfileName(e.target.value)} />
               <button type="submit" className="btn" disabled={busy}>Ekle</button>
             </form>
-            <div className="muted small-note">Hesabı olmayan bir profil oluşur; planını ebeveynler yönetir. İleride e-posta ile davet edebilirsin.</div>
+            <div className="muted small-note">Hesabı olmayan bir profil oluşur. İleride e-posta ile davet edebilirsin; katılınca ailenin ortak planını kendi hesabıyla kullanır.</div>
           </div>
 
           <div className="card">
@@ -272,8 +268,8 @@ function FamilyDialog({ dialog, familyName, busy, onConfirm, onCancel }) {
     return (
       <ConfirmDialog {...props} title="Rolü değiştir" confirmLabel={`${ROLE_LABEL[role]} yap`}
         message={role === 'Parent'
-          ? `${m.displayName} Ebeveyn olacak ve ailedeki tüm planları düzenleyebilecek.`
-          : `${m.displayName} Çocuk olacak; yalnızca kendi planını düzenleyebilecek, diğer planları yalnızca görebilecek.`} />
+          ? `${m.displayName} Ebeveyn olacak ve ortak plandaki tüm kayıtları düzenleyip silebilecek.`
+          : `${m.displayName} Çocuk olacak; ortak plana kayıt ekleyebilecek ama yalnızca kendi eklediği kayıtları düzenleyip silebilecek.`} />
     );
   }
   if (kind === 'transfer') {
@@ -283,16 +279,16 @@ function FamilyDialog({ dialog, familyName, busy, onConfirm, onCancel }) {
     );
   }
   if (kind === 'remove') {
-    const planDeleted = m.status !== 'Joined';
+    const noAccount = m.status !== 'Joined';
     return (
-      <ConfirmDialog {...props} danger title="Aileden çıkar" confirmLabel={planDeleted ? 'Profili ve planı sil' : 'Aileden çıkar'}
-        message={planDeleted
-          ? `${m.displayName} için hesap yok (ya da davet henüz kabul edilmedi). Çıkarırsan ${possessive(m.displayName)} planı ve tüm kayıtları KALICI OLARAK silinecek. Bu işlem geri alınamaz.`
-          : `${m.displayName} aileden çıkarılacak ve ailenin planlarına erişimi hemen sona erecek. Kendi planı onunla birlikte gider. Başkalarının planlarına eklediği kayıtlar kalır ve "Eski üye" olarak görünür.`} />
+      <ConfirmDialog {...props} danger title="Aileden çıkar" confirmLabel={noAccount ? 'Profili sil' : 'Aileden çıkar'}
+        message={noAccount
+          ? `${m.displayName} için hesap yok (ya da davet henüz kabul edilmedi). Çıkarırsan profil kalıcı olarak silinir. Ortak plandaki kayıtlar silinmez.`
+          : `${m.displayName} aileden çıkarılacak ve ailenin planına erişimi hemen sona erecek. Eklediği kayıtlar ortak planda kalır ve "Eski üye" olarak görünür.`} />
     );
   }
   return (
     <ConfirmDialog {...props} danger title="Aileden ayrıl" confirmLabel="Ayrıl"
-      message={`"${familyName}" adlı aileden ayrılacaksın. Kendi planın seninle birlikte yeni, tek kişilik ailene taşınır ve bu ailenin planlarına erişimin sona erer.`} />
+      message={`"${familyName}" adlı aileden ayrılacaksın ve bu ailenin planına erişimin sona erecek. Eklediğin kayıtlar ailenin planında kalır. Sana yeni, tek kişilik bir aile açılır.`} />
   );
 }

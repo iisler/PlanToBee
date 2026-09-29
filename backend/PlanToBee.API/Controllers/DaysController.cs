@@ -9,9 +9,8 @@ using PlanToBee.API.Services;
 
 namespace PlanToBee.API.Controllers;
 
-// Gün ve hafta planı. Tüm uç noktalar isteğe bağlı ?memberId= alır; verilmezse
-// istek sahibinin kendi planı kullanılır. Kayıt kimliğiyle (id) yapılan işlemlerde
-// plan sahibi kaydın kendisinden bulunur ve yetki ona göre kontrol edilir.
+// Ailenin ortak gün ve hafta planı. Ailedeki herkes kayıt ekleyebilir; bir kaydı ebeveynler
+// ve kaydı ekleyen kişi düzenleyip silebilir (MemberContext.CanEdit).
 [ApiController]
 [Route("api/days")]
 [Authorize]
@@ -21,12 +20,11 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     private static readonly string[] ValidStatuses = ["todo", "inprogress", "done"];
 
     [HttpGet("{date}")]
-    public async Task<IActionResult> GetDay(string date, [FromQuery] int? memberId)
+    public async Task<IActionResult> GetDay(string date)
     {
         if (!DateOnly.TryParse(date, out var d)) return Err.BadRequest("invalid_date", "Geçersiz tarih.");
-        var access = await members.ResolvePlanAsync(memberId, write: false);
-        if (access.Error != null) return access.Error;
-        var owner = access.Owner!;
+        var me = await members.GetCurrentAsync();
+        if (me == null) return Err.FamilyRequired();
 
         // Okuma kayıt oluşturmaz; gün yoksa boş döner.
         var day = await db.Days
@@ -34,25 +32,24 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
             .Include(x => x.StudyEntries)
             .Include(x => x.TrainingEntries)
             .Include(x => x.Events)
-            .FirstOrDefaultAsync(x => x.MemberId == owner.Id && x.Date == d);
-        if (day == null) return Ok(new DayDto(date, owner.Id, access.CanEdit, [], [], []));
+            .FirstOrDefaultAsync(x => x.FamilyId == me.FamilyId && x.Date == d);
+        if (day == null) return Ok(new DayDto(date, [], [], []));
 
-        var audit = await AuditLookup.LoadAsync(db, owner.FamilyId,
+        var audit = await AuditLookup.LoadAsync(db, me.FamilyId,
             day.StudyEntries.Cast<AuditedEntity>().Concat(day.TrainingEntries).Concat(day.Events));
         return Ok(new DayDto(
-            date, owner.Id, access.CanEdit,
-            day.StudyEntries.OrderBy(e => e.Id).Select(e => Map(e, audit)).ToList(),
-            day.TrainingEntries.OrderBy(e => e.Id).Select(e => Map(e, audit)).ToList(),
-            day.Events.OrderBy(e => e.Id).Select(e => Map(e, audit)).ToList()));
+            date,
+            day.StudyEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList(),
+            day.TrainingEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList(),
+            day.Events.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList()));
     }
 
     [HttpGet("week/{monday}")]
-    public async Task<IActionResult> GetWeek(string monday, [FromQuery] int? memberId)
+    public async Task<IActionResult> GetWeek(string monday)
     {
         if (!DateOnly.TryParse(monday, out var start)) return Err.BadRequest("invalid_date", "Geçersiz tarih.");
-        var access = await members.ResolvePlanAsync(memberId, write: false);
-        if (access.Error != null) return access.Error;
-        var ownerId = access.Owner!.Id;
+        var me = await members.GetCurrentAsync();
+        if (me == null) return Err.FamilyRequired();
 
         var dates = Enumerable.Range(0, 7).Select(i => start.AddDays(i)).ToList();
         var days = await db.Days
@@ -60,7 +57,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
             .Include(d => d.StudyEntries)
             .Include(d => d.TrainingEntries)
             .Include(d => d.Events)
-            .Where(d => d.MemberId == ownerId && dates.Contains(d.Date))
+            .Where(d => d.FamilyId == me.FamilyId && dates.Contains(d.Date))
             .ToListAsync();
 
         var result = dates.Select(date =>
@@ -75,25 +72,25 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
                 day?.Events.Count ?? 0
             );
         }).ToList();
-        return Ok(new WeekDto(ownerId, access.CanEdit, result));
+        return Ok(new WeekDto(result));
     }
 
     // ---------- Ders kayıtları ----------
 
     [HttpPost("{date}/entries")]
-    public async Task<IActionResult> AddEntry(string date, [FromQuery] int? memberId, AddStudyEntryDto dto)
+    public async Task<IActionResult> AddEntry(string date, AddStudyEntryDto dto)
     {
         if (!DateOnly.TryParse(date, out var d)) return Err.BadRequest("invalid_date", "Geçersiz tarih.");
         if (string.IsNullOrWhiteSpace(dto.Subject)) return Err.BadRequest("validation", "Ders seçin.");
-        var access = await members.ResolvePlanAsync(memberId, write: true);
-        if (access.Error != null) return access.Error;
+        var me = await members.GetCurrentAsync();
+        if (me == null) return Err.FamilyRequired();
 
-        var dayId = await GetOrCreateDayId(access.Owner!.Id, d);
+        var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var entry = new StudyEntry { DayId = dayId, Subject = dto.Subject.Trim(), Topic = dto.Topic?.Trim() ?? "", Minutes = dto.Minutes, Status = "todo" };
-        StampCreated(entry, access.Current!);
+        StampCreated(entry, me);
         db.StudyEntries.Add(entry);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, access.Owner));
+        return Ok(await MapOne(entry, me));
     }
 
     [HttpPut("{date}/entries/{id:int}")]
@@ -102,16 +99,16 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (string.IsNullOrWhiteSpace(dto.Subject)) return Err.BadRequest("validation", "Ders seçin.");
         if (dto.Status != null && !ValidStatuses.Contains(dto.Status)) return Err.BadRequest("validation", "Geçersiz durum.");
         var entry = await db.StudyEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (access, error) = await AuthorizeEntry(entry?.Day);
+        var (me, error) = await AuthorizeEntry(entry);
         if (error != null) return error;
 
         entry!.Subject = dto.Subject.Trim();
         entry.Topic = dto.Topic?.Trim() ?? "";
         entry.Minutes = dto.Minutes;
         if (dto.Status != null) entry.Status = dto.Status;
-        StampUpdated(entry, access!.Current!);
+        StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, access.Owner!));
+        return Ok(await MapOne(entry, me));
     }
 
     [HttpPatch("{date}/entries/{id:int}/status")]
@@ -119,20 +116,20 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (!ValidStatuses.Contains(dto.Status)) return Err.BadRequest("validation", "Geçersiz durum.");
         var entry = await db.StudyEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (access, error) = await AuthorizeEntry(entry?.Day);
+        var (me, error) = await AuthorizeEntry(entry);
         if (error != null) return error;
 
         entry!.Status = dto.Status; // durum değiştirmek de düzenleme sayılır
-        StampUpdated(entry, access!.Current!);
+        StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, access.Owner!));
+        return Ok(await MapOne(entry, me));
     }
 
     [HttpDelete("{date}/entries/{id:int}")]
     public async Task<IActionResult> DeleteEntry(string date, int id)
     {
         var entry = await db.StudyEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(entry?.Day);
+        var (_, error) = await AuthorizeEntry(entry);
         if (error != null) return error;
         db.StudyEntries.Remove(entry!);
         await db.SaveChangesAsync();
@@ -142,19 +139,19 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     // ---------- Antrenman kayıtları ----------
 
     [HttpPost("{date}/training")]
-    public async Task<IActionResult> AddTraining(string date, [FromQuery] int? memberId, AddTrainingDto dto)
+    public async Task<IActionResult> AddTraining(string date, AddTrainingDto dto)
     {
         if (!DateOnly.TryParse(date, out var d)) return Err.BadRequest("invalid_date", "Geçersiz tarih.");
         if (string.IsNullOrWhiteSpace(dto.Type)) return Err.BadRequest("validation", "Antrenman türü seçin.");
-        var access = await members.ResolvePlanAsync(memberId, write: true);
-        if (access.Error != null) return access.Error;
+        var me = await members.GetCurrentAsync();
+        if (me == null) return Err.FamilyRequired();
 
-        var dayId = await GetOrCreateDayId(access.Owner!.Id, d);
+        var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var entry = new TrainingEntry { DayId = dayId, Type = dto.Type.Trim(), Minutes = dto.Minutes, Note = dto.Note?.Trim() ?? "" };
-        StampCreated(entry, access.Current!);
+        StampCreated(entry, me);
         db.TrainingEntries.Add(entry);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, access.Owner));
+        return Ok(await MapOne(entry, me));
     }
 
     [HttpPut("{date}/training/{id:int}")]
@@ -162,22 +159,22 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (string.IsNullOrWhiteSpace(dto.Type)) return Err.BadRequest("validation", "Antrenman türü seçin.");
         var entry = await db.TrainingEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (access, error) = await AuthorizeEntry(entry?.Day);
+        var (me, error) = await AuthorizeEntry(entry);
         if (error != null) return error;
 
         entry!.Type = dto.Type.Trim();
         entry.Minutes = dto.Minutes;
         entry.Note = dto.Note?.Trim() ?? "";
-        StampUpdated(entry, access!.Current!);
+        StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, access.Owner!));
+        return Ok(await MapOne(entry, me));
     }
 
     [HttpDelete("{date}/training/{id:int}")]
     public async Task<IActionResult> DeleteTraining(string date, int id)
     {
         var entry = await db.TrainingEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(entry?.Day);
+        var (_, error) = await AuthorizeEntry(entry);
         if (error != null) return error;
         db.TrainingEntries.Remove(entry!);
         await db.SaveChangesAsync();
@@ -187,19 +184,19 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     // ---------- Etkinlikler ----------
 
     [HttpPost("{date}/events")]
-    public async Task<IActionResult> AddEvent(string date, [FromQuery] int? memberId, AddEventDto dto)
+    public async Task<IActionResult> AddEvent(string date, AddEventDto dto)
     {
         if (!DateOnly.TryParse(date, out var d)) return Err.BadRequest("invalid_date", "Geçersiz tarih.");
         if (string.IsNullOrWhiteSpace(dto.Title)) return Err.BadRequest("validation", "Etkinlik adı girin.");
-        var access = await members.ResolvePlanAsync(memberId, write: true);
-        if (access.Error != null) return access.Error;
+        var me = await members.GetCurrentAsync();
+        if (me == null) return Err.FamilyRequired();
 
-        var dayId = await GetOrCreateDayId(access.Owner!.Id, d);
+        var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var ev = new Event { DayId = dayId, Title = dto.Title.Trim(), Time = dto.Time?.Trim() ?? "", Note = dto.Note?.Trim() ?? "" };
-        StampCreated(ev, access.Current!);
+        StampCreated(ev, me);
         db.Events.Add(ev);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(ev, access.Owner));
+        return Ok(await MapOne(ev, me));
     }
 
     [HttpPut("{date}/events/{id:int}")]
@@ -207,20 +204,20 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (string.IsNullOrWhiteSpace(dto.Title)) return Err.BadRequest("validation", "Etkinlik adı girin.");
         var ev = await db.Events.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (access, error) = await AuthorizeEntry(ev?.Day);
+        var (me, error) = await AuthorizeEntry(ev);
         if (error != null) return error;
 
         ev!.Title = dto.Title.Trim(); ev.Time = dto.Time?.Trim() ?? ""; ev.Note = dto.Note?.Trim() ?? "";
-        StampUpdated(ev, access!.Current!);
+        StampUpdated(ev, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(ev, access.Owner!));
+        return Ok(await MapOne(ev, me));
     }
 
     [HttpDelete("{date}/events/{id:int}")]
     public async Task<IActionResult> DeleteEvent(string date, int id)
     {
         var ev = await db.Events.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(ev?.Day);
+        var (_, error) = await AuthorizeEntry(ev);
         if (error != null) return error;
         db.Events.Remove(ev!);
         await db.SaveChangesAsync();
@@ -229,16 +226,22 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
 
     // ---------- Yardımcılar ----------
 
-    // Kayıt yoksa veya başka ailedeyse 404 (varlığı belli edilmez), okunabiliyor ama yazılamıyorsa 403.
-    private async Task<(PlanAccess? Access, IActionResult? Error)> AuthorizeEntry(Day? day)
+    // Kayıt yoksa veya başka ailedeyse 404 (varlığı belli edilmez); görülebiliyor ama
+    // istek sahibi düzenleyemiyorsa 403.
+    private async Task<(FamilyMember? Me, IActionResult? Error)> AuthorizeEntry(AuditedEntity? entry)
     {
-        var current = await members.GetCurrentAsync();
-        if (current == null) return (null, Err.FamilyRequired());
-        if (day == null) return (null, Err.NotFound());
-        var access = await members.ResolvePlanAsync(day.MemberId, write: true);
-        if (access.Error is ObjectResult { StatusCode: 404 }) return (null, Err.NotFound());
-        if (access.Error != null) return (null, access.Error);
-        return (access, null);
+        var me = await members.GetCurrentAsync();
+        if (me == null) return (null, Err.FamilyRequired());
+        var day = entry switch
+        {
+            StudyEntry s => s.Day,
+            TrainingEntry t => t.Day,
+            Event e => e.Day,
+            _ => null
+        };
+        if (entry == null || day == null || day.FamilyId != me.FamilyId) return (null, Err.NotFound());
+        if (!MemberContext.CanEdit(me, entry)) return (null, Err.ReadOnly());
+        return (me, null);
     }
 
     private static void StampCreated(AuditedEntity e, FamilyMember by)
@@ -253,33 +256,33 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         e.UpdatedAt = DateTime.UtcNow;
     }
 
-    private async Task<object> MapOne(AuditedEntity e, FamilyMember owner)
+    private async Task<object> MapOne(AuditedEntity e, FamilyMember me)
     {
-        var audit = await AuditLookup.LoadAsync(db, owner.FamilyId, [e]);
+        var audit = await AuditLookup.LoadAsync(db, me.FamilyId, [e]);
         return e switch
         {
-            StudyEntry s => Map(s, audit),
-            TrainingEntry t => Map(t, audit),
-            Event ev => Map(ev, audit),
+            StudyEntry s => Map(s, me, audit),
+            TrainingEntry t => Map(t, me, audit),
+            Event ev => Map(ev, me, audit),
             _ => throw new ArgumentException(nameof(e))
         };
     }
 
-    private static StudyEntryDto Map(StudyEntry e, AuditLookup a) =>
-        new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
-    private static TrainingEntryDto Map(TrainingEntry e, AuditLookup a) =>
-        new(e.Id, e.Type, e.Minutes, e.Note, a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
-    private static EventDto Map(Event e, AuditLookup a) =>
-        new(e.Id, e.Title, e.Time, e.Note, a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+    private static StudyEntryDto Map(StudyEntry e, FamilyMember me, AuditLookup a) =>
+        new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+    private static TrainingEntryDto Map(TrainingEntry e, FamilyMember me, AuditLookup a) =>
+        new(e.Id, e.Type, e.Minutes, e.Note, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+    private static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
+        new(e.Id, e.Title, e.Time, e.Note, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
 
     // Aynı gün için eşzamanlı iki yazma isteği gelirse ikisi de gün oluşturmaya çalışır;
-    // (MemberId, Date) benzersiz indeksine takılan istek, diğerinin oluşturduğu günü kullanır.
-    private async Task<int> GetOrCreateDayId(int memberId, DateOnly date)
+    // (FamilyId, Date) benzersiz indeksine takılan istek, diğerinin oluşturduğu günü kullanır.
+    private async Task<int> GetOrCreateDayId(int familyId, DateOnly date)
     {
-        var id = await FindDayId(memberId, date);
+        var id = await FindDayId(familyId, date);
         if (id != null) return id.Value;
 
-        var day = new Day { MemberId = memberId, Date = date };
+        var day = new Day { FamilyId = familyId, Date = date };
         db.Days.Add(day);
         try
         {
@@ -289,10 +292,10 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         catch (DbUpdateException)
         {
             db.Entry(day).State = EntityState.Detached;
-            return await FindDayId(memberId, date) ?? throw new InvalidOperationException("Gün oluşturulamadı");
+            return await FindDayId(familyId, date) ?? throw new InvalidOperationException("Gün oluşturulamadı");
         }
     }
 
-    private Task<int?> FindDayId(int memberId, DateOnly date) =>
-        db.Days.Where(d => d.MemberId == memberId && d.Date == date).Select(d => (int?)d.Id).FirstOrDefaultAsync();
+    private Task<int?> FindDayId(int familyId, DateOnly date) =>
+        db.Days.Where(d => d.FamilyId == familyId && d.Date == date).Select(d => (int?)d.Id).FirstOrDefaultAsync();
 }

@@ -3,30 +3,30 @@ using System.ComponentModel.DataAnnotations;
 namespace PlanToBee.API.DTOs;
 
 // Kayıt izi: ekleyen / en son düzenleyen. IsFormerMember=true ise "Eski üye: [Ad]" gösterilir.
+// Kayıtlardaki CanEdit: istek sahibi bu kaydı düzenleyip silebilir mi (ebeveyn ya da kaydı ekleyen).
 public record AuditMemberDto(int MemberId, string DisplayName, bool IsFormerMember);
 
-public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, string Status,
+public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, string Status, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
-public record TrainingEntryDto(int Id, string Type, int Minutes, string Note,
+public record TrainingEntryDto(int Id, string Type, int Minutes, string Note, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
-public record EventDto(int Id, string Title, string Time, string Note,
+public record EventDto(int Id, string Title, string Time, string Note, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
-public record SubjectDto(int Id, string Name,
+public record SubjectDto(int Id, string Name, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 
+// Ailenin ortak planındaki bir gün. Ailedeki herkes kayıt ekleyebilir.
 public record DayDto(
     string Date,
-    int MemberId,
-    bool CanEdit,
     List<StudyEntryDto> StudyEntries,
     List<TrainingEntryDto> TrainingEntries,
     List<EventDto> Events
 );
 
 public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int EventCount);
-public record WeekDto(int MemberId, bool CanEdit, List<WeekSummaryDto> Days);
+public record WeekDto(List<WeekSummaryDto> Days);
 
-public record SubjectListDto(int MemberId, bool CanEdit, List<SubjectDto> Subjects);
+public record SubjectListDto(List<SubjectDto> Subjects);
 
 // Bir kayıt en fazla bir tam gün (1440 dk) sürebilir.
 public record AddStudyEntryDto(

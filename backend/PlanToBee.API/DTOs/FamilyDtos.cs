@@ -42,7 +42,6 @@ public record FamilyMemberDto(
     bool IsAdmin,
     bool HasAccount,
     bool IsMe,
-    bool CanEdit,           // istek sahibi bu üyenin planına yazabilir mi
     string? Email,
     InvitationDto? Invitation); // en son davet (varsa)
 

@@ -39,7 +39,8 @@ public class FamilyService(AppDbContext db)
     }
 
     // Hesabı olan üyeyi aileden ayırır: üye satırı "Ayrıldı" olarak kalır (eski üye izi için),
-    // kişisel planı kullanıcının yeni tek kişilik ailesine taşınır.
+    // kullanıcıya yeni tek kişilik bir aile açılır. Plan ailenin ortak planı olduğu için ailede kalır;
+    // üyenin eklediği kayıtlarda "Eski üye: [Ad]" görünür.
     public async Task<FamilyMember> DetachToOwnFamilyAsync(FamilyMember member)
     {
         if (member.UserId == null) throw new InvalidOperationException("Hesapsız üye ayrılamaz");
@@ -48,9 +49,7 @@ public class FamilyService(AppDbContext db)
         MarkLeft(member);
         await db.SaveChangesAsync(); // benzersiz UserId indeksi için önce eski bağ kaldırılır
 
-        var newMember = await CreateFamilyAsync(user, DefaultFamilyName(user.DisplayName));
-        await MovePlanAsync(member.Id, newMember.Id);
-        return newMember;
+        return await CreateFamilyAsync(user, DefaultFamilyName(user.DisplayName));
     }
 
     public static void MarkLeft(FamilyMember member)
@@ -61,22 +60,22 @@ public class FamilyService(AppDbContext db)
         member.LeftAt = DateTime.UtcNow;
     }
 
-    // Hesapsız profili veya daveti bekleyen üyeyi planıyla birlikte kalıcı olarak siler.
-    // Günler, kayıtlar, ders listesi ve davetler FK cascade ile silinir.
+    // Hesapsız profili veya daveti bekleyen üyeyi kalıcı olarak siler. Davetleri FK cascade ile silinir;
+    // eklediği kayıtlar ailenin planında kalır, kayıt izindeki üye bağı boşalır (SetNull).
     public async Task DeleteProfileAsync(FamilyMember member)
     {
         db.FamilyMembers.Remove(member);
         await db.SaveChangesAsync();
     }
 
-    // fromMember'ın planını (günler, kayıtlar, ders listesi) toMember'a taşır.
-    // Aynı tarihte iki gün varsa kayıtlar hedef güne birleştirilir; aynı adlı dersler tekrar eklenmez.
-    // Taşınan plandaki fromMember'a ait ekleyen/düzenleyen izleri toMember'a çevrilir.
-    public async Task MovePlanAsync(int fromMemberId, int toMemberId)
+    // Başka üyesi kalmamış eski ailenin planını (günler, kayıtlar, ders listesi) yeni aileye birleştirir.
+    // Aynı tarihte iki gün varsa kayıtlar hedef güne taşınır; aynı adlı dersler tekrar eklenmez.
+    // Taşınan kayıtlardaki eski üyelik izleri (fromMember) kişinin yeni üyeliğine (toMember) çevrilir.
+    public async Task MergeFamilyPlanAsync(int fromFamilyId, int toFamilyId, int fromMemberId, int toMemberId)
     {
-        var targetDays = await db.Days.Where(d => d.MemberId == toMemberId)
+        var targetDays = await db.Days.Where(d => d.FamilyId == toFamilyId)
             .ToDictionaryAsync(d => d.Date, d => d.Id);
-        var sourceDays = await db.Days.Where(d => d.MemberId == fromMemberId).ToListAsync();
+        var sourceDays = await db.Days.Where(d => d.FamilyId == fromFamilyId).ToListAsync();
 
         foreach (var day in sourceDays)
         {
@@ -90,36 +89,36 @@ public class FamilyService(AppDbContext db)
             }
             else
             {
-                day.MemberId = toMemberId;
+                day.FamilyId = toFamilyId;
             }
         }
 
-        var targetNames = await db.Subjects.Where(s => s.MemberId == toMemberId).Select(s => s.Name).ToListAsync();
-        var sourceSubjects = await db.Subjects.Where(s => s.MemberId == fromMemberId).ToListAsync();
+        var targetNames = await db.Subjects.Where(s => s.FamilyId == toFamilyId).Select(s => s.Name).ToListAsync();
+        var sourceSubjects = await db.Subjects.Where(s => s.FamilyId == fromFamilyId).ToListAsync();
         foreach (var subject in sourceSubjects)
         {
             if (targetNames.Any(n => TurkishIgnoreCase.Equals(n.Trim(), subject.Name.Trim())))
                 db.Subjects.Remove(subject);
             else
             {
-                subject.MemberId = toMemberId;
+                subject.FamilyId = toFamilyId;
                 targetNames.Add(subject.Name);
             }
         }
         await db.SaveChangesAsync();
 
-        await RemapAuditAsync(fromMemberId, toMemberId);
+        await RemapAuditAsync(toFamilyId, fromMemberId, toMemberId);
     }
 
-    private async Task RemapAuditAsync(int from, int to)
+    private async Task RemapAuditAsync(int familyId, int from, int to)
     {
-        await db.StudyEntries.Where(e => e.Day!.MemberId == to && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
-        await db.StudyEntries.Where(e => e.Day!.MemberId == to && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
-        await db.TrainingEntries.Where(e => e.Day!.MemberId == to && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
-        await db.TrainingEntries.Where(e => e.Day!.MemberId == to && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
-        await db.Events.Where(e => e.Day!.MemberId == to && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
-        await db.Events.Where(e => e.Day!.MemberId == to && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
-        await db.Subjects.Where(e => e.MemberId == to && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
-        await db.Subjects.Where(e => e.MemberId == to && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
+        await db.StudyEntries.Where(e => e.Day!.FamilyId == familyId && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
+        await db.StudyEntries.Where(e => e.Day!.FamilyId == familyId && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
+        await db.TrainingEntries.Where(e => e.Day!.FamilyId == familyId && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
+        await db.TrainingEntries.Where(e => e.Day!.FamilyId == familyId && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
+        await db.Events.Where(e => e.Day!.FamilyId == familyId && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
+        await db.Events.Where(e => e.Day!.FamilyId == familyId && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
+        await db.Subjects.Where(e => e.FamilyId == familyId && e.CreatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.CreatedByMemberId, to));
+        await db.Subjects.Where(e => e.FamilyId == familyId && e.UpdatedByMemberId == from).ExecuteUpdateAsync(s => s.SetProperty(e => e.UpdatedByMemberId, to));
     }
 }

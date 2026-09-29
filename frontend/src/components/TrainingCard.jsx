@@ -13,7 +13,7 @@ function toMinutes(f) {
   return (parseInt(f.hours, 10) || 0) * 60 + (parseInt(f.minutes, 10) || 0);
 }
 
-export default function TrainingCard({ date, entries, totalMinutes, canEdit, ownerId, planParams, mutate }) {
+export default function TrainingCard({ date, entries, totalMinutes, myId, mutate }) {
   const [form, setForm] = useState({ type: 'Top', hours: '', minutes: '', note: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -25,7 +25,7 @@ export default function TrainingCard({ date, entries, totalMinutes, canEdit, own
     if (minutes <= 0 || busy) return;
     setBusy(true);
     const ok = await mutate(null, () => client.post(`/days/${date}/training`,
-      { type: form.type, minutes, note: form.note }, { params: planParams }));
+      { type: form.type, minutes, note: form.note }));
     setBusy(false);
     if (ok) setForm({ type: 'Top', hours: '', minutes: '', note: '' });
   }
@@ -78,26 +78,24 @@ export default function TrainingCard({ date, entries, totalMinutes, canEdit, own
             <div className="info">
               <div className="subj">{e.type}</div>
               {e.note && <div className="topic">{e.note}</div>}
-              <AuditTag entry={e} ownerId={ownerId} />
+              <AuditTag entry={e} myId={myId} />
             </div>
             <span className="mins sport">{formatDuration(e.minutes)}</span>
-            {canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
-            {canEdit && <button className="del" aria-label="Sil" onClick={() => deleteTraining(e.id)}>×</button>}
+            {e.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
+            {e.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteTraining(e.id)}>×</button>}
           </div>
         ))
       }
 
-      {canEdit && (
-        <form className="addform sport" onSubmit={addTraining}>
-          <select aria-label="Antrenman türü" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input type="number" min="0" placeholder="sa" aria-label="Saat" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
-          <input type="number" min="0" max="59" placeholder="dk" aria-label="Dakika" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))} />
-          <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-          <button type="submit" disabled={busy}>Ekle</button>
-        </form>
-      )}
+      <form className="addform sport" onSubmit={addTraining}>
+        <select aria-label="Antrenman türü" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+          {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <input type="number" min="0" placeholder="sa" aria-label="Saat" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
+        <input type="number" min="0" max="59" placeholder="dk" aria-label="Dakika" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))} />
+        <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+        <button type="submit" disabled={busy}>Ekle</button>
+      </form>
     </div>
   );
 }

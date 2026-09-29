@@ -160,7 +160,7 @@ public class FamilyController(
 
         inv.Status = InvitationStatus.Cancelled;
         inv.CancelledAt = DateTime.UtcNow;
-        // Üye ve planı korunur; hesapsız profile döner. Yönetici yeniden davet edebilir ya da çıkarabilir.
+        // Üye korunur; hesapsız profile döner. Yönetici yeniden davet edebilir ya da çıkarabilir.
         if (inv.Member is { Status: MemberStatus.Invited })
             inv.Member.Status = MemberStatus.NoAccount;
         try { await db.SaveChangesAsync(); }
@@ -234,8 +234,9 @@ public class FamilyController(
         return Ok(await MemberDto(me!, member.Id));
     }
 
-    // Hesabı olan üye: üye "Ayrıldı" olur, kişisel planı onunla birlikte yeni tek kişilik ailesine gider.
-    // Hesapsız profil / daveti bekleyen üye: planıyla birlikte kalıcı olarak silinir.
+    // Hesabı olan üye: üye "Ayrıldı" olur ve yeni tek kişilik ailesine geçer.
+    // Hesapsız profil / daveti bekleyen üye: kalıcı olarak silinir.
+    // Her iki durumda da üyenin eklediği kayıtlar ailenin ortak planında kalır.
     [HttpDelete("members/{id:int}")]
     public async Task<IActionResult> Remove(int id)
     {
@@ -247,22 +248,15 @@ public class FamilyController(
             return Err.BadRequest("admin_cannot_leave", "Yönetici kendini aileden çıkaramaz. Önce yöneticiliği başka bir ebeveyne devret.");
 
         await using var tx = await db.Database.BeginTransactionAsync();
-        bool planDeleted;
         if (member.Status == MemberStatus.Joined && member.UserId != null)
-        {
             await families.DetachToOwnFamilyAsync(member);
-            planDeleted = false;
-        }
         else
-        {
             await families.DeleteProfileAsync(member);
-            planDeleted = true;
-        }
         await tx.CommitAsync();
-        return Ok(new { removedMemberId = id, planDeleted });
+        return Ok(new { removedMemberId = id });
     }
 
-    // Yönetici olmayan, hesabı olan üye kendi isteğiyle ayrılır; planı onunla gider.
+    // Yönetici olmayan, hesabı olan üye kendi isteğiyle ayrılır; eklediği kayıtlar ailenin planında kalır.
     [HttpPost("leave")]
     public async Task<IActionResult> Leave()
     {
@@ -385,7 +379,7 @@ public class FamilyController(
         var now = DateTime.UtcNow;
 
         var memberDtos = list
-            // Kişi seçicide çocuklar önce listelenir.
+            // Ailem ekranında çocuklar önce listelenir.
             .OrderBy(m => m.Role == FamilyRole.Child ? 0 : 1)
             .ThenBy(m => m.CreatedAt).ThenBy(m => m.Id)
             .Select(m =>
@@ -395,7 +389,6 @@ public class FamilyController(
                     m.Id, m.DisplayName, m.Role.ToString(), m.Status.ToString(), m.IsAdmin,
                     HasAccount: m.UserId != null,
                     IsMe: m.Id == me.Id,
-                    CanEdit: MemberContext.CanEdit(me, m),
                     Email: m.User?.Email ?? (m.Status == MemberStatus.Invited ? inv?.Email : null),
                     Invitation: inv == null ? null : ToDto(inv, now));
             })

@@ -21,8 +21,8 @@ export default function useMutation({ state, setState, reload, onAccessChanged }
       setState(snapshot);
       notify(errorText(err));
       const code = errorCode(err);
-      // Yetki değişmiş (rol değişikliği, üye çıkarılması) olabilir: aile bilgisini de tazele.
-      if (code === 'plan_read_only' || code === 'plan_not_found') onAccessChanged?.(code);
+      // Yetki değişmiş (rol değişikliği) olabilir: aile bilgisini de tazele.
+      if (code === 'plan_read_only') onAccessChanged?.(code);
       await reload().catch(() => {});
       return false;
     }

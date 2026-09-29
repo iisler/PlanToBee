@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import client from '../api/client';
-import { errorCode, errorText } from '../api/errors';
+import { errorText } from '../api/errors';
 import useMutation from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import StatsBar from '../components/StatsBar';
@@ -9,38 +9,33 @@ import TrainingCard from '../components/TrainingCard';
 import EventCard from '../components/EventCard';
 import { addDays, dkey, MONTHS, WEEKDAYS_FULL } from '../utils/format';
 
-// Seçili kişinin tek günlük planı. planParams: { memberId } (başkasının planı) veya {} (kendi planı).
+// Ailenin ortak planında tek bir gün. myId: giriş yapan üyenin kimliği (kayıt izleri için).
 export default function DayPage({
-  currentDate, setCurrentDate, weekSummaries, planParams, fallbackCanEdit,
-  subjects, subjectsCanEdit, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged,
+  currentDate, setCurrentDate, weekSummaries, myId,
+  subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
   const date = dkey(currentDate);
   const isToday = dkey(new Date()) === date;
-  const memberId = planParams.memberId;
 
   useEffect(() => {
     let active = true;
-    client.get(`/days/${date}`, { params: memberId ? { memberId } : {} })
+    client.get(`/days/${date}`)
       .then(r => { if (active) { setDay(r.data); setLoadError(''); } })
-      .catch(err => {
-        if (!active) return;
-        setLoadError(errorText(err));
-        if (errorCode(err) === 'plan_not_found') onAccessChanged?.('plan_not_found');
-      });
+      .catch(err => { if (active) setLoadError(errorText(err)); });
     return () => { active = false; };
-  }, [date, memberId, retry, onAccessChanged]);
+  }, [date, retry]);
 
   const reload = useCallback(async () => {
     try {
-      const r = await client.get(`/days/${date}`, { params: memberId ? { memberId } : {} });
+      const r = await client.get(`/days/${date}`);
       setDay(r.data);
     } finally {
       onDataChanged();
     }
-  }, [date, memberId, onDataChanged]);
+  }, [date, onDataChanged]);
 
   const mutate = useMutation({ state: day, setState: setDay, reload, onAccessChanged });
 
@@ -54,11 +49,9 @@ export default function DayPage({
     </div>
   );
 
-  const canEdit = ready ? day.canEdit : fallbackCanEdit;
-  const ownerId = ready ? day.memberId : memberId;
   const totalStudy = ready ? day.studyEntries.reduce((s, e) => s + e.minutes, 0) : 0;
   const totalTrain = ready ? day.trainingEntries.reduce((s, e) => s + e.minutes, 0) : 0;
-  const common = { date, canEdit, ownerId, planParams, mutate };
+  const common = { date, myId, mutate };
 
   return (
     <>
@@ -79,17 +72,15 @@ export default function DayPage({
       {!ready ? <div className="loading">Yükleniyor…</div> : (
         <>
           <StudyCard {...common} entries={day.studyEntries} totalMinutes={totalStudy}
-            subjects={subjects} subjectsCanEdit={subjectsCanEdit} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject} />
+            subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject} />
           <TrainingCard {...common} entries={day.trainingEntries} totalMinutes={totalTrain} />
           <EventCard {...common} events={day.events} />
         </>
       )}
 
-      {canEdit && (
-        <div className="note">
-          "Hafta Planı" sekmesinden gelecek günler için önceden ders/antrenman/etkinlik girebilirsiniz.
-        </div>
-      )}
+      <div className="note">
+        "Hafta Planı" sekmesinden gelecek günler için önceden ders/antrenman/etkinlik girebilirsiniz.
+      </div>
     </>
   );
 }

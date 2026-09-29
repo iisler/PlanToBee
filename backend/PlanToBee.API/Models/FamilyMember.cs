@@ -8,7 +8,7 @@ public enum FamilyRole
 
 public enum MemberStatus
 {
-    // Hesapsız çocuk profili (planı ebeveynler yönetir)
+    // Hesapsız çocuk profili (ebeveynler yönetir)
     NoAccount,
     // Davet gönderildi, henüz katılmadı
     Invited,
@@ -18,8 +18,8 @@ public enum MemberStatus
     Left
 }
 
-// Aile üyesi. Planın (Day, Subject) sahibi kullanıcı değil üyedir; böylece hesapsız
-// profillerin ve daveti bekleyen üyelerin de planı olabilir.
+// Aile üyesi. Plan (Day, Subject) ailenin ortak planıdır; üye, kayıtların izinde
+// (ekleyen / düzenleyen) ve yetki kontrolünde kullanılır.
 public class FamilyMember
 {
     public int Id { get; set; }

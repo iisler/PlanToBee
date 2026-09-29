@@ -72,11 +72,11 @@ function auditName(m) {
   return m.isFormerMember ? `Eski üye: ${m.displayName}` : m.displayName;
 }
 
-// Kayıt izi: kaydı plan sahibinden başka biri eklediyse veya en son düzenlediyse kısa metin döner.
+// Kayıt izi: ortak plandaki kaydı başka biri eklediyse veya en son düzenlediyse kısa metin döner.
 // Örn. "Annem ekledi", "Babam düzenledi · 18:40", "Eski üye: Ayşe ekledi". Gösterilecek iz yoksa ''.
-export function auditTrail(entry, ownerMemberId) {
+export function auditTrail(entry, myMemberId) {
   if (!entry) return '';
-  const foreign = (m) => m && (m.isFormerMember || m.memberId !== ownerMemberId);
+  const foreign = (m) => m && (m.isFormerMember || m.memberId !== myMemberId);
   if (foreign(entry.updatedBy)) {
     const when = formatStamp(entry.updatedAt);
     return `${auditName(entry.updatedBy)} düzenledi${when ? ` · ${when}` : ''}`;

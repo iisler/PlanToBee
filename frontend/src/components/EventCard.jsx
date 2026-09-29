@@ -7,7 +7,7 @@ const EVENT_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
 );
 
-export default function EventCard({ date, events, canEdit, ownerId, planParams, mutate }) {
+export default function EventCard({ date, events, myId, mutate }) {
   const [form, setForm] = useState({ title: '', time: '', note: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -18,7 +18,7 @@ export default function EventCard({ date, events, canEdit, ownerId, planParams, 
     if (!form.title.trim() || busy) return;
     setBusy(true);
     const ok = await mutate(null, () => client.post(`/days/${date}/events`,
-      { title: form.title.trim(), time: form.time.trim(), note: form.note.trim() }, { params: planParams }));
+      { title: form.title.trim(), time: form.time.trim(), note: form.note.trim() }));
     setBusy(false);
     if (ok) setForm({ title: '', time: '', note: '' });
   }
@@ -63,23 +63,21 @@ export default function EventCard({ date, events, canEdit, ownerId, planParams, 
             <div className="info">
               <div className="subj">{ev.title}</div>
               {ev.note && <div className="topic">{ev.note}</div>}
-              <AuditTag entry={ev} ownerId={ownerId} />
+              <AuditTag entry={ev} myId={myId} />
             </div>
             {ev.time && <span className="mins evt">{ev.time}</span>}
-            {canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(ev)}>✎</button>}
-            {canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEvent(ev.id)}>×</button>}
+            {ev.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(ev)}>✎</button>}
+            {ev.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEvent(ev.id)}>×</button>}
           </div>
         ))
       }
 
-      {canEdit && (
-        <form className="addform event" onSubmit={addEvent}>
-          <input placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-          <input placeholder="Saat" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
-          <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-          <button type="submit" disabled={busy}>Ekle</button>
-        </form>
-      )}
+      <form className="addform event" onSubmit={addEvent}>
+        <input placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        <input placeholder="Saat" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+        <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+        <button type="submit" disabled={busy}>Ekle</button>
+      </form>
     </div>
   );
 }

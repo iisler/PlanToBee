@@ -9,8 +9,8 @@ const STUDY_ICON = (
 );
 
 export default function StudyCard({
-  date, entries, totalMinutes, canEdit, ownerId, planParams, mutate,
-  subjects, subjectsCanEdit, onAddSubject, onDeleteSubject,
+  date, entries, totalMinutes, myId, mutate,
+  subjects, onAddSubject, onDeleteSubject,
 }) {
   const [form, setForm] = useState({ subject: '', topic: '', minutes: '' });
   const [editingId, setEditingId] = useState(null);
@@ -25,7 +25,7 @@ export default function StudyCard({
     if (!form.subject || !form.minutes || busy) return;
     setBusy(true);
     const ok = await mutate(null, () => client.post(`/days/${date}/entries`,
-      { subject: form.subject, topic: form.topic, minutes: parseInt(form.minutes, 10) }, { params: planParams }));
+      { subject: form.subject, topic: form.topic, minutes: parseInt(form.minutes, 10) }));
     setBusy(false);
     if (ok) setForm(f => ({ subject: f.subject, topic: '', minutes: '' }));
   }
@@ -72,7 +72,7 @@ export default function StudyCard({
         <div className="card-title"><span className="icon-tile study">{STUDY_ICON}</span><h2>Çalışma Planı</h2></div>
         {totalMinutes > 0 && <span className="total">{totalMinutes} dk toplam</span>}
       </div>
-      {canEdit && <div className="hint">Rozete dokunarak durumu değiştirin: Yapılacak → Devam Ediyor → Tamamlandı</div>}
+      {entries.some(e => e.canEdit) && <div className="hint">Rozete dokunarak durumu değiştirin: Yapılacak → Devam Ediyor → Tamamlandı</div>}
 
       {entries.length === 0
         ? <div className="empty-note">Bu gün için henüz ders kaydı yok.</div>
@@ -91,35 +91,32 @@ export default function StudyCard({
           </form>
         ) : (
           <div key={e.id} className="entry">
-            {canEdit
+            {e.canEdit
               ? <button className={`status-badge status-${e.status}`} onClick={() => cycleStatus(e)}>{STATUS_SHORT[e.status]}</button>
               : <span className={`status-badge status-${e.status}`}>{STATUS_SHORT[e.status]}</span>}
             <div className="info">
               <div className={`subj${e.status === 'done' ? ' done' : ''}`}>{e.subject}</div>
               {e.topic && <div className="topic">{e.topic}</div>}
-              <AuditTag entry={e} ownerId={ownerId} />
+              <AuditTag entry={e} myId={myId} />
             </div>
             <span className="mins">{e.minutes} dk</span>
-            {canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
-            {canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEntry(e.id)}>×</button>}
+            {e.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
+            {e.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEntry(e.id)}>×</button>}
           </div>
         ))
       }
 
-      {canEdit && (
-        <form className="addform" onSubmit={addEntry}>
-          <select aria-label="Ders" value={form.subject} onChange={ev => setForm(f => ({ ...f, subject: ev.target.value }))}>
-            <option value="">Ders seçin</option>
-            {subjectNames.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <input name="topic" placeholder="Konu (opsiyonel)" value={form.topic} onChange={ev => setForm(f => ({ ...f, topic: ev.target.value }))} />
-          <input name="minutes" type="number" min="1" max="1440" placeholder="dk" value={form.minutes} onChange={ev => setForm(f => ({ ...f, minutes: ev.target.value }))} />
-          <button type="submit" disabled={busy}>Ekle</button>
-        </form>
-      )}
+      <form className="addform" onSubmit={addEntry}>
+        <select aria-label="Ders" value={form.subject} onChange={ev => setForm(f => ({ ...f, subject: ev.target.value }))}>
+          <option value="">Ders seçin</option>
+          {subjectNames.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <input name="topic" placeholder="Konu (opsiyonel)" value={form.topic} onChange={ev => setForm(f => ({ ...f, topic: ev.target.value }))} />
+        <input name="minutes" type="number" min="1" max="1440" placeholder="dk" value={form.minutes} onChange={ev => setForm(f => ({ ...f, minutes: ev.target.value }))} />
+        <button type="submit" disabled={busy}>Ekle</button>
+      </form>
 
-      {subjectsCanEdit && (
-        <>
+      <>
           <button className="manage-toggle" onClick={() => setSubjectsOpen(o => !o)}>
             {subjectsOpen ? '▲ Ders listesini kapat' : '✎ Dersleri düzenle (ekle/sil)'}
           </button>
@@ -131,7 +128,7 @@ export default function StudyCard({
                 : subjects.map(s => (
                   <span key={s.id} className="subject-chip">
                     {s.name}
-                    <button className="x" aria-label={`${s.name} dersini sil`} onClick={() => onDeleteSubject(s)}>×</button>
+                    {s.canEdit && <button className="x" aria-label={`${s.name} dersini sil`} onClick={() => onDeleteSubject(s)}>×</button>}
                   </span>
                 ))
               }
@@ -142,8 +139,7 @@ export default function StudyCard({
               </form>
             </div>
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }
