@@ -286,6 +286,16 @@ header.top .tag .av { width: 20px; height: 20px; border-radius: 50%; background:
 /* Oturum ve hata durumları */
 .top-right { display: flex; align-items: center; gap: 8px; }
 .top-right .logout-btn { padding: 5px 11px; }
+
+/* Ad menüsü (sağ üst) */
+.usermenu { position: relative; }
+.usermenu-btn { cursor: pointer; }
+.usermenu-btn:hover, .usermenu-btn[aria-expanded="true"] { border-color: var(--line-strong); color: var(--ink); }
+.usermenu-btn .caret { font-size: 9px; color: var(--ink-faint); margin-left: -2px; }
+.usermenu-backdrop { position: fixed; inset: 0; z-index: 20; }
+.usermenu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 21; list-style: none; margin: 0; padding: 6px; min-width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.usermenu-list button { width: 100%; text-align: left; background: none; border: none; border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.usermenu-list button:hover { background: var(--surface-2); }
 .load-error { background: var(--danger-soft); color: var(--danger); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .load-error p { margin: 0; flex: 1 1 100%; font-size: 13.5px; }
 .inline-error { font-size: 12.5px; color: var(--danger); margin-top: 6px; }

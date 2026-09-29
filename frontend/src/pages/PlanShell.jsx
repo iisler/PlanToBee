@@ -6,7 +6,8 @@ import { useNotice } from '../context/NoticeContext';
 import DayPage from './DayPage';
 import WeekPage from './WeekPage';
 import FamilyPage from './FamilyPage';
-import { dkey, initial, mondayOf } from '../utils/format';
+import UserMenu from '../components/UserMenu';
+import { dkey, mondayOf } from '../utils/format';
 
 // Giriş yapmış, e-postası doğrulanmış ve ailesi olan kullanıcının ana ekranı.
 // Gün ve hafta planı ailenin ortak planıdır; herkes kendi hesabıyla görür ve ekler.
@@ -102,7 +103,7 @@ export default function PlanShell() {
       <header className="top">
         <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
         <div className="top-right">
-          <span className="tag"><span className="av">{initial(user.displayName)}</span>{user.displayName}</span>
+          <UserMenu name={user.displayName} onFamily={() => changeView('family')} />
           <button className="logout-btn" onClick={logout}>Çıkış</button>
         </div>
       </header>
@@ -110,7 +111,6 @@ export default function PlanShell() {
       <div className="viewtabs">
         <button className={view === 'day' ? 'active' : ''} onClick={() => changeView('day')}>Gün</button>
         <button className={view === 'week' ? 'active' : ''} onClick={() => changeView('week')}>Hafta Planı</button>
-        <button className={view === 'family' ? 'active' : ''} onClick={() => changeView('family')}>Ailem</button>
       </div>
 
       {familyError && !family && (
