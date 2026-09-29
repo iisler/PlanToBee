@@ -108,7 +108,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (dto.Status != null) entry.Status = dto.Status;
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, me));
+        return Ok(await MapOne(entry, me!));
     }
 
     [HttpPatch("{date}/entries/{id:int}/status")]
@@ -122,7 +122,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         entry!.Status = dto.Status; // durum değiştirmek de düzenleme sayılır
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, me));
+        return Ok(await MapOne(entry, me!));
     }
 
     [HttpDelete("{date}/entries/{id:int}")]
@@ -167,7 +167,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         entry.Note = dto.Note?.Trim() ?? "";
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, me));
+        return Ok(await MapOne(entry, me!));
     }
 
     [HttpDelete("{date}/training/{id:int}")]
@@ -210,7 +210,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         ev!.Title = dto.Title.Trim(); ev.Time = dto.Time?.Trim() ?? ""; ev.Note = dto.Note?.Trim() ?? "";
         StampUpdated(ev, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(ev, me));
+        return Ok(await MapOne(ev, me!));
     }
 
     [HttpDelete("{date}/events/{id:int}")]
