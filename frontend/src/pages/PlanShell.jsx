@@ -103,8 +103,7 @@ export default function PlanShell() {
       <header className="top">
         <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
         <div className="top-right">
-          <UserMenu name={user.displayName} onFamily={() => changeView('family')} />
-          <button className="logout-btn" onClick={logout}>Çıkış</button>
+          <UserMenu name={user.displayName} onFamily={() => changeView('family')} onLogout={logout} />
         </div>
       </header>
 

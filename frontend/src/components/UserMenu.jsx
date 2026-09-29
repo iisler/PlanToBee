@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { initial } from '../utils/format';
 
-// Sağ üstteki ad etiketi: dokununca aile ekranına giden menü açılır.
-export default function UserMenu({ name, onFamily }) {
+// Sağ üstteki ad etiketi: dokununca Ailem ve Çıkış seçenekleri açılır.
+export default function UserMenu({ name, onFamily, onLogout }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -27,6 +27,7 @@ export default function UserMenu({ name, onFamily }) {
           <div className="usermenu-backdrop" onClick={() => setOpen(false)} />
           <ul className="usermenu-list" role="menu">
             <li><button role="menuitem" onClick={() => choose(onFamily)}>Ailem</button></li>
+            <li><button role="menuitem" className="danger" onClick={() => choose(onLogout)}>Çıkış yap</button></li>
           </ul>
         </>
       )}
