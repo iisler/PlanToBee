@@ -20,6 +20,9 @@ services:
       # Oturum anahtarı: Render rastgele üretir
       - key: Jwt__Key
         generateValue: true
+      # Data Protection anahtarlarını veritabanında şifreleyen anahtar: Render rastgele üretir, değiştirilmemeli
+      - key: DataProtection__KeyEncryptionKey
+        generateValue: true
       # Brevo > SMTP & API > SMTP sekmesindeki "Login" değeri (…@smtp-brevo.com)
       - key: Email__Smtp__Username
         sync: false

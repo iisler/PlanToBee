@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -32,9 +33,13 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(startup.Connect
 
 // Data Protection anahtarları (şifre sıfırlama / e-posta doğrulama linklerini imzalar) veritabanında tutulur;
 // konteyner yeniden başlayınca ya da Render uykusundan uyanınca önceden gönderilmiş linkler geçersiz olmaz.
+// Anahtarlar veritabanına şifreli yazılır (Infrastructure/KeyEncryption.cs); şifreleme anahtarı ortam değişkenindedir.
+var keyEncryptionKey = new KeyEncryptionKey(startup.KeyEncryptionSecret);
+builder.Services.AddSingleton(keyEncryptionKey);
 builder.Services.AddDataProtection()
     .SetApplicationName("PlanToBee")
     .PersistKeysToDbContext<AppDbContext>();
+builder.Services.Configure<KeyManagementOptions>(o => o.XmlEncryptor = new AesGcmXmlEncryptor(keyEncryptionKey));
 
 builder.Services.AddIdentity<User, IdentityRole>(opt =>
 {
@@ -74,6 +79,7 @@ else
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<SendThrottle>();
+builder.Services.AddSingleton<MissingAccountLockout>();
 builder.Services.AddScoped<MemberContext>();
 builder.Services.AddScoped<FamilyService>();
 builder.Services.AddScoped<InvitationService>();
@@ -98,13 +104,23 @@ builder.Services.AddAuthentication(opt =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        // Erişim belirteci kısa ömürlü (AuthTokenService); varsayılan 5 dk tolerans ömrü fazla uzatırdı.
+        ClockSkew = TimeSpan.FromSeconds(30)
     };
     // Şifre değişince (security stamp yenilenir) eski token'lar geçersiz olur.
     opt.Events = new JwtBearerEvents
     {
         OnTokenValidated = async ctx =>
         {
+            // Kısa ömürlü belirteçlere geçmeden önce verilen 30 günlük belirteçler kabul edilmez; kullanıcı bir kez
+            // yeniden giriş yapar ve yenileme belirteci alır.
+            var maxLifetime = TimeSpan.FromMinutes(builder.Configuration.GetValue("Jwt:AccessTokenMinutes", 15) + 1);
+            if (ctx.SecurityToken.ValidTo > DateTime.UtcNow + maxLifetime)
+            {
+                ctx.Fail("Oturum geçersiz");
+                return;
+            }
             var userManager = ctx.HttpContext.RequestServices.GetRequiredService<UserManager<User>>();
             var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
             var stamp = ctx.Principal?.FindFirstValue(AuthClaims.SecurityStamp);

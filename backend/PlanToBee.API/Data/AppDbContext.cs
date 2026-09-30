@@ -22,6 +22,7 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
     public DbSet<TrainingEntry> TrainingEntries => Set<TrainingEntry>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -39,6 +40,16 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
         builder.Entity<User>(b =>
         {
             b.Property(u => u.DisplayName).HasMaxLength(100);
+        });
+
+        builder.Entity<RefreshToken>(b =>
+        {
+            b.Property(t => t.TokenHash).HasMaxLength(64);
+            b.Property(t => t.ReplacedByHash).HasMaxLength(64);
+            b.Property(t => t.SecurityStamp).HasMaxLength(256);
+            b.HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(t => t.TokenHash).IsUnique();
+            b.HasIndex(t => t.UserId);
         });
 
         builder.Entity<Family>(b =>

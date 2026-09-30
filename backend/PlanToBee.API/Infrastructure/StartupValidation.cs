@@ -13,6 +13,7 @@ public class StartupValidation
     public List<string> Warnings { get; } = [];
     public string? ConnectionString { get; private set; }
     public string JwtKey { get; private set; } = "";
+    public string KeyEncryptionSecret { get; private set; } = "";
     public bool UseSmtp { get; private set; }
     public int? Port { get; private set; }
     public ForwardedHeadersSettings Forwarded { get; private set; } = new();
@@ -36,6 +37,30 @@ public class StartupValidation
             v.Errors.Add("Jwt:Key repo geçmişinde açıkça yer almış eski anahtar. Yeni, rastgele bir anahtar üretin.");
         else
             v.JwtKey = jwtKey;
+        foreach (var (key, max) in new[] { ("AccessTokenMinutes", 24 * 60), ("RefreshTokenDays", 365) })
+        {
+            var raw = config[$"Jwt:{key}"];
+            if (!string.IsNullOrWhiteSpace(raw) && (!int.TryParse(raw, out var n) || n < 1 || n > max))
+                v.Errors.Add($"Jwt:{key} 1 ile {max} arasında bir tam sayı olmalı.");
+        }
+
+        // ---- Data Protection anahtar şifrelemesi ----
+        var kek = config["DataProtection:KeyEncryptionKey"];
+        if (!string.IsNullOrEmpty(kek))
+        {
+            if (Encoding.UTF8.GetByteCount(kek) < 32)
+                v.Errors.Add("DataProtection:KeyEncryptionKey (DataProtection__KeyEncryptionKey) en az 32 karakter olmalı.");
+            else
+                v.KeyEncryptionSecret = kek;
+        }
+        else
+        {
+            // Ayrı anahtar yoksa JWT anahtarından türetilir (farklı amaç etiketiyle; iki anahtar birbirinden çıkarılamaz).
+            v.KeyEncryptionSecret = v.JwtKey;
+            if (strict)
+                v.Warnings.Add("DataProtection:KeyEncryptionKey ayarlı değil; Data Protection anahtarları Jwt:Key'den türetilen " +
+                               "anahtarla şifreleniyor. Jwt__Key değişirse bekleyen doğrulama ve şifre sıfırlama bağlantıları geçersiz olur.");
+        }
         if (strict && string.IsNullOrWhiteSpace(config["Jwt:Issuer"]))
             v.Errors.Add("Jwt:Issuer boş.");
         if (strict && string.IsNullOrWhiteSpace(config["Jwt:Audience"]))

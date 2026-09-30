@@ -24,8 +24,12 @@ public record ResetPasswordDto(
 
 public record FamilySummaryDto(int Id, string Name, int MemberId, string DisplayName, string Role, bool IsAdmin);
 
+// Token: kısa ömürlü erişim belirteci (Authorization: Bearer). RefreshToken: /auth/refresh ile yeni oturum almak için;
+// her kullanımda değişir. ExpiresIn: erişim belirtecinin ömrü (saniye).
 public record AuthResponseDto(
     string Token,
+    string RefreshToken,
+    int ExpiresIn,
     string Email,
     string DisplayName,
     string Username, // geriye dönük uyumluluk: DisplayName ile aynı
@@ -33,6 +37,11 @@ public record AuthResponseDto(
     FamilySummaryDto? Family);
 
 public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family);
+
+// Kayıt cevabı hesap zaten var olsa da aynıdır (hesap varlığı belli olmaz); oturum açılmaz.
+public record RegisterAcceptedDto(string Message, string Email);
+
+public record RefreshTokenDto([Required, StringLength(100)] string RefreshToken);
 
 // Oturum açıksa Email gönderilmesi gerekmez.
 public record ResendVerificationDto([StringLength(256)] string? Email);

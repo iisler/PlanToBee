@@ -1,4 +1,5 @@
 using System.Net;
+using PlanToBee.API.Infrastructure;
 
 namespace PlanToBee.API.Services.Email;
 
@@ -29,6 +30,21 @@ public static class EmailTemplates
         null,
         "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez.");
 
+    // Kayıtlı ve doğrulanmış bir adresle yeniden kayıt olunmaya çalışıldığında hesabın sahibine gider.
+    // Kayıt ekranı bu durumda da "e-posta gönderdik" der; hesabın varlığını yalnızca adresin sahibi öğrenir.
+    public static EmailMessage AccountExists(string to, string displayName, string loginLink, string forgotLink) => Build(
+        to,
+        "PlanToBee: Bu adresle zaten bir hesabın var",
+        $"Merhaba {displayName},",
+        [
+            "Bu e-posta adresiyle PlanToBee'ye yeniden kayıt olunmak istendi. Bu adresle zaten bir hesabın olduğu için yeni hesap açılmadı.",
+            "Hesabına giriş yapmak için aşağıdaki bağlantıyı kullanabilirsin. Şifreni hatırlamıyorsan şu adresten yeni şifre belirleyebilirsin:",
+            forgotLink
+        ],
+        ("Giriş yap", loginLink),
+        null,
+        "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; hesabında bir değişiklik yapılmadı.");
+
     public static EmailMessage Invitation(string to, string memberName, string familyName, string inviterName,
         string roleText, string link, string code, DateTime expiresAtUtc) => Build(
         to,
@@ -37,7 +53,7 @@ public static class EmailTemplates
         [
             $"{inviterName}, seni PlanToBee'de \"{familyName}\" ailesine {roleText} olarak davet etti.",
             "Katılmak için aşağıdaki bağlantıya tıklayıp şifreni belirlemen yeterli.",
-            $"Davet {expiresAtUtc:dd.MM.yyyy HH:mm} (UTC) tarihine kadar, yani 7 gün geçerlidir ve tek kullanımlıktır."
+            $"Davet {TurkeyTime.Format(expiresAtUtc)} tarihine kadar, yani 7 gün geçerlidir ve tek kullanımlıktır."
         ],
         ("Daveti kabul et", link),
         ("Bağlantı çalışmazsa PlanToBee giriş ekranında \"Davet kodum var\" seçeneğine bu e-posta adresini ve şu kodu gir:", code),
