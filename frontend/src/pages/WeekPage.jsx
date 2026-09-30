@@ -89,7 +89,8 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
   // Kayıt işlemleri (iyimser güncelleme + hata olursa geri alma)
   const actions = {
     add: (key, kindPath, body) => mutate(null, () => client.post(`/days/${key}/${kindPath}`, body)),
-    remove: (key, kindPath, id) => mutate(w => removeFromWeek(w, key, LIST_KEY[kindPath], id), () => client.delete(`/days/${key}/${kindPath}/${id}`)),
+    remove: (key, kindPath, e) => mutate(w => removeFromWeek(w, key, LIST_KEY[kindPath], e.id),
+      (cfg) => client.delete(`/days/${key}/${kindPath}/${e.id}`, cfg), { undo: `${chipName(e)} silindi` }),
     cycle: (key, entry) => {
       const status = nextStatus(entry.status);
       return mutate(w => patchWeek(w, key, 'studyEntries', entry.id, { status }),
@@ -223,7 +224,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
     <button type="button" className="plus" aria-label={`${WEEKDAYS_FULL[i]} için ${KIND_LABEL[k].toLocaleLowerCase('tr-TR')} ekle`} onClick={() => prefill(key, k)}>+</button>
   );
   const del = (key, path, e) => (e.canEdit
-    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(key, path, e.id)}>×</button>
+    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(key, path, e)}>×</button>
     : <ReadOnlyMark compact />);
 
   return (
@@ -378,7 +379,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
   }
 
   const del = (path, e) => (e.canEdit
-    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(dateKey, path, e.id)}>×</button>
+    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(dateKey, path, e)}>×</button>
     : <ReadOnlyMark compact />);
 
   return (

@@ -1,19 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import client, { ACCOUNT_STATE_EVENT, AUTH_EXPIRED_EVENT, AUTH_KEYS, TOKEN_KEY, USER_KEY } from '../api/client';
+import client, { ACCOUNT_STATE_EVENT, AUTH_EXPIRED_EVENT, AUTH_KEYS, REFRESH_KEY, TOKEN_KEY, USER_KEY, saveTokens } from '../api/client';
 import { errorText } from '../api/errors';
 
 const AuthContext = createContext(null);
 
-// Kullanıcı nesnesi: { token, email, displayName, emailVerified, family: FamilySummary|null }
+// Kullanıcı nesnesi: { email, displayName, emailVerified, family: FamilySummary|null }
 // emailVerified === undefined ise durum henüz sunucudan okunmadı demektir.
+// Belirteçler kullanıcı nesnesinde değil, yalnızca localStorage'da tutulur (api/client.js onları yeniler).
 function readStoredUser() {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return null;
+  if (!localStorage.getItem(TOKEN_KEY)) return null;
   try {
     const cached = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-    if (cached) return { ...cached, token };
+    if (cached) {
+      delete cached.token; // eski sürümün önbelleğinde token da vardı
+      return cached;
+    }
   } catch { /* bozuk önbellek: sunucudan okunur */ }
-  return { token, email: localStorage.getItem('email') || '', displayName: localStorage.getItem('username') || '' };
+  return { email: localStorage.getItem('email') || '', displayName: localStorage.getItem('username') || '' };
 }
 
 function storeUser(u) {
@@ -21,10 +24,7 @@ function storeUser(u) {
     AUTH_KEYS.forEach((k) => localStorage.removeItem(k));
     return;
   }
-  localStorage.setItem(TOKEN_KEY, u.token);
-  const rest = { ...u };
-  delete rest.token; // token ayrı anahtarda tutulur
-  localStorage.setItem(USER_KEY, JSON.stringify(rest));
+  localStorage.setItem(USER_KEY, JSON.stringify(u));
 }
 
 export function AuthProvider({ children }) {
@@ -39,10 +39,10 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // AuthResponse (giriş, kayıt, şifre sıfırlama, davet kabulü) ile oturumu açar.
+  // AuthResponse (giriş, şifre sıfırlama, davet kabulü) ile oturumu açar.
   const applyAuth = useCallback((data) => {
+    saveTokens(data);
     setUser({
-      token: data.token,
       email: data.email,
       displayName: data.displayName ?? data.username,
       emailVerified: !!data.emailVerified,
@@ -75,13 +75,18 @@ export function AuthProvider({ children }) {
     return res.data;
   }
 
+  // Kayıt oturum açmaz: cevap, hesap zaten var olsa da aynıdır ("e-postana bağlantı gönderdik").
   async function register(email, password, displayName) {
     const res = await client.post('/auth/register', { email, password, displayName });
-    applyAuth(res.data);
     return res.data;
   }
 
-  const logout = useCallback(() => setUser(null), [setUser]);
+  // Bu cihazın yenileme belirteci sunucuda da iptal edilir; istek başarısız olsa da yerel oturum kapanır.
+  const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    if (refreshToken) client.post('/auth/logout', { refreshToken }).catch(() => {});
+    setUser(null);
+  }, [setUser]);
 
   // Açılışta doğrulama ve aile durumunu sunucudan tazele.
   useEffect(() => {

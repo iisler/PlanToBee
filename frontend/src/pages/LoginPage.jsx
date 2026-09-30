@@ -1,18 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import client from '../api/client';
 import { errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
 import useSlow, { SLOW_TEXT } from '../hooks/useSlow';
 
-// Giriş ve kayıt. Başarılı olunca yönlendirmeyi App (hesap durumu) yapar:
+// Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
+// Kayıt oturum açmaz; "e-postana bağlantı gönderdik" ekranı gösterilir (hesap varlığı belli olmasın diye).
 export default function LoginPage() {
   const { login, register } = useAuth();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', displayName: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
+  const [registered, setRegistered] = useState(null);
+  const [resendInfo, setResendInfo] = useState('');
   const slow = useSlow(loading);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -20,6 +25,8 @@ export default function LoginPage() {
   function switchMode(m) {
     setMode(m);
     setError('');
+    setRegistered(null);
+    setResendInfo('');
     setForm((f) => ({ ...f, password: '' }));
   }
 
@@ -28,12 +35,43 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      if (mode === 'login') await login(form.email.trim(), form.password);
-      else await register(form.email.trim(), form.password, form.displayName.trim());
+      if (mode === 'login') {
+        await login(form.email.trim(), form.password);
+      } else {
+        const data = await register(form.email.trim(), form.password, form.displayName.trim());
+        setRegistered({ email: data.email || form.email.trim(), message: data.message });
+        setLoading(false);
+      }
     } catch (err) {
       setError(errorText(err));
       setLoading(false);
     }
+  }
+
+  async function resend() {
+    setError('');
+    setResendInfo('');
+    try {
+      const r = await client.post('/auth/resend-verification', { email: registered.email });
+      setResendInfo(r.data?.message || 'Doğrulama e-postası gönderildi.');
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+
+  if (registered) {
+    return (
+      <AuthLayout subtitle="E-postanı kontrol et">
+        <p className="auth-text"><b>{registered.email}</b></p>
+        <div className="auth-info" role="status">{registered.message}</div>
+        {resendInfo && <div className="auth-info" role="status">{resendInfo}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        <div className="auth-actions">
+          <button className="auth-submit" onClick={() => switchMode('login')}>Giriş yap</button>
+          <button className="btn-ghost" onClick={resend}>E-postayı tekrar gönder</button>
+        </div>
+      </AuthLayout>
+    );
   }
 
   return (

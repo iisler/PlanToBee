@@ -72,20 +72,27 @@ function auditName(m) {
   return m.isFormerMember ? `Eski üye: ${m.displayName}` : m.displayName;
 }
 
-// Kayıt izi: ortak plandaki kaydı başka biri eklediyse veya en son düzenlediyse kısa metin döner.
-// Örn. "Annem ekledi", "Babam düzenledi · 18:40", "Eski üye: Ayşe ekledi". Gösterilecek iz yoksa ''.
-export function auditTrail(entry, myMemberId) {
-  if (!entry) return '';
+// Kayıt izi: { text, who }. text örn. "Annem ekledi", "Babam düzenledi · 18:40", "Eski üye: Ayşe ekledi",
+// "Sen ekledin". who: izdeki başka kişinin adı (kısa gösterimde baş harfi yazılır); kendi kaydında null.
+// showOwn: planı başkalarıyla paylaşıyorsan kendi eklediklerinde de "Sen ekledin" yazılır.
+// Gösterilecek iz yoksa null.
+export function auditInfo(entry, myMemberId, showOwn = false) {
+  if (!entry) return null;
   const foreign = (m) => m && (m.isFormerMember || m.memberId !== myMemberId);
   if (foreign(entry.updatedBy)) {
     const when = formatStamp(entry.updatedAt);
-    return `${auditName(entry.updatedBy)} düzenledi${when ? ` · ${when}` : ''}`;
+    return { text: `${auditName(entry.updatedBy)} düzenledi${when ? ` · ${when}` : ''}`, who: entry.updatedBy.displayName };
   }
   if (foreign(entry.createdBy)) {
-    return `${auditName(entry.createdBy)} ekledi${entry.isImported ? ' (aktarıldı)' : ''}`;
+    return { text: `${auditName(entry.createdBy)} ekledi${entry.isImported ? ' (aktarıldı)' : ''}`, who: entry.createdBy.displayName };
   }
-  if (entry.isImported) return 'Aktarıldı';
-  return '';
+  if (showOwn && entry.createdBy) return { text: `Sen ekledin${entry.isImported ? ' (aktarıldı)' : ''}`, who: null };
+  if (entry.isImported) return { text: 'Aktarıldı', who: null };
+  return null;
+}
+
+export function auditTrail(entry, myMemberId, showOwn = false) {
+  return auditInfo(entry, myMemberId, showOwn)?.text ?? '';
 }
 
 export const STATUS_ORDER = ['todo', 'inprogress', 'done'];

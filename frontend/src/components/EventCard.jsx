@@ -24,8 +24,9 @@ export default function EventCard({ date, events, myId, mutate }) {
     if (ok) setForm({ title: '', time: '', note: '' });
   }
 
-  function deleteEvent(id) {
-    mutate(d => removeEntry(d, 'events', id), () => client.delete(`/days/${date}/events/${id}`));
+  function deleteEvent(ev) {
+    mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
+      { undo: `${ev.title} etkinliği silindi` });
   }
 
   async function saveEdit(id) {
@@ -70,7 +71,7 @@ export default function EventCard({ date, events, myId, mutate }) {
             {ev.canEdit ? (
               <span className="entry-actions">
                 <button className="edit" aria-label={`${ev.title} etkinliğini düzenle`} onClick={() => startEdit(ev)}>✎</button>
-                <button className="del" aria-label={`${ev.title} etkinliğini sil`} onClick={() => deleteEvent(ev.id)}>×</button>
+                <button className="del" aria-label={`${ev.title} etkinliğini sil`} onClick={() => deleteEvent(ev)}>×</button>
               </span>
             ) : <ReadOnlyMark />}
           </div>

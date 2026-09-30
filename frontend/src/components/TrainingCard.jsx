@@ -31,8 +31,9 @@ export default function TrainingCard({ date, entries, totalMinutes, myId, mutate
     if (ok) setForm({ type: 'Top', hours: '', minutes: '', note: '' });
   }
 
-  function deleteTraining(id) {
-    mutate(d => removeEntry(d, 'trainingEntries', id), () => client.delete(`/days/${date}/training/${id}`));
+  function deleteTraining(entry) {
+    mutate(d => removeEntry(d, 'trainingEntries', entry.id), (cfg) => client.delete(`/days/${date}/training/${entry.id}`, cfg),
+      { undo: `${entry.type} antrenmanı silindi` });
   }
 
   function startEdit(t) {
@@ -85,7 +86,7 @@ export default function TrainingCard({ date, entries, totalMinutes, myId, mutate
             {e.canEdit ? (
               <span className="entry-actions">
                 <button className="edit" aria-label={`${e.type} antrenmanını düzenle`} onClick={() => startEdit(e)}>✎</button>
-                <button className="del" aria-label={`${e.type} antrenmanını sil`} onClick={() => deleteTraining(e.id)}>×</button>
+                <button className="del" aria-label={`${e.type} antrenmanını sil`} onClick={() => deleteTraining(e)}>×</button>
               </span>
             ) : <ReadOnlyMark />}
           </div>

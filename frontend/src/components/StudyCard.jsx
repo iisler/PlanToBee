@@ -31,8 +31,9 @@ export default function StudyCard({
     if (ok) setForm(f => ({ subject: f.subject, topic: '', minutes: '' }));
   }
 
-  function deleteEntry(id) {
-    mutate(d => removeEntry(d, 'studyEntries', id), () => client.delete(`/days/${date}/entries/${id}`));
+  function deleteEntry(entry) {
+    mutate(d => removeEntry(d, 'studyEntries', entry.id), (cfg) => client.delete(`/days/${date}/entries/${entry.id}`, cfg),
+      { undo: `${entry.subject} kaydı silindi` });
   }
 
   function cycleStatus(entry) {
@@ -107,7 +108,7 @@ export default function StudyCard({
             {e.canEdit ? (
               <span className="entry-actions">
                 <button className="edit" aria-label={`${e.subject} kaydını düzenle`} onClick={() => startEdit(e)}>✎</button>
-                <button className="del" aria-label={`${e.subject} kaydını sil`} onClick={() => deleteEntry(e.id)}>×</button>
+                <button className="del" aria-label={`${e.subject} kaydını sil`} onClick={() => deleteEntry(e)}>×</button>
               </span>
             ) : <ReadOnlyMark />}
           </div>

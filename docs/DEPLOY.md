@@ -61,6 +61,7 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `Email__Smtp__Password` | Brevo SMTP anahtarı (Brevo hesap şifren **değil**). | **Sorulur** | `xsmtpsib-...` | Brevo > SMTP & API > SMTP > Generate a new SMTP key | **Evet** |
 | `Email__From` | E-postaların gönderen adresi. Brevo'da **doğrulanmış** olmalı. | **Sorulur** | `plantobee.app@gmail.com` | Brevo > Senders'ta doğruladığın adres | Hayır |
 | `Jwt__Key` | Oturum belirteçlerini (giriş anahtarlarını) imzalayan anahtar. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
+| `DataProtection__KeyEncryptionKey` | E-posta doğrulama ve şifre sıfırlama linklerini imzalayan anahtarları veritabanında **şifreli** tutan anahtar. Yoksa `Jwt__Key`'den türetilir (açılışta uyarı yazılır). | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
 | `App__FrontendBaseUrl` | Sitenin adresi: e-posta linkleri ve CORS izni. `https://` ile başlar, sonunda `/` yok. Site bir alt yoldaysa yol da yazılır. | Hazır | `https://iisler.github.io/PlanToBee/app` | `render.yaml` | Hayır |
 | `Email__FromName` | Gönderen adı (gelen kutusunda görünen). | Varsayılan `PlanToBee` | `PlanToBee` | - | Hayır |
 | `Email__Smtp__Host` | SMTP sunucusu. | Varsayılan `smtp-relay.brevo.com` | `smtp-relay.brevo.com` | - | Hayır |
@@ -70,6 +71,8 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `ASPNETCORE_ENVIRONMENT` | Ortam adı. Docker imajı zaten `Production` ile açılır. | Varsayılan `Production` | `Production` | Değiştirme | Hayır |
 | `PORT` | API'nin dinlediği port. **Render kendisi verir, girme.** | Otomatik | `10000` | Render | Hayır |
 | `Jwt__Issuer` / `Jwt__Audience` | Belirteç düzenleyici / hedef adı. | Varsayılan `plantobee` | `plantobee` | Değiştirme | Hayır |
+| `Jwt__AccessTokenMinutes` | Erişim belirtecinin ömrü (dakika). Dolunca uygulama yenileme belirteciyle sessizce yenisini alır. | Varsayılan `15` (1-1440) | `15` | - | Hayır |
+| `Jwt__RefreshTokenDays` | Yenileme belirtecinin ömrü (gün). Her kullanımda yenilenir; bu kadar gün hiç açılmayan cihazda yeniden giriş gerekir. | Varsayılan `30` (1-365) | `30` | - | Hayır |
 | `ForwardedHeaders__Enabled` | Proxy'nin eklediği gerçek istemci IP'si ve HTTPS bilgisini kullan. | Varsayılan `true` | `true` | Değiştirme | Hayır |
 | `ForwardedHeaders__ForwardLimit` | `X-Forwarded-For` listesinde sağdan kaç girişe güvenileceği (Render için **1**). | Varsayılan `1` | `1` | Bölüm 5'teki kontrolle doğrulanır | Hayır |
 | `ForwardedHeaders__KnownProxies` | Güvenilen proxy IP'leri (virgülle). Render'da boş kalır. | Boş | `10.0.0.5` | - | Hayır |
@@ -82,7 +85,9 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 
 > Kullanma: `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Bu, .NET'in kendi kısayolu; PlanToBee kendi `ForwardedHeaders__*` ayarlarını kullanır, ikisi birlikte kafa karıştırır.
 
-> **JWT anahtarı hakkında:** Repo geçmişinde (ilk backend commit'i `664694a`, `appsettings.json`) eski bir JWT anahtarı açık metin olarak bulunuyor. O anahtar herkese açık sayılır ve API onunla açılmayı reddeder. Blueprint yeni, rastgele bir anahtar ürettiği için ek bir şey yapman gerekmez. Anahtarı elle değiştirmek istersen Mac'te Terminal'de `openssl rand -base64 48` çalıştır ve çıkan satırı Render > Environment > `Jwt__Key` değerine yapıştır. Anahtar değişirse herkesin oturumu kapanır, yeniden giriş yapmak gerekir; başka etkisi yoktur.
+> **JWT anahtarı hakkında:** Repo geçmişinde (ilk backend commit'i `664694a`, `appsettings.json`) eski bir JWT anahtarı açık metin olarak bulunuyor. O anahtar herkese açık sayılır ve API onunla açılmayı reddeder. Blueprint yeni, rastgele bir anahtar ürettiği için ek bir şey yapman gerekmez. Anahtarı elle değiştirmek istersen Mac'te Terminal'de `openssl rand -base64 48` çalıştır ve çıkan satırı Render > Environment > `Jwt__Key` değerine yapıştır. Anahtar değişirse açık erişim belirteçleri geçersiz olur; uygulama yenileme belirteciyle yenisini alır. `DataProtection__KeyEncryptionKey` ayarlı değilse bekleyen doğrulama ve şifre sıfırlama linkleri de geçersiz olur (yenisi istenebilir).
+
+> **Data Protection anahtar şifrelemesi hakkında:** `DataProtection__KeyEncryptionKey` değiştirilirse eski anahtarlar çözülemez; o ana kadar gönderilmiş doğrulama ve şifre sıfırlama linkleri çalışmaz, yeni linkler çalışır. Bu değer değiştirilmemeli. Bu özellikten önce oluşturulmuş anahtarlar (varsa) veritabanında şifresiz kalır ve 90 gün içinde kendiliğinden kullanımdan düşer.
 
 ### GitHub (site)
 
