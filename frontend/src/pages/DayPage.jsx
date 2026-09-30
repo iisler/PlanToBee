@@ -1,28 +1,20 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useCallback, useEffect, useState } from 'react';
 import client from '../api/client';
 import { errorText } from '../api/errors';
+import useMutation from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import StatsBar from '../components/StatsBar';
 import StudyCard from '../components/StudyCard';
 import TrainingCard from '../components/TrainingCard';
 import EventCard from '../components/EventCard';
+import { addDays, dkey, MONTHS, WEEKDAYS_FULL } from '../utils/format';
+import Loading from '../components/Loading';
 
-function dkey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-const WEEKDAYS_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
-const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-
-function addDays(d, n) {
-  const nd = new Date(d);
-  nd.setDate(nd.getDate() + n);
-  return nd;
-}
-
-export default function DayPage({ currentDate, setCurrentDate, weekSummaries, subjects, setSubjects, onDataChanged }) {
-  const { logout } = useAuth();
+// Ailenin ortak planında tek bir gün. myId: giriş yapan üyenin kimliği (kayıt izleri için).
+export default function DayPage({
+  currentDate, setCurrentDate, weekSummaries, myId,
+  subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged,
+}) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -37,27 +29,30 @@ export default function DayPage({ currentDate, setCurrentDate, weekSummaries, su
     return () => { active = false; };
   }, [date, retry]);
 
-  if (loadError && !day) return (
-    <div className="load-error">
-      <p>Gün yüklenemedi: {loadError}</p>
-      <button className="btn" onClick={() => { setLoadError(''); setRetry(n => n + 1); }}>Tekrar dene</button>
-      <button className="logout-btn" onClick={logout}>Çıkış Yap</button>
-    </div>
-  );
-  if (!day) return <div className="loading">Yükleniyor…</div>;
-
-  const totalStudy = day.studyEntries.reduce((s, e) => s + e.minutes, 0);
-  const totalTrain = day.trainingEntries.reduce((s, e) => s + e.minutes, 0);
-
-  async function refresh() {
+  const reload = useCallback(async () => {
     try {
       const r = await client.get(`/days/${date}`);
       setDay(r.data);
-    } catch (err) {
-      setLoadError(errorText(err));
+    } finally {
+      onDataChanged();
     }
-    onDataChanged();
-  }
+  }, [date, onDataChanged]);
+
+  const mutate = useMutation({ state: day, setState: setDay, reload, onAccessChanged });
+
+  // Gün değişirken önceki günün verisi gösterilmesin
+  const ready = day && day.date === date;
+
+  if (loadError && !ready) return (
+    <div className="load-error" role="alert">
+      <p>Gün yüklenemedi: {loadError}</p>
+      <button className="btn" onClick={() => { setLoadError(''); setRetry(n => n + 1); }}>Tekrar dene</button>
+    </div>
+  );
+
+  const totalStudy = ready ? day.studyEntries.reduce((s, e) => s + e.minutes, 0) : 0;
+  const totalTrain = ready ? day.trainingEntries.reduce((s, e) => s + e.minutes, 0) : 0;
+  const common = { date, myId, mutate };
 
   return (
     <>
@@ -75,14 +70,18 @@ export default function DayPage({ currentDate, setCurrentDate, weekSummaries, su
         <StatsBar weekSummaries={weekSummaries} />
       </section>
 
-      <StudyCard date={date} entries={day.studyEntries} subjects={subjects} setSubjects={setSubjects} totalMinutes={totalStudy} onRefresh={refresh} />
-      <TrainingCard date={date} entries={day.trainingEntries} totalMinutes={totalTrain} onRefresh={refresh} />
-      <EventCard date={date} events={day.events} onRefresh={refresh} />
+      {!ready ? <Loading /> : (
+        <>
+          <StudyCard {...common} entries={day.studyEntries} totalMinutes={totalStudy}
+            subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject} />
+          <TrainingCard {...common} entries={day.trainingEntries} totalMinutes={totalTrain} />
+          <EventCard {...common} events={day.events} />
+        </>
+      )}
 
       <div className="note">
         "Hafta Planı" sekmesinden gelecek günler için önceden ders/antrenman/etkinlik girebilirsiniz.
       </div>
-
     </>
   );
 }

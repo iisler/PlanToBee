@@ -1,0 +1,35 @@
+# Derleme çıktıları (imaj içinde yeniden derlenir)
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# Yerel gizli ve geliştirme dosyaları
+**/.env
+**/.env.*
+**/*.user
+**/secrets.json
+**/*.pfx
+**/*.pem
+**/*.key
+dev-emails/
+**/dev-emails/
+appsettings.Development.json
+Properties/launchSettings.json
+*.http
+
+# Editör / işletim sistemi / git
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.DS_Store
+**/.git
+**/.gitignore
+
+# Docker dosyalarının kendisi
+Dockerfile
+.dockerignore
+
+# Frontend ve diğer repo parçaları (bağlam bu klasör olduğu için zaten dahil değil; güvenlik için)
+**/node_modules/
+frontend/

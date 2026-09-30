@@ -1,33 +1,58 @@
 import { useState } from 'react';
 import client from '../api/client';
+import { patchEntry, removeEntry } from '../hooks/useMutation';
+import { formatDuration } from '../utils/format';
+import AuditTag from './AuditTag';
+import ReadOnlyMark from './ReadOnlyMark';
 
 const SPORT_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 3c2.5 2.5 2.5 15.5 0 18" /><path d="M4.5 8c4 2 11 2 15 0" /><path d="M4.5 16c4-2 11-2 15 0" /></svg>
 );
+const TYPES = ['Top', 'Kuvvet'];
 
-function formatDuration(mins) {
-  const h = Math.floor(mins / 60), m = mins % 60;
-  if (h === 0) return `${m} dk`;
-  if (m === 0) return `${h} sa`;
-  return `${h} sa ${m} dk`;
+function toMinutes(f) {
+  return (parseInt(f.hours, 10) || 0) * 60 + (parseInt(f.minutes, 10) || 0);
 }
 
-export default function TrainingCard({ date, entries, totalMinutes, onRefresh }) {
+export default function TrainingCard({ date, entries, totalMinutes, myId, mutate }) {
   const [form, setForm] = useState({ type: 'Top', hours: '', minutes: '', note: '' });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [busy, setBusy] = useState(false);
 
   async function addTraining(e) {
     e.preventDefault();
-    const totalMins = (parseInt(form.hours) || 0) * 60 + (parseInt(form.minutes) || 0);
-    if (totalMins <= 0) return;
-    await client.post(`/days/${date}/training`, { type: form.type, minutes: totalMins, note: form.note });
-    setForm({ type: 'Top', hours: '', minutes: '', note: '' });
-    onRefresh();
+    const minutes = toMinutes(form);
+    if (minutes <= 0 || busy) return;
+    setBusy(true);
+    const ok = await mutate(null, () => client.post(`/days/${date}/training`,
+      { type: form.type, minutes, note: form.note }));
+    setBusy(false);
+    if (ok) setForm({ type: 'Top', hours: '', minutes: '', note: '' });
   }
 
-  async function deleteTraining(id) {
-    await client.delete(`/days/${date}/training/${id}`);
-    onRefresh();
+  function deleteTraining(entry) {
+    mutate(d => removeEntry(d, 'trainingEntries', entry.id), (cfg) => client.delete(`/days/${date}/training/${entry.id}`, cfg),
+      { undo: `${entry.type} antrenmanı silindi` });
   }
+
+  function startEdit(t) {
+    setEditingId(t.id);
+    setEditForm({ type: t.type, hours: String(Math.floor(t.minutes / 60) || ''), minutes: String(t.minutes % 60 || ''), note: t.note || '' });
+  }
+
+  async function saveEdit(id) {
+    const minutes = toMinutes(editForm);
+    if (minutes <= 0) return;
+    const body = { type: editForm.type, minutes, note: editForm.note };
+    setEditingId(null);
+    const ok = await mutate(d => patchEntry(d, 'trainingEntries', id, body),
+      () => client.put(`/days/${date}/training/${id}`, body));
+    if (!ok) setEditingId(id);
+  }
+
+  const setE = k => ev => setEditForm(f => ({ ...f, [k]: ev.target.value }));
+  const editTypes = editingId && !TYPES.includes(editForm.type) ? [editForm.type, ...TYPES] : TYPES;
 
   return (
     <div className="card sport">
@@ -38,36 +63,44 @@ export default function TrainingCard({ date, entries, totalMinutes, onRefresh })
 
       {entries.length === 0
         ? <div className="empty-note">Bu gün için henüz antrenman kaydı yok.</div>
-        : entries.map(e => (
+        : entries.map(e => editingId === e.id ? (
+          <form key={e.id} className="edit-form sport" onSubmit={ev => { ev.preventDefault(); saveEdit(e.id); }}>
+            <select aria-label="Antrenman türü" value={editForm.type} onChange={setE('type')}>
+              {editTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <input aria-label="Saat" type="number" inputMode="numeric" min="0" placeholder="sa" className="num" value={editForm.hours} onChange={setE('hours')} />
+            <input aria-label="Dakika" type="number" inputMode="numeric" min="0" max="59" placeholder="dk" className="num" value={editForm.minutes} onChange={setE('minutes')} />
+            <input aria-label="Not" placeholder="Not" value={editForm.note} onChange={setE('note')} />
+            <button type="submit" className="save">Kaydet</button>
+            <button type="button" className="cancel" onClick={() => setEditingId(null)}>İptal</button>
+          </form>
+        ) : (
           <div key={e.id} className="entry">
             <span className="swatch sport" />
             <div className="info">
               <div className="subj">{e.type}</div>
               {e.note && <div className="topic">{e.note}</div>}
+              <AuditTag entry={e} myId={myId} />
             </div>
             <span className="mins sport">{formatDuration(e.minutes)}</span>
-            <button className="del" aria-label="Sil" onClick={() => deleteTraining(e.id)}>×</button>
+            {e.canEdit ? (
+              <span className="entry-actions">
+                <button className="edit" aria-label={`${e.type} antrenmanını düzenle`} onClick={() => startEdit(e)}>✎</button>
+                <button className="del" aria-label={`${e.type} antrenmanını sil`} onClick={() => deleteTraining(e)}>×</button>
+              </span>
+            ) : <ReadOnlyMark />}
           </div>
         ))
       }
 
       <form className="addform sport" onSubmit={addTraining}>
-        <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-          <option value="Top">Top</option>
-          <option value="Kuvvet">Kuvvet</option>
+        <select aria-label="Antrenman türü" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+          {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input
-          type="number" min="0" placeholder="sa"
-          value={form.hours}
-          onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}
-        />
-        <input
-          type="number" min="0" max="59" placeholder="dk"
-          value={form.minutes}
-          onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))}
-        />
-        <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-        <button type="submit">Ekle</button>
+        <input type="number" inputMode="numeric" min="0" placeholder="sa" aria-label="Saat" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
+        <input type="number" inputMode="numeric" min="0" max="59" placeholder="dk" aria-label="Dakika" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))} />
+        <input aria-label="Not" placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+        <button type="submit" disabled={busy}>Ekle</button>
       </form>
     </div>
   );

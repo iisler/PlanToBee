@@ -1,114 +1,117 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import { errorText } from '../api/errors';
+import AuthLayout from '../components/AuthLayout';
+import useSlow, { SLOW_TEXT } from '../hooks/useSlow';
 
+// Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
+// doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
+// Kayıt oturum açmaz; "e-postana bağlantı gönderdik" ekranı gösterilir (hesap varlığı belli olmasın diye).
 export default function LoginPage() {
   const { login, register } = useAuth();
-  const navigate = useNavigate();
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ email: '', password: '', username: '', password2: '' });
+  const [form, setForm] = useState({ email: '', password: '', displayName: '' });
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
-  const [canReset, setCanReset] = useState(false);
-
-  // "Şifremi unuttum" yalnızca sunucuda açıksa gösterilir (şimdilik sadece Development)
-  useEffect(() => {
-    client.get('/auth/features')
-      .then(r => setCanReset(!!r.data?.directPasswordReset))
-      .catch(() => setCanReset(false));
-  }, []);
+  // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
+  const [registered, setRegistered] = useState(null);
+  const [resendInfo, setResendInfo] = useState('');
+  const slow = useSlow(loading);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function switchMode(m) {
     setMode(m);
     setError('');
-    setInfo('');
-    setForm((f) => ({ ...f, password: '', password2: '' }));
+    setRegistered(null);
+    setResendInfo('');
+    setForm((f) => ({ ...f, password: '' }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setInfo('');
-
-    if (mode === 'reset' && form.password !== form.password2) {
-      setError('Şifreler eşleşmiyor');
-      return;
-    }
-
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(form.email, form.password);
-        navigate('/');
-      } else if (mode === 'register') {
-        await register(form.email, form.password, form.username);
-        await login(form.email, form.password);
-        navigate('/');
+        await login(form.email.trim(), form.password);
       } else {
-        await client.post('/auth/reset-password', { email: form.email, newPassword: form.password });
-        switchMode('login');
-        setInfo('Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.');
+        const data = await register(form.email.trim(), form.password, form.displayName.trim());
+        setRegistered({ email: data.email || form.email.trim(), message: data.message });
+        setLoading(false);
       }
     } catch (err) {
       setError(errorText(err));
-    } finally {
       setLoading(false);
     }
   }
 
-  const submitLabel = { login: 'Giriş Yap', register: 'Kayıt Ol', reset: 'Şifreyi Güncelle' }[mode];
+  async function resend() {
+    setError('');
+    setResendInfo('');
+    try {
+      const r = await client.post('/auth/resend-verification', { email: registered.email });
+      setResendInfo(r.data?.message || 'Doğrulama e-postası gönderildi.');
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+
+  if (registered) {
+    return (
+      <AuthLayout subtitle="E-postanı kontrol et">
+        <p className="auth-text"><b>{registered.email}</b></p>
+        <div className="auth-info" role="status">{registered.message}</div>
+        {resendInfo && <div className="auth-info" role="status">{resendInfo}</div>}
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        <div className="auth-actions">
+          <button className="auth-submit" onClick={() => switchMode('login')}>Giriş yap</button>
+          <button className="btn-ghost" onClick={resend}>E-postayı tekrar gönder</button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-card">
-        <img className="auth-logo" src="/favicon.svg" alt="" />
-        <h1>PlanMee</h1>
-        <p className="auth-sub">{mode === 'reset' ? 'Şifreni sıfırla' : 'Ders & Antrenman Takip'}</p>
-
-        {mode !== 'reset' && (
-          <div className="auth-tabs">
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => switchMode('login')}>Giriş</button>
-            <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')}>Kayıt Ol</button>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {mode === 'register' && (
-            <input id="username" placeholder="Kullanıcı adı" value={form.username} onChange={set('username')} required />
-          )}
-          <input id="email" type="email" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
-          <input
-            id="password"
-            type="password"
-            placeholder={mode === 'reset' ? 'Yeni şifre (en az 6 karakter)' : 'Şifre'}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            minLength={mode === 'login' ? undefined : 6}
-            value={form.password}
-            onChange={set('password')}
-            required
-          />
-          {mode === 'reset' && (
-            <input id="password2" type="password" placeholder="Yeni şifre (tekrar)" autoComplete="new-password" value={form.password2} onChange={set('password2')} required />
-          )}
-          {error && <div className="auth-error">{error}</div>}
-          {info && <div className="auth-info">{info}</div>}
-          <button type="submit" className="auth-submit" disabled={loading}>
-            {loading ? 'Yükleniyor…' : submitLabel}
-          </button>
-        </form>
-
-        {mode === 'login' && canReset && (
-          <button className="auth-link" onClick={() => switchMode('reset')}>Şifremi unuttum</button>
-        )}
-        {mode === 'reset' && (
-          <button className="auth-link" onClick={() => switchMode('login')}>‹ Girişe dön</button>
-        )}
+    <AuthLayout
+      subtitle="Ders & Antrenman Takip"
+      footer={mode === 'login' && (
+        <div className="auth-links">
+          <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
+          <Link className="auth-link" to="/invite-code">Davet kodum var</Link>
+        </div>
+      )}
+    >
+      <div className="auth-tabs">
+        <button className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => switchMode('login')}>Giriş</button>
+        <button className={mode === 'register' ? 'active' : ''} aria-pressed={mode === 'register'} onClick={() => switchMode('register')}>Kayıt Ol</button>
       </div>
-    </div>
+
+      <form onSubmit={handleSubmit}>
+        {mode === 'register' && (
+          <input id="displayName" aria-label="Adın" placeholder="Adın (ör. Ilker)" autoComplete="name" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
+        )}
+        <input id="email" type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
+        <input
+          id="password"
+          type="password"
+          aria-label="Şifre"
+          placeholder={mode === 'login' ? 'Şifre' : 'Şifre (en az 6 karakter)'}
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          minLength={mode === 'login' ? undefined : 6}
+          value={form.password}
+          onChange={set('password')}
+          required
+        />
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        <button type="submit" className="auth-submit" disabled={loading}>
+          {loading ? 'Yükleniyor…' : mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+        </button>
+        {slow && <div className="auth-hint" role="status">{SLOW_TEXT}</div>}
+        {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}
+      </form>
+    </AuthLayout>
   );
 }

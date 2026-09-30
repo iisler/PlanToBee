@@ -1,3 +1,5 @@
+import { WEEKDAYS_FULL } from '../utils/format';
+
 const WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
 function mondayOf(d) {
@@ -32,11 +34,14 @@ export default function WeekTrail({ currentDate, setCurrentDate, weekSummaries }
           <button
             key={i}
             className={`trail-dot${isSelected ? ' selected' : ''}${isToday ? ' istoday' : ''}`}
+            aria-pressed={isSelected}
+            aria-current={isToday ? 'date' : undefined}
+            aria-label={`${WEEKDAYS_FULL[i]} ${date.getDate()}${[hasStudy && 'ders', hasSport && 'antrenman', hasEvt && 'etkinlik'].filter(Boolean).map(x => `, ${x} var`).join('')}`}
             onClick={() => setCurrentDate(new Date(date))}
           >
             <span className="wk">{wd}</span>
             <span className="num">{date.getDate()}</span>
-            <span className="pips">
+            <span className="pips" aria-hidden="true">
               <span className={`pip${hasStudy ? ' study' : ''}`} />
               <span className={`pip${hasSport ? ' sport' : ''}`} />
               <span className={`pip${hasEvt ? ' evt' : ''}`} />

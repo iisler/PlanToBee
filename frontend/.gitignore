@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ortam dosyaları: gerçek değerler git'e girmez, yalnızca örnek dosya girer.
+.env
+.env.*
+!.env.example

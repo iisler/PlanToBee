@@ -1,0 +1,37 @@
+# Render Blueprint: PlanToBee API (backend/PlanToBee.API).
+# Render > New > Blueprint > bu repo seçilince servis aşağıdaki ayarlarla kurulur.
+# "sync: false" olan değerleri Render kurulum sırasında sorar; bunlar gizlidir, repoya yazılmaz.
+# Ayrıntılar: docs/DEPLOY.md
+services:
+  - type: web
+    name: plantobee-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    dockerfilePath: ./backend/PlanToBee.API/Dockerfile
+    dockerContext: ./backend/PlanToBee.API
+    healthCheckPath: /health
+    envVars:
+      # Neon > Connect (havuz kapalı) adresi: postgresql://...
+      - key: ConnectionStrings__Default
+        sync: false
+      # Oturum anahtarı: Render rastgele üretir
+      - key: Jwt__Key
+        generateValue: true
+      # Data Protection anahtarlarını veritabanında şifreleyen anahtar: Render rastgele üretir, değiştirilmemeli
+      - key: DataProtection__KeyEncryptionKey
+        generateValue: true
+      # Brevo > SMTP & API > SMTP sekmesindeki "Login" değeri (…@smtp-brevo.com)
+      - key: Email__Smtp__Username
+        sync: false
+      # Brevo SMTP anahtarı (xsmtpsib-…)
+      - key: Email__Smtp__Password
+        sync: false
+      # Brevo'da doğrulanmış gönderen adresi (ör. plantobee.app@gmail.com)
+      - key: Email__From
+        sync: false
+      # Sitenin adresi: e-posta linkleri ve CORS
+      - key: App__FrontendBaseUrl
+        value: https://iisler.github.io/PlanToBee/app
