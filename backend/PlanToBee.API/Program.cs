@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -167,6 +168,20 @@ catch (Exception ex)
 app.UsePlanToBeeForwardedHeaders(startup.Forwarded);
 if (!app.Environment.IsDevelopment())
     app.UseHsts(); // Yalnızca HTTPS olarak tanınan isteklere (X-Forwarded-Proto: https) HSTS başlığı ekler.
+
+// Yakalanmamış hatalar da diğer hatalarla aynı gövdeyle döner ({ code, message }); ayrıntı (yığın, SQL)
+// istemciye gönderilmez, yalnızca sunucu loguna yazılır. CORS başlıkları korunur (CORS OnStarting ile ekler),
+// böylece tarayıcı hatayı "Sunucuya ulaşılamadı" yerine anlaşılır mesajla gösterebilir.
+app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
+{
+    var ex = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var error = ex is DbUpdateConcurrencyException
+        ? (Status: 409, Body: new ApiError("concurrency_conflict", "Kayıt bu sırada değişti. Sayfayı yenileyip tekrar dene."))
+        : (Status: 500, Body: new ApiError("server_error", "Beklenmeyen bir hata oluştu. Biraz sonra tekrar dene."));
+    ctx.Response.StatusCode = error.Status;
+    ctx.Response.Headers.CacheControl = "no-store";
+    await ctx.Response.WriteAsJsonAsync(error.Body);
+}));
 
 app.MapPlanToBeeHealthChecks();
 app.UseCors();

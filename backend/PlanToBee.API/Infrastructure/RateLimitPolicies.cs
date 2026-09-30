@@ -11,6 +11,7 @@ public static class RateLimitPolicies
     public const string InvitePublic = "invite-public"; // davet linki/kodu doğrulama ve kabul
     public const string InviteSend = "invite-send";     // davet gönderme / yeniden gönderme
     public const string Session = "session";            // oturum bilgisi (/auth/me): kullanıcı başına geniş sınır
+    public const string Api = "api";                    // plan ve aile uç noktaları: kullanıcı başına geniş sınır
 
     // Varsayılan sınırlar RateLimits:Auth / InvitePublic / InviteSend ayarlarıyla değiştirilebilir.
     public static IServiceCollection AddPlanToBeeRateLimiting(this IServiceCollection services, IConfiguration config)
@@ -19,6 +20,7 @@ public static class RateLimitPolicies
         var invitePublicLimit = config.GetValue("RateLimits:InvitePublic", 10); // IP başına / 5 dakika
         var inviteSendLimit = config.GetValue("RateLimits:InviteSend", 20);     // kullanıcı başına / saat
         var sessionLimit = config.GetValue("RateLimits:Session", 120);          // kullanıcı başına / dakika
+        var apiLimit = config.GetValue("RateLimits:Api", 300);                  // kullanıcı başına / dakika
         return services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -47,6 +49,12 @@ public static class RateLimitPolicies
             o.AddPolicy(Session, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 "session:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = sessionLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // Gün/hafta, ders listesi ve aile uç noktaları. Normal kullanım bu sınıra yaklaşmaz; tek bir hesabın
+            // (ya da çalınmış bir token'ın) API'yi ve veritabanını sınırsız istekle meşgul etmesini engeller.
+            o.AddPolicy(Api, ctx => RateLimitPartition.GetFixedWindowLimiter(
+                "api:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = apiLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
     }
 

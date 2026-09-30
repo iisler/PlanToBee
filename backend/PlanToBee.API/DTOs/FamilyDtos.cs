@@ -45,6 +45,8 @@ public record FamilyMemberDto(
     string? Email,
     InvitationDto? Invitation); // en son davet (varsa)
 
+public record InviteResultDto(FamilyMemberDto Member, bool EmailSent);
+
 public record FamilyDto(
     int Id,
     string Name,

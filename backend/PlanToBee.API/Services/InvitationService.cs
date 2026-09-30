@@ -89,10 +89,19 @@ public class InvitationService(
 
             if (inv == null)
             {
-                foreach (var c in candidates.Where(c => c.ExpiresAt > now && c.FailedCodeAttempts < MaxCodeAttempts))
-                    c.FailedCodeAttempts++;
-                await db.SaveChangesAsync();
-                if (candidates.Count > 0 && candidates.All(c => c.FailedCodeAttempts >= MaxCodeAttempts))
+                // Sayaç veritabanında atomik artırılır: eşzamanlı hatalı denemeler birbirinin artışını ezmez
+                // (ezilen artış, kilide kadar fazladan deneme hakkı verirdi) ve satır sürümü (xmin) çakışması
+                // 500 hatasına dönüşmez.
+                var ids = candidates.Where(c => c.ExpiresAt > now && c.FailedCodeAttempts < MaxCodeAttempts).Select(c => c.Id).ToList();
+                if (ids.Count > 0)
+                    await db.Invitations
+                        .Where(i => ids.Contains(i.Id) && i.FailedCodeAttempts < MaxCodeAttempts)
+                        .ExecuteUpdateAsync(u => u.SetProperty(i => i.FailedCodeAttempts, i => i.FailedCodeAttempts + 1));
+                var candidateIds = candidates.Select(c => c.Id).ToList();
+                var attempts = candidateIds.Count == 0 ? [] : await db.Invitations.AsNoTracking()
+                    .Where(i => candidateIds.Contains(i.Id))
+                    .Select(i => i.FailedCodeAttempts).ToListAsync();
+                if (attempts.Count > 0 && attempts.All(a => a >= MaxCodeAttempts))
                     return Fail(CodeLocked());
                 return Fail(Err.BadRequest("invite_code_invalid",
                     "E-posta adresi ve kod eşleşmedi. Davetin gönderildiği e-posta adresini ve 6 haneli kodu kontrol et."));

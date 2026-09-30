@@ -1,6 +1,6 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using PlanToBee.API.Data;
+using PlanToBee.API.Infrastructure;
 using PlanToBee.API.Models;
 
 namespace PlanToBee.API.Services;
@@ -8,9 +8,6 @@ namespace PlanToBee.API.Services;
 // Aile üyeliği ve plan taşıma işlemleri. Çağıran taraf işlemleri bir transaction içinde yürütür.
 public class FamilyService(AppDbContext db)
 {
-    private static readonly StringComparer TurkishIgnoreCase =
-        StringComparer.Create(new CultureInfo("tr-TR"), ignoreCase: true);
-
     public static string DefaultFamilyName(string displayName) =>
         string.IsNullOrWhiteSpace(displayName) ? "Ailem" : Truncate($"{displayName.Trim()} Ailesi", 100);
 
@@ -93,11 +90,13 @@ public class FamilyService(AppDbContext db)
             }
         }
 
+        // Hedef ailenin ders listesine aynı anda ders eklenirse ad çakışması olmasın (SubjectsController ile aynı kilit).
+        await PlanLocks.LockSubjectsAsync(db, toFamilyId);
         var targetNames = await db.Subjects.Where(s => s.FamilyId == toFamilyId).Select(s => s.Name).ToListAsync();
         var sourceSubjects = await db.Subjects.Where(s => s.FamilyId == fromFamilyId).ToListAsync();
         foreach (var subject in sourceSubjects)
         {
-            if (targetNames.Any(n => TurkishIgnoreCase.Equals(n.Trim(), subject.Name.Trim())))
+            if (targetNames.Any(n => PlanText.TurkishIgnoreCase.Equals(n.Trim(), subject.Name.Trim())))
                 db.Subjects.Remove(subject);
             else
             {

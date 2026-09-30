@@ -97,7 +97,7 @@ public class StartupValidation
                            "ve IP bazlı sınırlar bütün kullanıcılar arasında paylaşılır. Render'da true olmalı.");
 
         // ---- Rate limit (isteğe bağlı) ----
-        foreach (var key in new[] { "Auth", "InvitePublic", "InviteSend", "Session" })
+        foreach (var key in new[] { "Auth", "InvitePublic", "InviteSend", "Session", "Api" })
         {
             var raw = config[$"RateLimits:{key}"];
             if (!string.IsNullOrWhiteSpace(raw) && (!int.TryParse(raw, out var n) || n < 1))

@@ -26,6 +26,9 @@ public record DayDto(
 public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int EventCount);
 public record WeekDto(List<WeekSummaryDto> Days);
 
+// GET /api/days/week/{monday}/details: haftanın 7 günü, her biri GET /api/days/{date} cevabıyla aynı biçimde.
+public record WeekDetailsDto(List<DayDto> Days);
+
 public record SubjectListDto(List<SubjectDto> Subjects);
 
 // Bir kayıt en fazla bir tam gün (1440 dk) sürebilir.

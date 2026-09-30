@@ -57,6 +57,9 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
             b.HasIndex(m => m.UserId).IsUnique().HasFilter("\"UserId\" IS NOT NULL");
             // Her ailenin en fazla bir yöneticisi olur.
             b.HasIndex(m => m.FamilyId).IsUnique().HasFilter("\"IsAdmin\"").HasDatabaseName("IX_FamilyMembers_FamilyId_Admin");
+            // Ailenin üyelerini listeleyen sorgular (Ailem ekranı, davet kontrolleri, "başka üye var mı") ve
+            // Families silinirken FK taraması için. Yukarıdaki kısmi (IsAdmin) indeks bu sorgularda kullanılamaz.
+            b.HasIndex(m => new { m.FamilyId, m.Status });
         });
 
         builder.Entity<Invitation>(b =>

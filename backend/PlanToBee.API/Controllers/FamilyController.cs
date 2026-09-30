@@ -11,12 +11,11 @@ using PlanToBee.API.Services;
 
 namespace PlanToBee.API.Controllers;
 
-public record InviteResultDto(FamilyMemberDto Member, bool EmailSent);
-
 [ApiController]
 [Route("api/family")]
 [Authorize]
 [RequireVerifiedEmail]
+[EnableRateLimiting(RateLimitPolicies.Api)]
 public class FamilyController(
     AppDbContext db,
     UserManager<User> userManager,
@@ -79,6 +78,7 @@ public class FamilyController(
         var (me, error) = await RequireAdmin();
         if (error != null) return error;
         var list = await db.Invitations
+            .AsNoTracking()
             .Include(i => i.Member).Include(i => i.InvitedBy)
             .Where(i => i.FamilyId == me!.FamilyId)
             .OrderByDescending(i => i.CreatedAt)
@@ -100,7 +100,7 @@ public class FamilyController(
 
         var emailError = await ValidateInviteEmail(me!, dto.Email);
         if (emailError != null) return emailError;
-        if (!throttle.TryAcquire($"family-invite:{me!.FamilyId}", TimeSpan.FromDays(1), 30))
+        if (!TryAcquireFamilyInviteQuota(me!.FamilyId))
             return Err.TooMany("Bugün çok fazla davet gönderildi. Yarın tekrar dene.");
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -135,7 +135,7 @@ public class FamilyController(
             return Err.Conflict("invite_not_pending", "Yalnızca bekleyen veya süresi dolmuş davetler yeniden gönderilebilir.");
         if (DateTime.UtcNow - inv.LastSentAt < TimeSpan.FromSeconds(60))
             return Err.TooMany("Bu davet az önce gönderildi. Bir dakika bekleyip tekrar dene.");
-        if (!throttle.TryAcquire($"family-invite:{me!.FamilyId}", TimeSpan.FromDays(1), 30))
+        if (!TryAcquireFamilyInviteQuota(me!.FamilyId))
             return Err.TooMany("Bugün çok fazla davet gönderildi. Yarın tekrar dene.");
 
         // Yeni link ve kod; eskileri anında geçersiz olur, süre yeniden 7 gün.
@@ -205,7 +205,7 @@ public class FamilyController(
 
         var emailError = await ValidateInviteEmail(me!, dto.Email);
         if (emailError != null) return emailError;
-        if (!throttle.TryAcquire($"family-invite:{me!.FamilyId}", TimeSpan.FromDays(1), 30))
+        if (!TryAcquireFamilyInviteQuota(me!.FamilyId))
             return Err.TooMany("Bugün çok fazla davet gönderildi. Yarın tekrar dene.");
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -268,8 +268,8 @@ public class FamilyController(
         await using var tx = await db.Database.BeginTransactionAsync();
         var newMember = await families.DetachToOwnFamilyAsync(me);
         await tx.CommitAsync();
-        var family = await db.Families.FindAsync(newMember.FamilyId);
-        return Ok(new FamilySummaryDto(family!.Id, family.Name, newMember.Id, newMember.DisplayName, newMember.Role.ToString(), newMember.IsAdmin));
+        var family = newMember.Family!; // CreateFamilyAsync yeni aileyi üyeye bağlar, ayrıca sorgu gerekmez
+        return Ok(new FamilySummaryDto(family.Id, family.Name, newMember.Id, newMember.DisplayName, newMember.Role.ToString(), newMember.IsAdmin));
     }
 
     [HttpPost("transfer-admin")]
@@ -301,6 +301,10 @@ public class FamilyController(
         if (!me.IsAdmin) return (null, Err.AdminOnly());
         return (me, null);
     }
+
+    // Aile başına günde en fazla 30 davet e-postası (davet + yeniden gönderme).
+    private bool TryAcquireFamilyInviteQuota(int familyId) =>
+        throttle.TryAcquire($"family-invite:{familyId}", TimeSpan.FromDays(1), 30);
 
     private async Task<IActionResult?> ValidateInviteEmail(FamilyMember me, string email)
     {

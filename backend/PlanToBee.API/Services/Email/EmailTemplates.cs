@@ -58,7 +58,7 @@ public static class EmailTemplates
             .Append("<div style=\"font-family:Arial,sans-serif;font-size:15px;color:#222\">")
             .Append($"<p>{H(greeting)}</p>");
         foreach (var p in paragraphs) html.Append($"<p>{H(p)}</p>");
-        html.Append($"<p><a href=\"{H(button.Url)}\" style=\"display:inline-block;padding:10px 18px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px\">{H(button.Text)}</a></p>")
+        html.Append($"<p><a href=\"{H(button.Url)}\" style=\"display:inline-block;padding:10px 18px;background:#F6B51E;color:#1E1A14;font-weight:bold;text-decoration:none;border-radius:6px\">{H(button.Text)}</a></p>")
             .Append($"<p style=\"font-size:12px;color:#666\">Buton çalışmazsa bu adresi tarayıcına yapıştır:<br>{H(button.Url)}</p>");
         if (code != null)
             html.Append($"<p>{H(code.Value.Intro)}</p><p style=\"font-size:24px;letter-spacing:4px;font-weight:bold\">{H(code.Value.Code)}</p>");
