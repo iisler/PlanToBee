@@ -8,6 +8,7 @@ import StudyCard from '../components/StudyCard';
 import TrainingCard from '../components/TrainingCard';
 import EventCard from '../components/EventCard';
 import { addDays, dkey, MONTHS, WEEKDAYS_FULL } from '../utils/format';
+import Loading from '../components/Loading';
 
 // Ailenin ortak planında tek bir gün. myId: giriş yapan üyenin kimliği (kayıt izleri için).
 export default function DayPage({
@@ -43,7 +44,7 @@ export default function DayPage({
   const ready = day && day.date === date;
 
   if (loadError && !ready) return (
-    <div className="load-error">
+    <div className="load-error" role="alert">
       <p>Gün yüklenemedi: {loadError}</p>
       <button className="btn" onClick={() => { setLoadError(''); setRetry(n => n + 1); }}>Tekrar dene</button>
     </div>
@@ -69,7 +70,7 @@ export default function DayPage({
         <StatsBar weekSummaries={weekSummaries} />
       </section>
 
-      {!ready ? <div className="loading">Yükleniyor…</div> : (
+      {!ready ? <Loading /> : (
         <>
           <StudyCard {...common} entries={day.studyEntries} totalMinutes={totalStudy}
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject} />

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import client, { ACCOUNT_STATE_EVENT, AUTH_EXPIRED_EVENT, AUTH_KEYS, TOKEN_KEY, USER_KEY } from '../api/client';
+import { errorText } from '../api/errors';
 
 const AuthContext = createContext(null);
 
@@ -63,7 +64,7 @@ export function AuthProvider({ children }) {
       return r.data;
     } catch (err) {
       if (err?.response?.status === 401) setUser(null);
-      else setMeError('Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.');
+      else setMeError(errorText(err));
       throw err;
     }
   }, [setUser]);

@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <form onSubmit={submit}>
           <p className="auth-text">E-posta adresini gir; sana yeni şifre belirleyebileceğin bir bağlantı gönderelim.</p>
-          <input type="email" placeholder="E-posta" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <input type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Gönderiliyor…' : 'Bağlantı gönder'}</button>
         </form>

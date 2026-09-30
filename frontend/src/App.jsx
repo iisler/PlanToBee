@@ -11,6 +11,7 @@ import CreateFamilyPage from './pages/CreateFamilyPage';
 import InvitePage from './pages/InvitePage';
 import PlanShell from './pages/PlanShell';
 import AuthLayout from './components/AuthLayout';
+import Loading from './components/Loading';
 
 // Hesap durumuna göre doğru ekranı seçer:
 // oturum yok → giriş, e-posta doğrulanmamış → doğrulama, aile yok → aile kurma, aksi halde uygulama.
@@ -32,7 +33,7 @@ function Gate() {
           <button className="auth-submit" onClick={() => refreshMe().catch(() => {})}>Tekrar dene</button>
           <button className="auth-link" onClick={logout}>Çıkış yap</button>
         </>
-      ) : <div className="loading">Yükleniyor…</div>}
+      ) : <Loading />}
     </AuthLayout>
   );
 

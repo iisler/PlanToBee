@@ -4,6 +4,7 @@ import client from '../api/client';
 import { errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
+import Loading from '../components/Loading';
 
 // E-postadaki doğrulama bağlantısından açılır: /verify-email?userId=…&token=…
 export default function VerifyEmailPage() {
@@ -29,7 +30,7 @@ export default function VerifyEmailPage() {
 
   return (
     <AuthLayout subtitle="E-posta doğrulama">
-      {state.status === 'loading' && <div className="loading">Doğrulanıyor…</div>}
+      {state.status === 'loading' && <Loading text="Doğrulanıyor…" />}
       {state.status === 'ok' && (
         <>
           <div className="auth-info" role="status">{state.message}</div>

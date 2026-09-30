@@ -2,6 +2,7 @@ import { useState } from 'react';
 import client from '../api/client';
 import { patchEntry, removeEntry } from '../hooks/useMutation';
 import AuditTag from './AuditTag';
+import ReadOnlyMark from './ReadOnlyMark';
 
 const EVENT_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
@@ -66,16 +67,20 @@ export default function EventCard({ date, events, myId, mutate }) {
               <AuditTag entry={ev} myId={myId} />
             </div>
             {ev.time && <span className="mins evt">{ev.time}</span>}
-            {ev.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(ev)}>✎</button>}
-            {ev.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEvent(ev.id)}>×</button>}
+            {ev.canEdit ? (
+              <span className="entry-actions">
+                <button className="edit" aria-label={`${ev.title} etkinliğini düzenle`} onClick={() => startEdit(ev)}>✎</button>
+                <button className="del" aria-label={`${ev.title} etkinliğini sil`} onClick={() => deleteEvent(ev.id)}>×</button>
+              </span>
+            ) : <ReadOnlyMark />}
           </div>
         ))
       }
 
       <form className="addform event" onSubmit={addEvent}>
-        <input placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-        <input placeholder="Saat" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
-        <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+        <input className="wide" aria-label="Etkinlik" placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        <input className="time" aria-label="Saat" placeholder="Saat" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+        <input aria-label="Not" placeholder="Not" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
         <button type="submit" disabled={busy}>Ekle</button>
       </form>
     </div>

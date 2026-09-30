@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotice } from '../context/NoticeContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatRemaining, formatStamp, initial, INVITE_STATUS_LABEL, MEMBER_STATUS_LABEL, possessive, ROLE_LABEL } from '../utils/format';
+import Loading from '../components/Loading';
 
 // "Ailem" ekranı: üyeler, roller, hesap ve davet durumları. Değişiklikler yalnızca yöneticiye açıktır.
 export default function FamilyPage({ family, reloadFamily }) {
@@ -33,7 +34,7 @@ export default function FamilyPage({ family, reloadFamily }) {
 
   useEffect(() => { if (historyOpen && isAdmin) loadHistory(); }, [historyOpen, isAdmin, loadHistory]);
 
-  if (!family) return <div className="loading">Yükleniyor…</div>;
+  if (!family) return <Loading />;
 
   // Ortak akış: istek → aileyi tazele → bilgi mesajı. Hata olursa mesaj gösterilir, form korunur.
   async function run(request, successText) {
@@ -145,7 +146,7 @@ export default function FamilyPage({ family, reloadFamily }) {
         <div className="card-head"><h2>Üyeler</h2></div>
         {family.members.map(m => (
           <div key={m.id} className="member">
-            <span className="av big">{initial(m.displayName)}</span>
+            <span className="av big" aria-hidden="true">{initial(m.displayName)}</span>
             <div className="member-info">
               <div className="member-name">
                 {m.displayName}{m.isMe && <small> (sen)</small>}
@@ -202,7 +203,7 @@ export default function FamilyPage({ family, reloadFamily }) {
                 value={invite.displayName} onChange={e => setInvite(f => ({ ...f, displayName: e.target.value }))} />
               <div className="seg" role="group" aria-label="Rol">
                 {['Child', 'Parent'].map(r => (
-                  <button key={r} type="button" className={invite.role === r ? 'active' : ''} onClick={() => setInvite(f => ({ ...f, role: r }))}>{ROLE_LABEL[r]}</button>
+                  <button key={r} type="button" className={invite.role === r ? 'active' : ''} aria-pressed={invite.role === r} onClick={() => setInvite(f => ({ ...f, role: r }))}>{ROLE_LABEL[r]}</button>
                 ))}
               </div>
               <input type="email" placeholder="E-posta adresi" aria-label="E-posta" required
@@ -222,10 +223,10 @@ export default function FamilyPage({ family, reloadFamily }) {
           </div>
 
           <div className="card">
-            <button className="manage-toggle" onClick={() => setHistoryOpen(o => !o)}>
+            <button className="manage-toggle" aria-expanded={historyOpen} onClick={() => setHistoryOpen(o => !o)}>
               {historyOpen ? '▲ Davet geçmişini kapat' : '▼ Davet geçmişi'}
             </button>
-            {historyOpen && (history == null ? <div className="loading">Yükleniyor…</div>
+            {historyOpen && (history == null ? <Loading />
               : history.length === 0 ? <div className="empty-note">Henüz davet gönderilmedi.</div>
                 : history.map(inv => (
                   <div key={inv.id} className="history-row">

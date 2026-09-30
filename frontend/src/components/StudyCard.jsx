@@ -3,6 +3,7 @@ import client from '../api/client';
 import { patchEntry, removeEntry } from '../hooks/useMutation';
 import { nextStatus, STATUS_ORDER, STATUS_SHORT } from '../utils/format';
 import AuditTag from './AuditTag';
+import ReadOnlyMark from './ReadOnlyMark';
 
 const STUDY_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z" /><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" /></svg>
@@ -82,7 +83,7 @@ export default function StudyCard({
               {editOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <input aria-label="Konu" placeholder="Konu" value={editForm.topic} onChange={ev => setEditForm(f => ({ ...f, topic: ev.target.value }))} />
-            <input aria-label="Dakika" type="number" min="1" max="1440" placeholder="dk" className="num" value={editForm.minutes} onChange={ev => setEditForm(f => ({ ...f, minutes: ev.target.value }))} />
+            <input aria-label="Dakika" type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className="num" value={editForm.minutes} onChange={ev => setEditForm(f => ({ ...f, minutes: ev.target.value }))} />
             <select aria-label="Durum" value={editForm.status} onChange={ev => setEditForm(f => ({ ...f, status: ev.target.value }))}>
               {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_SHORT[s]}</option>)}
             </select>
@@ -91,17 +92,24 @@ export default function StudyCard({
           </form>
         ) : (
           <div key={e.id} className="entry">
-            {e.canEdit
-              ? <button className={`status-badge status-${e.status}`} onClick={() => cycleStatus(e)}>{STATUS_SHORT[e.status]}</button>
-              : <span className={`status-badge status-${e.status}`}>{STATUS_SHORT[e.status]}</span>}
+            <span className="swatch" />
             <div className="info">
               <div className={`subj${e.status === 'done' ? ' done' : ''}`}>{e.subject}</div>
               {e.topic && <div className="topic">{e.topic}</div>}
-              <AuditTag entry={e} myId={myId} />
+              <div className="meta">
+                {e.canEdit
+                  ? <button className={`status-badge status-${e.status}`} aria-label={`Durum: ${STATUS_SHORT[e.status]}. Değiştirmek için dokun`} onClick={() => cycleStatus(e)}>{STATUS_SHORT[e.status]}</button>
+                  : <span className={`status-badge status-${e.status}`}>{STATUS_SHORT[e.status]}</span>}
+                <AuditTag entry={e} myId={myId} />
+              </div>
             </div>
             <span className="mins">{e.minutes} dk</span>
-            {e.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
-            {e.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteEntry(e.id)}>×</button>}
+            {e.canEdit ? (
+              <span className="entry-actions">
+                <button className="edit" aria-label={`${e.subject} kaydını düzenle`} onClick={() => startEdit(e)}>✎</button>
+                <button className="del" aria-label={`${e.subject} kaydını sil`} onClick={() => deleteEntry(e.id)}>×</button>
+              </span>
+            ) : <ReadOnlyMark />}
           </div>
         ))
       }
@@ -111,13 +119,13 @@ export default function StudyCard({
           <option value="">Ders seçin</option>
           {subjectNames.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input name="topic" placeholder="Konu (opsiyonel)" value={form.topic} onChange={ev => setForm(f => ({ ...f, topic: ev.target.value }))} />
-        <input name="minutes" type="number" min="1" max="1440" placeholder="dk" value={form.minutes} onChange={ev => setForm(f => ({ ...f, minutes: ev.target.value }))} />
+        <input name="topic" aria-label="Konu" placeholder="Konu (opsiyonel)" value={form.topic} onChange={ev => setForm(f => ({ ...f, topic: ev.target.value }))} />
+        <input name="minutes" aria-label="Dakika" type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" value={form.minutes} onChange={ev => setForm(f => ({ ...f, minutes: ev.target.value }))} />
         <button type="submit" disabled={busy}>Ekle</button>
       </form>
 
       <>
-          <button className="manage-toggle" onClick={() => setSubjectsOpen(o => !o)}>
+          <button className="manage-toggle" aria-expanded={subjectsOpen} onClick={() => setSubjectsOpen(o => !o)}>
             {subjectsOpen ? '▲ Ders listesini kapat' : '✎ Dersleri düzenle (ekle/sil)'}
           </button>
 

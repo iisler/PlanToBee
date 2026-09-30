@@ -5,6 +5,7 @@ import { errorCode, errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 import { ROLE_LABEL } from '../utils/format';
+import Loading from '../components/Loading';
 
 // Hatası davetin kendisiyle ilgili olan kodlar: bu durumda davet önizlemesi yerine hata ekranı gösterilir.
 const INVITE_FATAL = ['invite_invalid', 'invite_used', 'invite_expired', 'invite_cancelled', 'invite_code_locked'];
@@ -109,14 +110,14 @@ export default function InvitePage({ codeMode = false }) {
 
   // 1) Yedek kod: e-posta + 6 haneli kod
   if (!preview) {
-    if (!codeMode) return <AuthLayout subtitle="Aile daveti"><div className="loading">Davet kontrol ediliyor…</div></AuthLayout>;
+    if (!codeMode) return <AuthLayout subtitle="Aile daveti"><Loading text="Davet kontrol ediliyor…" /></AuthLayout>;
     return (
       <AuthLayout subtitle="Davet kodunu gir" footer={back}>
         <form onSubmit={e => { e.preventDefault(); resolve({ email: codeForm.email.trim(), code: codeForm.code.trim() }); }}>
           <p className="auth-text">Davet e-postasındaki 6 haneli yedek kodu ve davetin gönderildiği e-posta adresini gir.</p>
-          <input type="email" placeholder="E-posta" autoComplete="email" value={codeForm.email}
+          <input type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={codeForm.email}
             onChange={e => setCodeForm(f => ({ ...f, email: e.target.value }))} required />
-          <input className="code-input" placeholder="6 haneli kod" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+          <input className="code-input" aria-label="6 haneli davet kodu" placeholder="6 haneli kod" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
             value={codeForm.code} onChange={e => setCodeForm(f => ({ ...f, code: e.target.value.replace(/\D/g, '') }))} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Kontrol ediliyor…' : 'Devam et'}</button>
@@ -137,9 +138,9 @@ export default function InvitePage({ codeMode = false }) {
       {!preview.accountExists ? (
         <form onSubmit={acceptNew}>
           <input type="email" value={preview.email} readOnly aria-label="E-posta" className="readonly" />
-          <input type="password" placeholder="Şifre belirle (en az 6 karakter)" autoComplete="new-password" minLength={6}
+          <input type="password" aria-label="Şifre" placeholder="Şifre belirle (en az 6 karakter)" autoComplete="new-password" minLength={6}
             value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
-          <input type="password" placeholder="Şifre (tekrar)" autoComplete="new-password"
+          <input type="password" aria-label="Şifre (tekrar)" placeholder="Şifre (tekrar)" autoComplete="new-password"
             value={pw.b} onChange={e => setPw(p => ({ ...p, b: e.target.value }))} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Katılınıyor…' : 'Şifremi belirle ve katıl'}</button>
@@ -161,7 +162,7 @@ export default function InvitePage({ codeMode = false }) {
         <form onSubmit={acceptExisting}>
           <p className="auth-text">Bu e-posta adresinin zaten bir PlanToBee hesabı var. Giriş yap ve aileye katıl. Tek kişilik bir ailen varsa planın bu aileye taşınır.</p>
           <input type="email" value={preview.email} readOnly aria-label="E-posta" className="readonly" />
-          <input type="password" placeholder="Şifre" autoComplete="current-password"
+          <input type="password" aria-label="Şifre" placeholder="Şifre" autoComplete="current-password"
             value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Katılınıyor…' : 'Giriş yap ve katıl'}</button>

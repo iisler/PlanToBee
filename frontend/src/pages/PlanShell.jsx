@@ -20,6 +20,12 @@ export default function PlanShell() {
   const [view, setView] = useState('day');
   const [weekSummaries, setWeekSummaries] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const familyHeadingRef = useRef(null);
+
+  // Ailem ad menüsünden açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
+  useEffect(() => {
+    if (view === 'family') familyHeadingRef.current?.focus();
+  }, [view]);
 
   const loadFamily = useCallback(async () => {
     try {
@@ -108,12 +114,20 @@ export default function PlanShell() {
       </header>
 
       <div className="viewtabs">
-        <button className={view === 'day' ? 'active' : ''} onClick={() => changeView('day')}>Gün</button>
-        <button className={view === 'week' ? 'active' : ''} onClick={() => changeView('week')}>Hafta Planı</button>
+        <button className={view === 'day' ? 'active' : ''} aria-pressed={view === 'day'} onClick={() => changeView('day')}>Gün</button>
+        <button className={view === 'week' ? 'active' : ''} aria-pressed={view === 'week'} onClick={() => changeView('week')}>Hafta Planı</button>
       </div>
 
+      {/* Ailem ad menüsünden açılır; sekmelerde karşılığı olmadığı için nerede olunduğu başlıkla belirtilir */}
+      {view === 'family' && (
+        <div className="pagehead">
+          <button className="btn-ghost small" onClick={() => changeView('day')}>‹ Plana dön</button>
+          <h2 ref={familyHeadingRef} tabIndex={-1}>Ailem</h2>
+        </div>
+      )}
+
       {familyError && !family && (
-        <div className="load-error">
+        <div className="load-error" role="alert">
           <p>Aile bilgisi yüklenemedi: {familyError}</p>
           <button className="btn" onClick={loadFamily}>Tekrar dene</button>
         </div>
@@ -142,7 +156,7 @@ export default function PlanShell() {
           onAccessChanged={onAccessChanged}
         />
       )}
-      {view === 'family' && (
+      {view === 'family' && !(familyError && !family) && (
         <FamilyPage
           family={family}
           reloadFamily={loadFamily}

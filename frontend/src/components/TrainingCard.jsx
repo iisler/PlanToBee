@@ -3,6 +3,7 @@ import client from '../api/client';
 import { patchEntry, removeEntry } from '../hooks/useMutation';
 import { formatDuration } from '../utils/format';
 import AuditTag from './AuditTag';
+import ReadOnlyMark from './ReadOnlyMark';
 
 const SPORT_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 3c2.5 2.5 2.5 15.5 0 18" /><path d="M4.5 8c4 2 11 2 15 0" /><path d="M4.5 16c4-2 11-2 15 0" /></svg>
@@ -66,8 +67,8 @@ export default function TrainingCard({ date, entries, totalMinutes, myId, mutate
             <select aria-label="Antrenman türü" value={editForm.type} onChange={setE('type')}>
               {editTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <input aria-label="Saat" type="number" min="0" placeholder="sa" className="num" value={editForm.hours} onChange={setE('hours')} />
-            <input aria-label="Dakika" type="number" min="0" max="59" placeholder="dk" className="num" value={editForm.minutes} onChange={setE('minutes')} />
+            <input aria-label="Saat" type="number" inputMode="numeric" min="0" placeholder="sa" className="num" value={editForm.hours} onChange={setE('hours')} />
+            <input aria-label="Dakika" type="number" inputMode="numeric" min="0" max="59" placeholder="dk" className="num" value={editForm.minutes} onChange={setE('minutes')} />
             <input aria-label="Not" placeholder="Not" value={editForm.note} onChange={setE('note')} />
             <button type="submit" className="save">Kaydet</button>
             <button type="button" className="cancel" onClick={() => setEditingId(null)}>İptal</button>
@@ -81,8 +82,12 @@ export default function TrainingCard({ date, entries, totalMinutes, myId, mutate
               <AuditTag entry={e} myId={myId} />
             </div>
             <span className="mins sport">{formatDuration(e.minutes)}</span>
-            {e.canEdit && <button className="edit" aria-label="Düzenle" onClick={() => startEdit(e)}>✎</button>}
-            {e.canEdit && <button className="del" aria-label="Sil" onClick={() => deleteTraining(e.id)}>×</button>}
+            {e.canEdit ? (
+              <span className="entry-actions">
+                <button className="edit" aria-label={`${e.type} antrenmanını düzenle`} onClick={() => startEdit(e)}>✎</button>
+                <button className="del" aria-label={`${e.type} antrenmanını sil`} onClick={() => deleteTraining(e.id)}>×</button>
+              </span>
+            ) : <ReadOnlyMark />}
           </div>
         ))
       }
@@ -91,9 +96,9 @@ export default function TrainingCard({ date, entries, totalMinutes, myId, mutate
         <select aria-label="Antrenman türü" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
           {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input type="number" min="0" placeholder="sa" aria-label="Saat" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
-        <input type="number" min="0" max="59" placeholder="dk" aria-label="Dakika" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))} />
-        <input placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+        <input type="number" inputMode="numeric" min="0" placeholder="sa" aria-label="Saat" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} />
+        <input type="number" inputMode="numeric" min="0" max="59" placeholder="dk" aria-label="Dakika" value={form.minutes} onChange={e => setForm(f => ({ ...f, minutes: e.target.value }))} />
+        <input aria-label="Not" placeholder="Not (opsiyonel)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
         <button type="submit" disabled={busy}>Ekle</button>
       </form>
     </div>

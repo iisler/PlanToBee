@@ -4,7 +4,9 @@ import { errorText } from '../api/errors';
 import useMutation from '../hooks/useMutation';
 import StatsBar from '../components/StatsBar';
 import AuditTag from '../components/AuditTag';
-import { addDays, dkey, formatDuration, mondayOf, MONTHS, nextStatus, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
+import ReadOnlyMark from '../components/ReadOnlyMark';
+import { addDays, dkey, formatDuration, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
+import Loading from '../components/Loading';
 
 function readPref(k, def) { try { return localStorage.getItem(k) || def; } catch { return def; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* yoksay */ } }
@@ -20,6 +22,17 @@ function removeFromWeek(weekDays, key, listKey, id) {
     ...w, data: { ...w.data, [listKey]: w.data[listKey].filter(e => e.id !== id) },
   });
 }
+// Silme düğmesinin ekran okuyucu etiketi için kaydın kısa adı
+function chipName(e) { return e.subject ?? e.type ?? e.title ?? ''; }
+// Çiplerde "· 45 dk" gibi parçalar satır sonunda bölünmesin (satır ancak addan sonra kırılır)
+const NBSP = '\u00a0';
+const nb = t => t.replace(/ /g, NBSP);
+const KIND_LABEL = { study: 'Ders', sport: 'Antrenman', event: 'Etkinlik' };
+const INVALID_TEXT = {
+  subject: 'Önce Gün ekranındaki "Dersleri düzenle" ile bir ders ekleyin.',
+  minutes: 'Süreyi dakika olarak girin.',
+  title: 'Etkinlik adını yazın.',
+};
 const LIST_KEY = { entries: 'studyEntries', training: 'trainingEntries', events: 'events' };
 
 export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, subjects, myId, onAccessChanged }) {
@@ -33,8 +46,12 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
     const id = ++requestId.current;
     const keys = Array.from({ length: 7 }, (_, i) => dkey(addDays(mon, i)));
     try {
-      const results = await Promise.all(keys.map(k => client.get(`/days/${k}`).then(r => ({ key: k, data: r.data }))));
+      // Haftanın 7 günü tek istekte (GET /days/week/{pazartesi}/details); cevap tarihe göre eşlenir
+      const res = await client.get(`/days/week/${keys[0]}/details`);
       if (id !== requestId.current) return; // daha yeni bir istek var (hafta değişti)
+      const byDate = new Map((res.data.days ?? []).map(d => [d.date, d]));
+      const empty = k => ({ date: k, studyEntries: [], trainingEntries: [], events: [] });
+      const results = keys.map(k => ({ key: k, data: byDate.get(k) ?? empty(k) }));
       setWeekDays(results);
       setLoadError('');
     } catch (err) {
@@ -87,13 +104,13 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
   return (
     <>
       <div className="weeknav">
-        <button onClick={() => setWeekStart(addDays(weekStart, -7))}>‹ Önceki</button>
-        <span className="rng">{rangeLabel}</span>
-        <button onClick={() => setWeekStart(addDays(weekStart, 7))}>Sonraki ›</button>
+        <button aria-label="Önceki hafta" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹ Önceki</button>
+        <span className="rng" aria-live="polite">{rangeLabel}</span>
+        <button aria-label="Sonraki hafta" onClick={() => setWeekStart(addDays(weekStart, 7))}>Sonraki ›</button>
       </div>
 
       {loadError && (
-        <div className="load-error">
+        <div className="load-error" role="alert">
           <p>Hafta yüklenemedi: {loadError}</p>
           <button className="btn" onClick={() => loadWeek(weekStart)}>Tekrar dene</button>
         </div>
@@ -101,12 +118,12 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
 
       <div className="weekbar">
         <div className="modetoggle" role="group" aria-label="Görünüm">
-          <button className={mode === 'table' ? 'active' : ''} onClick={() => changeMode('table')}>Tablo</button>
-          <button className={mode === 'list' ? 'active' : ''} onClick={() => changeMode('list')}>Liste</button>
+          <button className={mode === 'table' ? 'active' : ''} aria-pressed={mode === 'table'} onClick={() => changeMode('table')}>Tablo</button>
+          <button className={mode === 'list' ? 'active' : ''} aria-pressed={mode === 'list'} onClick={() => changeMode('list')}>Liste</button>
         </div>
       </div>
 
-      {current.length === 0 && !loadError ? <div className="loading">Yükleniyor…</div>
+      {current.length === 0 && !loadError ? <Loading />
         : mode === 'table' ? (
           <WeekTable
             weekStart={weekStart}
@@ -201,12 +218,13 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
   }
 
   const err = f => (invalid === f ? ' input-error' : '');
-  const plus = (key, k) => (
-    <button type="button" className="plus" aria-label="Ekle" onClick={() => prefill(key, k)}>+</button>
+  const bad = f => (invalid === f ? true : undefined);
+  const plus = (key, k, i) => (
+    <button type="button" className="plus" aria-label={`${WEEKDAYS_FULL[i]} için ${KIND_LABEL[k].toLocaleLowerCase('tr-TR')} ekle`} onClick={() => prefill(key, k)}>+</button>
   );
-  const del = (key, path, e) => e.canEdit && (
-    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(key, path, e.id)}>×</button>
-  );
+  const del = (key, path, e) => (e.canEdit
+    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(key, path, e.id)}>×</button>
+    : <ReadOnlyMark compact />);
 
   return (
     <>
@@ -217,18 +235,18 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
           ))}
         </select>
         <div className="kind" role="group" aria-label="Tür">
-          <button type="button" data-k="study" onClick={() => setKind('study')}>Ders</button>
-          <button type="button" data-k="sport" onClick={() => setKind('sport')}>Antrenman</button>
-          <button type="button" data-k="event" onClick={() => setKind('event')}>Etkinlik</button>
+          <button type="button" data-k="study" aria-pressed={kind === 'study'} onClick={() => setKind('study')}>Ders</button>
+          <button type="button" data-k="sport" aria-pressed={kind === 'sport'} onClick={() => setKind('sport')}>Antrenman</button>
+          <button type="button" data-k="event" aria-pressed={kind === 'event'} onClick={() => setKind('event')}>Etkinlik</button>
         </div>
 
         {kind === 'study' && (
           <>
-            <select id="wk-subject" className={`grow${err('subject')}`} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
+            <select id="wk-subject" className={`grow${err('subject')}`} aria-invalid={bad('subject')} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
               {subjects.length === 0 && <option value="">Önce ders ekleyin</option>}
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input id="wk-minutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
+            <input id="wk-minutes" ref={firstFieldRef} type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-invalid={bad('minutes')} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
           </>
         )}
         {kind === 'sport' && (
@@ -237,16 +255,17 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
               <option value="Top">Top</option>
               <option value="Kuvvet">Kuvvet</option>
             </select>
-            <input id="wk-sminutes" ref={firstFieldRef} type="number" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
+            <input id="wk-sminutes" ref={firstFieldRef} type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-invalid={bad('minutes')} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
           </>
         )}
         {kind === 'event' && (
           <>
-            <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
+            <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} aria-invalid={bad('title')} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
             <input id="wk-time" placeholder="Saat" className="num" autoComplete="off" aria-label="Saat" value={form.time} onChange={set('time')} />
           </>
         )}
         <button type="submit" className="go" disabled={busy}>Ekle</button>
+        {invalid && <div className="inline-error form-error" role="alert">{INVALID_TEXT[invalid]}</div>}
       </form>
 
       <div className="wktable-wrap">
@@ -254,7 +273,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
           <colgroup><col className="c-day" /><col /><col /><col /></colgroup>
           <thead>
             <tr>
-              <th />
+              <th><span className="sr-only">Gün</span></th>
               <th><span className="dotc" style={{ background: 'var(--study)' }} />Ders</th>
               <th><span className="dotc" style={{ background: 'var(--sport)' }} />Antrenman</th>
               <th><span className="dotc" style={{ background: 'var(--event)' }} />Etkinlik</th>
@@ -266,7 +285,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
               return (
                 <tr key={key} className={`${key === todayKey ? 'today' : ''} ${i >= 5 ? 'weekend' : ''}`}>
                   <th className="daycell" scope="row">
-                    <button title="Güne git" onClick={() => onGoToDay(date)}>
+                    <button title="Güne git" aria-label={`${WEEKDAYS_FULL[i]} ${date.getDate()} gününe git`} onClick={() => onGoToDay(date)}>
                       <span className="dw">{WEEKDAYS[i]}</span>
                       <span className="dn">{date.getDate()}</span>
                     </button>
@@ -276,37 +295,37 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
                       {data.studyEntries.map(e => (
                         <span key={e.id} className={`chip study status-${e.status}`}>
                           {e.canEdit
-                            ? <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(key, e)}>{e.subject} · {e.minutes}dk</button>
-                            : <span className="lbl">{e.subject} · {e.minutes}dk</span>}
+                            ? <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(key, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
+                            : <span className="lbl">{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></span>}
                           <AuditTag entry={e} myId={myId} compact />
                           {del(key, 'entries', e)}
                         </span>
                       ))}
-                      {plus(key, 'study')}
+                      {plus(key, 'study', i)}
                     </div>
                   </td>
                   <td>
                     <div className="cell">
                       {data.trainingEntries.map(e => (
                         <span key={e.id} className="chip sport">
-                          <span className="lbl">{e.type} · {formatDuration(e.minutes)}</span>
+                          <span className="lbl">{e.type} ·{NBSP}{nb(formatDuration(e.minutes))}</span>
                           <AuditTag entry={e} myId={myId} compact />
                           {del(key, 'training', e)}
                         </span>
                       ))}
-                      {plus(key, 'sport')}
+                      {plus(key, 'sport', i)}
                     </div>
                   </td>
                   <td>
                     <div className="cell">
                       {data.events.map(e => (
                         <span key={e.id} className="chip event">
-                          <span className="lbl">{e.title}{e.time ? ` · ${e.time}` : ''}</span>
+                          <span className="lbl">{e.title}{e.time ? ` ·${NBSP}${e.time}` : ''}</span>
                           <AuditTag entry={e} myId={myId} compact />
                           {del(key, 'events', e)}
                         </span>
                       ))}
-                      {plus(key, 'event')}
+                      {plus(key, 'event', i)}
                     </div>
                   </td>
                 </tr>
@@ -315,7 +334,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
           </tbody>
           <tfoot>
             <tr>
-              <th>Top.</th>
+              <th scope="row"><abbr title="Toplam">Top.</abbr></th>
               <td><b>{studyTotal}</b> dk</td>
               <td><b>{trainDays}</b>/7 gün · {formatDuration(trainTotal)}</td>
               <td><b>{eventTotal}</b> etkinlik</td>
@@ -358,9 +377,9 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
       setEventForm({ title: '', time: '' });
   }
 
-  const del = (path, e) => e.canEdit && (
-    <button type="button" className="x" aria-label="Sil" onClick={() => actions.remove(dateKey, path, e.id)}>×</button>
-  );
+  const del = (path, e) => (e.canEdit
+    ? <button type="button" className="x" aria-label={`${chipName(e)} kaydını sil`} onClick={() => actions.remove(dateKey, path, e.id)}>×</button>
+    : <ReadOnlyMark compact />);
 
   return (
     <div className={`weekcard${isToday ? ' today' : ''}`}>
@@ -372,7 +391,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
         <div className="weekcard-head">
           <div className="wd">
             {WEEKDAYS_FULL[dayIndex]}
-            {isToday && <span className="datep">bugün</span>}
+            {isToday && <span className="datep today-tag">bugün</span>}
           </div>
           <button className="goto" onClick={onGoToDay}>Güne git →</button>
         </div>
@@ -383,8 +402,8 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             {data.studyEntries.map(e => (
               <span key={e.id} className={`chip study status-${e.status}`}>
                 {e.canEdit
-                  ? <button type="button" className="clicktext" onClick={() => actions.cycle(dateKey, e)}>{e.subject} · {e.minutes}dk</button>
-                  : <span className="lbl">{e.subject} · {e.minutes}dk</span>}
+                  ? <button type="button" className="clicktext" onClick={() => actions.cycle(dateKey, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
+                  : <span className="lbl">{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></span>}
                 <AuditTag entry={e} myId={myId} compact />
                 {del('entries', e)}
               </span>
@@ -396,7 +415,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             <option value="">Ders</option>
             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <input type="number" min="1" max="1440" placeholder="dk" className="small" aria-label="Dakika"
+          <input type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className="small" aria-label="Dakika"
             value={studyForm.minutes} onChange={e => setStudyForm(f => ({ ...f, minutes: e.target.value }))} />
           <button type="submit" aria-label="Ders ekle">+</button>
         </form>
@@ -406,7 +425,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <div className="chiprow">
             {data.trainingEntries.map(e => (
               <span key={e.id} className="chip sport">
-                <span className="lbl">{e.type} · {formatDuration(e.minutes)}</span>
+                <span className="lbl">{e.type} ·{NBSP}{nb(formatDuration(e.minutes))}</span>
                 <AuditTag entry={e} myId={myId} compact />
                 {del('training', e)}
               </span>
@@ -418,9 +437,9 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             <option value="Top">Top</option>
             <option value="Kuvvet">Kuvvet</option>
           </select>
-          <input type="number" min="0" placeholder="sa" className="small" aria-label="Saat"
+          <input type="number" inputMode="numeric" min="0" placeholder="sa" className="small" aria-label="Saat"
             value={trainForm.hours} onChange={e => setTrainForm(f => ({ ...f, hours: e.target.value }))} />
-          <input type="number" min="0" max="59" placeholder="dk" className="small" aria-label="Dakika"
+          <input type="number" inputMode="numeric" min="0" max="59" placeholder="dk" className="small" aria-label="Dakika"
             value={trainForm.minutes} onChange={e => setTrainForm(f => ({ ...f, minutes: e.target.value }))} />
           <button type="submit" aria-label="Antrenman ekle">+</button>
         </form>
@@ -430,7 +449,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <div className="chiprow">
             {data.events.map(e => (
               <span key={e.id} className="chip event">
-                <span className="lbl">{e.title}{e.time ? ` · ${e.time}` : ''}</span>
+                <span className="lbl">{e.title}{e.time ? ` ·${NBSP}${e.time}` : ''}</span>
                 <AuditTag entry={e} myId={myId} compact />
                 {del('events', e)}
               </span>
