@@ -29,9 +29,6 @@
   --honey: #F6B51E;
   --honey-soft: #FCEBC0;
   --on-accent: #FFFFFF;
-  /* Etkinlik | Antrenman seçicisi: logodaki morun bir ton koyusu (beyaz yazıyla okunaklı) */
-  --purple: #6D28D9;
-  --on-purple: #FFFFFF;
   /* Gün sekmesindeki hafta alanı: siyah zemin, sarı vurgu (seçili gün ve haftalık sayılar) */
   --hero-bg: #1E1A14;
   --hero-ink: #FBF6EA;
@@ -461,7 +458,7 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .num { flex: 0 0 72px; width: 72px; }
 .evform input[type="time"].time-input { flex: 1 0 110px; }
 .evform .evkind button { min-height: 44px; }
-.evform .evkind button.active { background: var(--purple); color: var(--on-purple); }
+.evform .evkind button.active { background: var(--honey); color: var(--ink); }
 .evform .evactions { justify-content: flex-start; }
 .evform .evsubmit { border: none; border-radius: var(--radius-sm); padding: 10px 20px; min-height: 44px; font-weight: 700; font-size: 14px; color: var(--on-accent); }
 .evform .evsubmit.event { background: var(--event); }
