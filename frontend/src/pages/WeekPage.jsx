@@ -4,6 +4,7 @@ import { errorText } from '../api/errors';
 import useMutation from '../hooks/useMutation';
 import StatsBar from '../components/StatsBar';
 import AuditTag from '../components/AuditTag';
+import TimeInput from '../components/TimeInput';
 import ReadOnlyMark from '../components/ReadOnlyMark';
 import { addDays, dkey, formatDuration, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
 import Loading from '../components/Loading';
@@ -262,7 +263,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
         {kind === 'event' && (
           <>
             <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} aria-invalid={bad('title')} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
-            <input id="wk-time" placeholder="Saat" className="num" autoComplete="off" aria-label="Saat" value={form.time} onChange={set('time')} />
+            <TimeInput id="wk-time" className="num" value={form.time} onChange={time => set('time')({ target: { value: time } })} />
           </>
         )}
         <button type="submit" className="go" disabled={busy}>Ekle</button>
@@ -460,8 +461,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
         <form className="quickrow event" onSubmit={addEvent}>
           <input placeholder="Etkinlik" aria-label="Etkinlik" value={eventForm.title}
             onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
-          <input placeholder="Saat" className="small" aria-label="Saat" value={eventForm.time}
-            onChange={e => setEventForm(f => ({ ...f, time: e.target.value }))} />
+          <TimeInput className="small" value={eventForm.time} onChange={time => setEventForm(f => ({ ...f, time }))} />
           <button type="submit" aria-label="Etkinlik ekle">+</button>
         </form>
       </div>

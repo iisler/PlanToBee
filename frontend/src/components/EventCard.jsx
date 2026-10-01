@@ -2,6 +2,7 @@ import { useState } from 'react';
 import client from '../api/client';
 import { patchEntry, removeEntry } from '../hooks/useMutation';
 import AuditTag from './AuditTag';
+import TimeInput from './TimeInput';
 import ReadOnlyMark from './ReadOnlyMark';
 
 const EVENT_ICON = (
@@ -54,7 +55,7 @@ export default function EventCard({ date, events, myId, mutate }) {
         : events.map(ev => editingId === ev.id ? (
           <form key={ev.id} className="edit-form" onSubmit={e => { e.preventDefault(); saveEdit(ev.id); }}>
             <input name="etitle" aria-label="Etkinlik" placeholder="Etkinlik" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
-            <input name="etime" aria-label="Saat" placeholder="Saat" value={editForm.time} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))} />
+            <TimeInput name="etime" value={editForm.time} onChange={time => setEditForm(f => ({ ...f, time }))} />
             <input name="enote" aria-label="Not" placeholder="Not" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
             <button type="submit" className="save">Kaydet</button>
             <button type="button" className="cancel" onClick={() => setEditingId(null)}>İptal</button>
@@ -80,7 +81,7 @@ export default function EventCard({ date, events, myId, mutate }) {
 
       <form className="addform event" onSubmit={addEvent}>
         <input className="wide" aria-label="Etkinlik" placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-        <input className="time" aria-label="Saat" placeholder="Saat" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+        <TimeInput className="time" value={form.time} onChange={time => setForm(f => ({ ...f, time }))} />
         <input aria-label="Not" placeholder="Not" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
         <button type="submit" disabled={busy}>Ekle</button>
       </form>

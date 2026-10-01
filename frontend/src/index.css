@@ -448,4 +448,9 @@ a.auth-link { text-align: center; }
 .later-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .later-btn { width: 100%; min-height: 44px; }
 .my-pin { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--warn-soft); border-radius: var(--radius-sm); margin-bottom: 4px; }
+/* Etkinlik saati: saat seçici (input type=time). Tarayıcının seçici simgesi için metin alanından biraz geniş. */
+.time-input { font-variant-numeric: tabular-nums; min-width: 0; }
+input[type="time"].time-input { min-width: 104px; }
+.wkadd input[type="time"].time-input { flex: 0 0 108px; }
+.quickrow input[type="time"].time-input { flex: 0 0 104px; width: 104px; }
 
