@@ -23,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Day> Days => Set<Day>();
     public DbSet<StudyEntry> StudyEntries => Set<StudyEntry>();
+    // ESKİ: yalnızca yedek tablo olarak modelde (bkz. Models/TrainingEntry.cs)
     public DbSet<TrainingEntry> TrainingEntries => Set<TrainingEntry>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -98,7 +99,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
 
         ConfigureAudit<StudyEntry>(builder);
         ConfigureAudit<TrainingEntry>(builder);
+        builder.Entity<TrainingEntry>().HasOne(t => t.Day).WithMany().HasForeignKey(t => t.DayId).OnDelete(DeleteBehavior.Cascade);
         ConfigureAudit<Event>(builder);
+        builder.Entity<Event>(b =>
+        {
+            b.Property(e => e.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(e => e.TrainingType).HasMaxLength(50);
+        });
         ConfigureAudit<Subject>(builder);
     }
 

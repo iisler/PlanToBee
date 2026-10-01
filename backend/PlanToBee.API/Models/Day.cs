@@ -8,6 +8,5 @@ public class Day
     public Family? Family { get; set; }
     public DateOnly Date { get; set; }
     public List<StudyEntry> StudyEntries { get; set; } = [];
-    public List<TrainingEntry> TrainingEntries { get; set; } = [];
     public List<Event> Events { get; set; } = [];
 }

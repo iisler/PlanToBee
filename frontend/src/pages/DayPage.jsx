@@ -5,7 +5,6 @@ import useMutation from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import StatsBar from '../components/StatsBar';
 import StudyCard from '../components/StudyCard';
-import TrainingCard from '../components/TrainingCard';
 import EventCard from '../components/EventCard';
 import { addDays, dkey, MONTHS, WEEKDAYS_FULL } from '../utils/format';
 import Loading from '../components/Loading';
@@ -51,7 +50,6 @@ export default function DayPage({
   );
 
   const totalStudy = ready ? day.studyEntries.reduce((s, e) => s + e.minutes, 0) : 0;
-  const totalTrain = ready ? day.trainingEntries.reduce((s, e) => s + e.minutes, 0) : 0;
   const common = { date, myId, mutate };
 
   return (
@@ -74,13 +72,12 @@ export default function DayPage({
         <>
           <StudyCard {...common} entries={day.studyEntries} totalMinutes={totalStudy}
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject} />
-          <TrainingCard {...common} entries={day.trainingEntries} totalMinutes={totalTrain} />
           <EventCard {...common} events={day.events} />
         </>
       )}
 
       <div className="note">
-        "Hafta Planı" sekmesinden gelecek günler için önceden ders/antrenman/etkinlik girebilirsiniz.
+        "Hafta Planı" sekmesinden gelecek günler için önceden ders ve etkinlik (antrenman dahil) girebilirsiniz.
       </div>
     </>
   );

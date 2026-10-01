@@ -271,14 +271,10 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .wkadd .kind { flex: 1 1 auto; }
 .wkadd .kind button { flex: 1; border: none; background: none; border-radius: 8px; padding: 8px 8px; min-height: 36px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
 .wkadd[data-kind="study"] .kind [data-k="study"] { background: var(--study); color: var(--on-accent); }
-.wkadd[data-kind="sport"] .kind [data-k="sport"] { background: var(--sport); color: var(--on-accent); }
 .wkadd[data-kind="event"] .kind [data-k="event"] { background: var(--event); color: var(--on-accent); }
-.wkadd .f-study, .wkadd .f-sport, .wkadd .f-event { display: none; }
-.wkadd[data-kind="study"] .f-study, .wkadd[data-kind="sport"] .f-sport, .wkadd[data-kind="event"] .f-event { display: block; }
 .wkadd .grow { flex: 1 1 120px; }
 .wkadd .num { flex: 0 0 64px; }
 .wkadd .go { border: none; border-radius: 9px; padding: 8px 16px; min-height: 40px; font-size: 13.5px; font-weight: 700; background: var(--study); color: var(--on-accent); }
-.wkadd[data-kind="sport"] .go { background: var(--sport); }
 .wkadd[data-kind="event"] .go { background: var(--event); }
 
 .wktable-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
@@ -453,4 +449,36 @@ a.auth-link { text-align: center; }
 input[type="time"].time-input { min-width: 104px; }
 .wkadd input[type="time"].time-input { flex: 0 0 108px; }
 .quickrow input[type="time"].time-input { flex: 0 0 104px; width: 104px; }
+
+/* Etkinlik / antrenman formu (gün kartı, hafta tablosu ve listesi) */
+.evform { display: flex; flex-direction: column; gap: 8px; }
+.evform .evrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.evform input, .evform select { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; min-height: 44px; font-size: 14px; background: var(--surface-2); color: var(--ink); min-width: 0; }
+.evform input:focus, .evform select:focus { outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px var(--honey-soft); }
+.evform .grow { flex: 1 1 150px; }
+.evform .num { flex: 0 0 72px; width: 72px; }
+.evform input[type="time"].time-input { flex: 1 0 110px; }
+.evform .evkind button { min-height: 44px; }
+.evform .evkind button.active { background: var(--event); color: var(--on-accent); }
+.evform.training .evkind button.active { background: var(--sport); color: var(--on-accent); }
+.evform .evactions { justify-content: flex-start; }
+.evform .evsubmit { border: none; border-radius: var(--radius-sm); padding: 10px 20px; min-height: 44px; font-weight: 700; font-size: 14px; color: var(--on-accent); }
+.evform .evsubmit.event { background: var(--event); }
+.evform .evsubmit.sport { background: var(--sport); }
+.evform .inline-error { margin: 0; }
+.evadd { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 12px; }
+.entry-edit { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.card-head .total.sport { color: var(--sport-deep); background: var(--sport-soft); border-color: transparent; }
+/* Hafta görünümünde sıkı form */
+.evform.compact { gap: 6px; }
+.evform.compact input, .evform.compact select { min-height: 40px; padding: 7px 9px; font-size: 13.5px; border-radius: 9px; }
+.evform.compact .evsubmit { min-height: 40px; padding: 8px 16px; font-size: 13.5px; border-radius: 9px; }
+.evform.compact .evkind button { min-height: 38px; }
+.weekcard .evform { margin-top: 4px; }
+.wkadd { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+.wkadd-top { display: flex; gap: 6px; align-items: center; }
+.wkadd-top select { flex: 0 0 auto; }
+.wkadd-study { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wkadd .evform { width: 100%; }
+.wktable.two col.c-day { width: 52px; }
 

@@ -41,7 +41,6 @@ public static class FirebaseImport
 
         var alreadyImported =
             await db.StudyEntries.AnyAsync(e => e.IsImported && e.Day!.FamilyId == familyId) ||
-            await db.TrainingEntries.AnyAsync(e => e.IsImported && e.Day!.FamilyId == familyId) ||
             await db.Events.AnyAsync(e => e.IsImported && e.Day!.FamilyId == familyId);
         if (alreadyImported && !force)
             return Fail("Bu ailenin planında daha önce aktarılmış kayıtlar var. İki kez aktarmamak için durduruldu. " +
@@ -121,9 +120,11 @@ public static class FirebaseImport
                 foreach (var t in TrainingItems(dayNode["training"]))
                 {
                     var type = Text(t["type"], 50);
-                    day.TrainingEntries.Add(Stamp(new TrainingEntry
+                    // Antrenman, türü Training olan etkinlik olarak yazılır. Eski veride süre yoksa 0 kalır.
+                    day.Events.Add(Stamp(new Event
                     {
-                        Type = type.Length > 0 ? type : "Antrenman",
+                        Kind = EventKind.Training,
+                        TrainingType = type.Length > 0 ? type : "Antrenman",
                         Minutes = Math.Clamp(Minutes(t["minutes"]) ?? 0, 0, 1440),
                         Note = Text(t["note"], 500),
                     }, profileId, now));
@@ -134,7 +135,7 @@ public static class FirebaseImport
                 {
                     var title = Text(ev["title"], 150);
                     if (title.Length == 0) { skipped.Add($"{key} etkinlik: başlık yok"); continue; }
-                    day.Events.Add(Stamp(new Event { Title = title, Time = Text(ev["time"], 20), Note = Text(ev["note"], 500) }, profileId, now));
+                    day.Events.Add(Stamp(new Event { Kind = EventKind.Event, Title = title, Time = Text(ev["time"], 20), Note = Text(ev["note"], 500) }, profileId, now));
                     events++;
                 }
 

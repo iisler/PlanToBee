@@ -24,4 +24,10 @@ public static class PlanText
     }
 
     public static string Format(DateOnly date) => date.ToString(DateFormat, CultureInfo.InvariantCulture);
+
+    // Etkinlik/antrenman saati: SS:dd (00:00-23:59). Saat seçicinin ürettiği biçim.
+    public static bool IsTime(string? value) =>
+        value is { Length: 5 } && value[2] == ':' &&
+        int.TryParse(value.AsSpan(0, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var h) && h <= 23 &&
+        int.TryParse(value.AsSpan(3, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var m) && m <= 59;
 }

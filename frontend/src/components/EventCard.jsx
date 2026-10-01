@@ -1,90 +1,82 @@
 import { useState } from 'react';
 import client from '../api/client';
 import { patchEntry, removeEntry } from '../hooks/useMutation';
+import { formatDuration } from '../utils/format';
+import { deletedText, eventLabel, eventMeta, isTraining, trainingMinutes } from '../utils/events';
 import AuditTag from './AuditTag';
-import TimeInput from './TimeInput';
+import EventForm from './EventForm';
 import ReadOnlyMark from './ReadOnlyMark';
 
 const EVENT_ICON = (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
 );
 
+// Günün etkinlikleri ve antrenmanları tek listede (sunucu sıralar: önce saatliler saat sırasıyla, sonra saatsizler).
 export default function EventCard({ date, events, myId, mutate }) {
-  const [form, setForm] = useState({ title: '', time: '', note: '' });
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
   const [busy, setBusy] = useState(false);
+  const trainTotal = trainingMinutes(events);
 
-  async function addEvent(e) {
-    e.preventDefault();
-    if (!form.title.trim() || busy) return;
+  async function add(body) {
     setBusy(true);
-    const ok = await mutate(null, () => client.post(`/days/${date}/events`,
-      { title: form.title.trim(), time: form.time.trim(), note: form.note.trim() }));
+    const ok = await mutate(null, () => client.post(`/days/${date}/events`, body));
     setBusy(false);
-    if (ok) setForm({ title: '', time: '', note: '' });
+    return ok;
   }
 
-  function deleteEvent(ev) {
-    mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
-      { undo: `${ev.title} etkinliği silindi` });
-  }
-
-  async function saveEdit(id) {
-    if (!editForm.title.trim()) return;
-    const body = { title: editForm.title.trim(), time: editForm.time.trim(), note: editForm.note.trim() };
+  async function save(ev, body) {
     setEditingId(null);
-    const ok = await mutate(d => patchEntry(d, 'events', id, body),
-      () => client.put(`/days/${date}/events/${id}`, body));
-    if (!ok) setEditingId(id);
+    const ok = await mutate(d => patchEntry(d, 'events', ev.id, body), () => client.put(`/days/${date}/events/${ev.id}`, body));
+    if (!ok) setEditingId(ev.id); // hata: düzenleme formu açık kalsın
+    return ok;
   }
 
-  function startEdit(ev) {
-    setEditingId(ev.id);
-    setEditForm({ title: ev.title, time: ev.time || '', note: ev.note || '' });
+  function remove(ev) {
+    mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
+      { undo: deletedText(ev) });
   }
 
   return (
     <div className="card">
       <div className="card-head">
         <div className="card-title"><span className="icon-tile evt">{EVENT_ICON}</span><h2>Etkinlikler</h2></div>
+        {trainTotal > 0 && <span className="total sport">{formatDuration(trainTotal)} antrenman</span>}
       </div>
 
       {events.length === 0
-        ? <div className="empty-note">Bu gün için planlı etkinlik yok.</div>
-        : events.map(ev => editingId === ev.id ? (
-          <form key={ev.id} className="edit-form" onSubmit={e => { e.preventDefault(); saveEdit(ev.id); }}>
-            <input name="etitle" aria-label="Etkinlik" placeholder="Etkinlik" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
-            <TimeInput name="etime" value={editForm.time} onChange={time => setEditForm(f => ({ ...f, time }))} />
-            <input name="enote" aria-label="Not" placeholder="Not" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
-            <button type="submit" className="save">Kaydet</button>
-            <button type="button" className="cancel" onClick={() => setEditingId(null)}>İptal</button>
-          </form>
-        ) : (
-          <div key={ev.id} className="entry">
-            <span className="swatch evt" />
-            <div className="info">
-              <div className="subj">{ev.title}</div>
-              {ev.note && <div className="topic">{ev.note}</div>}
-              <AuditTag entry={ev} myId={myId} />
+        ? <div className="empty-note">Bu gün için planlı etkinlik veya antrenman yok.</div>
+        : events.map(ev => {
+          const training = isTraining(ev);
+          const label = eventLabel(ev);
+          if (editingId === ev.id) return (
+            <div key={ev.id} className="entry-edit">
+              <EventForm mode="edit" kind={ev.kind} initial={ev} onSubmit={body => save(ev, body)} onCancel={() => setEditingId(null)} />
             </div>
-            {ev.time && <span className="mins evt">{ev.time}</span>}
-            {ev.canEdit ? (
-              <span className="entry-actions">
-                <button className="edit" aria-label={`${ev.title} etkinliğini düzenle`} onClick={() => startEdit(ev)}>✎</button>
-                <button className="del" aria-label={`${ev.title} etkinliğini sil`} onClick={() => deleteEvent(ev)}>×</button>
-              </span>
-            ) : <ReadOnlyMark />}
-          </div>
-        ))
+          );
+          const meta = eventMeta(ev);
+          return (
+            <div key={ev.id} className="entry">
+              <span className={`swatch ${training ? 'sport' : 'evt'}`} />
+              <div className="info">
+                <div className="subj">{label}</div>
+                {ev.note && <div className="topic">{ev.note}</div>}
+                <AuditTag entry={ev} myId={myId} />
+              </div>
+              {meta && <span className={`mins ${training ? 'sport' : 'evt'}`}>{meta}</span>}
+              {ev.canEdit ? (
+                <span className="entry-actions">
+                  <button className="edit" aria-label={`${label} kaydını düzenle`} onClick={() => setEditingId(ev.id)}>✎</button>
+                  <button className="del" aria-label={`${label} kaydını sil`} onClick={() => remove(ev)}>×</button>
+                </span>
+              ) : <ReadOnlyMark />}
+            </div>
+          );
+        })
       }
 
-      <form className="addform event" onSubmit={addEvent}>
-        <input className="wide" aria-label="Etkinlik" placeholder="Etkinlik (ör. deneme sınavı)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-        <TimeInput className="time" value={form.time} onChange={time => setForm(f => ({ ...f, time }))} />
-        <input aria-label="Not" placeholder="Not" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-        <button type="submit" disabled={busy}>Ekle</button>
-      </form>
+      <div className="evadd">
+        <EventForm mode="add" onSubmit={add} busy={busy} />
+      </div>
     </div>
   );
 }

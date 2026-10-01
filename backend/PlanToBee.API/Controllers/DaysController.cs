@@ -53,8 +53,9 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
                 d.Date,
                 StudyMinutes = d.StudyEntries.Sum(e => (long)e.Minutes),
                 EntryCount = d.StudyEntries.Count,
-                TrainingCount = d.TrainingEntries.Count,
-                EventCount = d.Events.Count
+                TrainingCount = d.Events.Count(e => e.Kind == EventKind.Training),
+                TrainingMinutes = d.Events.Where(e => e.Kind == EventKind.Training).Sum(e => (long?)e.Minutes) ?? 0,
+                EventCount = d.Events.Count(e => e.Kind == EventKind.Event)
             })
             .ToDictionaryAsync(x => x.Date);
 
@@ -68,6 +69,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
                 t?.EntryCount ?? 0,
                 t?.TrainingCount > 0,
                 t?.TrainingCount ?? 0,
+                (int)Math.Min(int.MaxValue, t?.TrainingMinutes ?? 0),
                 t?.EventCount ?? 0);
         }).ToList();
         return Ok(new WeekDto(result));
@@ -154,81 +156,40 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         return NoContent();
     }
 
-    // ---------- Antrenman kayıtları ----------
-
-    [HttpPost("{date}/training")]
-    public async Task<IActionResult> AddTraining(string date, AddTrainingDto dto)
-    {
-        if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
-        if (string.IsNullOrWhiteSpace(dto.Type)) return Err.BadRequest("validation", "Antrenman türü seçin.");
-        var me = await members.GetCurrentAsync();
-        if (me == null) return await members.MissingAsync();
-
-        var dayId = await GetOrCreateDayId(me.FamilyId, d);
-        var entry = new TrainingEntry { DayId = dayId, Type = dto.Type.Trim(), Minutes = dto.Minutes, Note = dto.Note?.Trim() ?? "" };
-        StampCreated(entry, me);
-        db.TrainingEntries.Add(entry);
-        await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, me));
-    }
-
-    [HttpPut("{date}/training/{id:int}")]
-    public async Task<IActionResult> UpdateTraining(string date, int id, UpdateTrainingDto dto)
-    {
-        if (string.IsNullOrWhiteSpace(dto.Type)) return Err.BadRequest("validation", "Antrenman türü seçin.");
-        var entry = await db.TrainingEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (me, error) = await AuthorizeEntry(date, entry);
-        if (error != null) return error;
-
-        entry!.Type = dto.Type.Trim();
-        entry.Minutes = dto.Minutes;
-        entry.Note = dto.Note?.Trim() ?? "";
-        StampUpdated(entry, me!);
-        await db.SaveChangesAsync();
-        return Ok(await MapOne(entry, me!));
-    }
-
-    [HttpDelete("{date}/training/{id:int}")]
-    public async Task<IActionResult> DeleteTraining(string date, int id)
-    {
-        var entry = await db.TrainingEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(date, entry);
-        if (error != null) return error;
-        db.TrainingEntries.Remove(entry!);
-        await db.SaveChangesAsync();
-        return NoContent();
-    }
-
     // ---------- Etkinlikler ----------
 
     [HttpPost("{date}/events")]
     public async Task<IActionResult> AddEvent(string date, AddEventDto dto)
     {
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
-        if (string.IsNullOrWhiteSpace(dto.Title)) return Err.BadRequest("validation", "Etkinlik adı girin.");
+        var kind = dto.Kind ?? EventKind.Event;
+        if (!Enum.IsDefined(kind)) return Err.BadRequest("validation", "Geçersiz kayıt türü.");
+        var ev = new Event { Kind = kind };
+        var error = ApplyEvent(ev, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes);
+        if (error != null) return error;
         var me = await members.GetCurrentAsync();
         if (me == null) return await members.MissingAsync();
 
-        var dayId = await GetOrCreateDayId(me.FamilyId, d);
-        var ev = new Event { DayId = dayId, Title = dto.Title.Trim(), Time = dto.Time?.Trim() ?? "", Note = dto.Note?.Trim() ?? "" };
+        ev.DayId = await GetOrCreateDayId(me.FamilyId, d);
         StampCreated(ev, me);
         db.Events.Add(ev);
         await db.SaveChangesAsync();
         return Ok(await MapOne(ev, me));
     }
 
+    // Kaydın türü (etkinlik / antrenman) değiştirilemez; yanlış türde girilen kayıt silinip yeniden eklenir.
     [HttpPut("{date}/events/{id:int}")]
     public async Task<IActionResult> UpdateEvent(string date, int id, UpdateEventDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Title)) return Err.BadRequest("validation", "Etkinlik adı girin.");
         var ev = await db.Events.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (me, error) = await AuthorizeEntry(date, ev);
-        if (error != null) return error;
+        var (me, authError) = await AuthorizeEntry(date, ev);
+        if (authError != null) return authError;
 
-        ev!.Title = dto.Title.Trim(); ev.Time = dto.Time?.Trim() ?? ""; ev.Note = dto.Note?.Trim() ?? "";
-        StampUpdated(ev, me!);
+        var error = ApplyEvent(ev!, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes);
+        if (error != null) return error;
+        StampUpdated(ev!, me!);
         await db.SaveChangesAsync();
-        return Ok(await MapOne(ev, me!));
+        return Ok(await MapOne(ev!, me!));
     }
 
     [HttpDelete("{date}/events/{id:int}")]
@@ -254,7 +215,6 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         var day = entry switch
         {
             StudyEntry s => s.Day,
-            TrainingEntry t => t.Day,
             Event e => e.Day,
             _ => null
         };
@@ -263,33 +223,67 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         return (me, null);
     }
 
+    // Türüne göre alanları doğrular ve kayda yazar. Saat boş ya da SS:dd olmalı; eski kayıtlardaki serbest metin
+    // saat, değiştirilmeden geri gönderildiyse kabul edilir.
+    private static ObjectResult? ApplyEvent(Event ev, string? title, string? time, string? note, string? trainingType, int? minutes)
+    {
+        var t = time?.Trim() ?? "";
+        if (t.Length > 0 && !PlanText.IsTime(t) && t != ev.Time)
+            return Err.BadRequest("validation", "Saat SS:dd biçiminde olmalı (örn. 17:30).");
+        if (ev.Kind == EventKind.Training)
+        {
+            var type = trainingType?.Trim() ?? "";
+            if (type.Length == 0) return Err.BadRequest("validation", "Antrenman türünü seçin ya da yazın.");
+            if (minutes is not (>= 1 and <= 1440)) return Err.BadRequest("validation", "Süre 1 ile 1440 dakika arasında olmalı.");
+            ev.Title = "";
+            ev.TrainingType = type;
+            ev.Minutes = minutes;
+        }
+        else
+        {
+            var name = title?.Trim() ?? "";
+            if (name.Length == 0) return Err.BadRequest("validation", "Etkinlik adını yazın.");
+            ev.Title = name;
+            ev.TrainingType = null;
+            ev.Minutes = null;
+        }
+        ev.Time = t;
+        ev.Note = note?.Trim() ?? "";
+        return null;
+    }
+
+    // Günün etkinlik listesi: önce saati olanlar saat sırasıyla, sonra saatsizler (ve eski serbest metin saatliler)
+    // eklenme sırasıyla.
+    private static IEnumerable<Event> InDayOrder(IEnumerable<Event> events) =>
+        events.OrderBy(e => PlanText.IsTime(e.Time) ? 0 : 1)
+              .ThenBy(e => PlanText.IsTime(e.Time) ? e.Time : "", StringComparer.Ordinal)
+              .ThenBy(e => e.Id);
+
     private static ObjectResult InvalidDate() =>
         Err.BadRequest("invalid_date", "Geçersiz tarih. Tarih yyyy-AA-gg biçiminde olmalı.");
 
-    // Günleri kayıtlarıyla yükler. Üç koleksiyon ayrı sorgularla (split query) okunur; tek sorguda
-    // birleştirmek ders × antrenman × etkinlik sayısı kadar satır (kartezyen çarpım) üretirdi.
+    // Günleri kayıtlarıyla yükler. İki koleksiyon ayrı sorgularla (split query) okunur; tek sorguda
+    // birleştirmek ders × etkinlik sayısı kadar satır (kartezyen çarpım) üretirdi.
     private Task<List<Day>> LoadDaysAsync(int familyId, DateOnly from, DateOnly to) =>
         db.Days
             .AsNoTracking()
             .AsSplitQuery()
             .Include(x => x.StudyEntries)
-            .Include(x => x.TrainingEntries)
             .Include(x => x.Events)
             .Where(x => x.FamilyId == familyId && x.Date >= from && x.Date <= to)
             .ToListAsync();
 
     private Task<AuditLookup> LoadAuditAsync(FamilyMember me, List<Day> days) =>
         AuditLookup.LoadAsync(db, me.FamilyId,
-            days.SelectMany(x => x.StudyEntries.Cast<AuditedEntity>().Concat(x.TrainingEntries).Concat(x.Events)), me);
+            days.SelectMany(x => x.StudyEntries.Cast<AuditedEntity>().Concat(x.Events)), me);
 
     private static DayDto ToDayDto(DateOnly date, Day? day, FamilyMember me, AuditLookup audit) =>
         day == null
-            ? new DayDto(PlanText.Format(date), [], [], [])
+            ? new DayDto(PlanText.Format(date), [], [])
             : new DayDto(
                 PlanText.Format(date),
                 day.StudyEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList(),
-                day.TrainingEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList(),
-                day.Events.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList());
+                InDayOrder(day.Events).Select(e => Map(e, me, audit)).ToList());
 
     private static void StampCreated(AuditedEntity e, FamilyMember by)
     {
@@ -309,7 +303,6 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         return e switch
         {
             StudyEntry s => Map(s, me, audit),
-            TrainingEntry t => Map(t, me, audit),
             Event ev => Map(ev, me, audit),
             _ => throw new ArgumentException(nameof(e))
         };
@@ -317,10 +310,9 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
 
     private static StudyEntryDto Map(StudyEntry e, FamilyMember me, AuditLookup a) =>
         new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
-    private static TrainingEntryDto Map(TrainingEntry e, FamilyMember me, AuditLookup a) =>
-        new(e.Id, e.Type, e.Minutes, e.Note, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
     private static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
-        new(e.Id, e.Title, e.Time, e.Note, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+        new(e.Id, e.Kind.ToString(), e.Title, e.Time, e.Note, e.TrainingType, e.Minutes, MemberContext.CanEdit(me, e),
+            a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
 
     // Aynı gün için eşzamanlı iki yazma isteği gelirse ikisi de gün oluşturmaya çalışır;
     // (FamilyId, Date) benzersiz indeksine takılan istek, diğerinin oluşturduğu günü kullanır.

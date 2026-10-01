@@ -364,6 +364,63 @@ def test_solo_family():
     check("PIN ile seçiliyor", s == 200, (s, b))
 
 
+def test_events_and_training():
+    print("Etkinlikler ve antrenmanlar (tek liste)")
+    email, acc = register_and_verify("Spor")
+    s, own = req("POST", "/family", {"name": "Spor Ailesi", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    s, kid = req("POST", "/profiles", {"displayName": "Ece", "role": "Child"}, pt)
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    ct = ct["token"]
+    day = dt.date.today()
+    d = day.isoformat()
+
+    s, b = req("POST", f"/days/{d}/events", {"kind": "Event", "title": " "}, pt)
+    check("adsız etkinlik 400", s == 400, (s, b))
+    s, b = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top"}, pt)
+    check("süresiz antrenman 400", s == 400, (s, b))
+    s, b = req("POST", f"/days/{d}/events", {"kind": "Training", "minutes": 30}, pt)
+    check("türsüz antrenman 400", s == 400, (s, b))
+    s, b = req("POST", f"/days/{d}/events", {"kind": "Event", "title": "X", "time": "25:00"}, pt)
+    check("geçersiz saat 400", s == 400, (s, b))
+
+    s, e1 = req("POST", f"/days/{d}/events", {"title": "Sınav", "time": "09:00"}, pt)
+    check("etkinlik (tür verilmeden) eklendi", s == 200 and e1["kind"] == "Event" and e1["minutes"] is None, (s, e1))
+    s, t1 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top", "minutes": 90, "time": "17:00", "title": "yok sayılır"}, pt)
+    check("saatli antrenman eklendi", s == 200 and t1["kind"] == "Training" and t1["title"] == "" and t1["minutes"] == 90, (s, t1))
+    s, t2 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Voleybol kampı", "minutes": 60}, ct)
+    check("çocuk kendi yazdığı türde antrenman ekledi", s == 200 and t2["trainingType"] == "Voleybol kampı", (s, t2))
+    s, e2 = req("POST", f"/days/{d}/events", {"title": "Saatsiz not"}, pt)
+
+    s, dd = req("GET", f"/days/{d}", token=pt)
+    order = [(e["kind"], e["time"]) for e in dd["events"]]
+    check("sıra: saatliler saate göre, sonra saatsizler eklenme sırasıyla",
+          order == [("Event", "09:00"), ("Training", "17:00"), ("Training", ""), ("Event", "")], order)
+    check("gün cevabında ayrı antrenman listesi yok", "trainingEntries" not in dd, list(dd.keys()))
+
+    s, b = req("PUT", f"/days/{d}/events/{t1['id']}", {"trainingType": "Kuvvet", "minutes": 45, "time": "18:30", "note": "salon"}, pt)
+    check("antrenman düzenlendi", s == 200 and b["trainingType"] == "Kuvvet" and b["minutes"] == 45 and b["time"] == "18:30", (s, b))
+    s, b = req("PUT", f"/days/{d}/events/{t1['id']}", {"trainingType": "Kuvvet", "minutes": 0}, pt)
+    check("antrenman süresi 0'a düşürülemez", s == 400, (s, b))
+    s, b = req("PUT", f"/days/{d}/events/{t1['id']}", {"trainingType": "Kuvvet", "minutes": 45}, ct)
+    check("çocuk ebeveynin antrenmanını düzenleyemez", s == 403, (s, b))
+    s, b = req("PUT", f"/days/{d}/events/{t2['id']}", {"trainingType": "Top", "minutes": 50}, ct)
+    check("çocuk kendi antrenmanını düzenler", s == 200 and b["minutes"] == 50, (s, b))
+    s, b = req("PUT", f"/days/{d}/events/{e1['id']}", {"title": "Deneme sınavı", "time": "10:00"}, pt)
+    check("etkinlik düzenlendi", s == 200 and b["title"] == "Deneme sınavı", (s, b))
+
+    s, wk = req("GET", f"/days/week/{monday(day).isoformat()}", token=pt)
+    today = next(x for x in wk["days"] if x["date"] == d)
+    check("hafta özeti: etkinlik sayısı antrenmanları saymaz", today["eventCount"] == 2, today)
+    check("hafta özeti: antrenman sayısı ve süresi", today["trainingDone"] and today["trainingCount"] == 2 and today["trainingMinutes"] == 95, today)
+
+    s, _ = req("DELETE", f"/days/{d}/events/{t2['id']}", token=pt)
+    check("ebeveyn çocuğun antrenmanını siler", s == 204, s)
+    s, b = req("POST", f"/days/{d}/training", {"type": "Top", "minutes": 30}, pt)
+    check("eski /training uç noktası yok", s in (404, 405), s)
+
+
 def main():
     global API, EMAILS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -378,7 +435,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training):
         try:
             t()
         except Exception as e:  # noqa: BLE001

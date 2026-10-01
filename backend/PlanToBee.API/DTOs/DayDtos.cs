@@ -8,22 +8,22 @@ public record AuditMemberDto(int MemberId, string DisplayName, bool IsFormerMemb
 
 public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, string Status, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
-public record TrainingEntryDto(int Id, string Type, int Minutes, string Note, bool CanEdit,
-    AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
-public record EventDto(int Id, string Title, string Time, string Note, bool CanEdit,
+// Etkinlik ya da antrenman. Kind: "Event" | "Training". Etkinlikte Title dolu; antrenmanda TrainingType ve Minutes dolu.
+public record EventDto(int Id, string Kind, string Title, string Time, string Note, string? TrainingType, int? Minutes, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 public record SubjectDto(int Id, string Name, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 
 // Ailenin ortak planındaki bir gün. Ailedeki herkes kayıt ekleyebilir.
+// Events: etkinlikler ve antrenmanlar tek listede; önce saati olanlar saat sırasıyla, sonra saatsizler eklenme sırasıyla.
 public record DayDto(
     string Date,
     List<StudyEntryDto> StudyEntries,
-    List<TrainingEntryDto> TrainingEntries,
     List<EventDto> Events
 );
 
-public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int EventCount);
+// EventCount antrenmanları saymaz; antrenmanlar TrainingCount ve TrainingMinutes'tadır.
+public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int TrainingMinutes, int EventCount);
 public record WeekDto(List<WeekSummaryDto> Days);
 
 // GET /api/days/week/{monday}/details: haftanın 7 günü, her biri GET /api/days/{date} cevabıyla aynı biçimde.
@@ -46,22 +46,21 @@ public record UpdateStudyEntryDto(
 
 public record PatchStatusDto([Required] string Status);
 
-public record AddTrainingDto(
-    [Required(ErrorMessage = "Antrenman türü seçin"), StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string Type,
-    [Range(1, 1440, ErrorMessage = "Süre 1 ile 1440 dakika arasında olmalı")] int Minutes,
-    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note);
-
-public record UpdateTrainingDto(
-    [Required(ErrorMessage = "Antrenman türü seçin"), StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string Type,
-    [Range(1, 1440, ErrorMessage = "Süre 1 ile 1440 dakika arasında olmalı")] int Minutes,
-    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note);
-
+// Kind: "Event" (varsayılan) ya da "Training".
+// - Etkinlik: Title zorunlu; TrainingType ve Minutes yok sayılır.
+// - Antrenman: TrainingType (hazır tür ya da kullanıcının yazdığı) zorunlu, Minutes 1-1440; Title yok sayılır.
+// Time boş ya da SS:dd. Kaydın türü sonradan değiştirilemez (UpdateEventDto'da Kind yok).
 public record AddEventDto(
-    [Required(ErrorMessage = "Etkinlik adı girin"), StringLength(150, ErrorMessage = "Etkinlik adı en fazla 150 karakter olabilir")] string Title,
+    Models.EventKind? Kind,
+    [StringLength(150, ErrorMessage = "Etkinlik adı en fazla 150 karakter olabilir")] string? Title,
     [StringLength(20, ErrorMessage = "Saat en fazla 20 karakter olabilir")] string? Time,
-    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note);
+    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note,
+    [StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string? TrainingType,
+    int? Minutes);
 
 public record UpdateEventDto(
-    [Required(ErrorMessage = "Etkinlik adı girin"), StringLength(150, ErrorMessage = "Etkinlik adı en fazla 150 karakter olabilir")] string Title,
+    [StringLength(150, ErrorMessage = "Etkinlik adı en fazla 150 karakter olabilir")] string? Title,
     [StringLength(20, ErrorMessage = "Saat en fazla 20 karakter olabilir")] string? Time,
-    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note);
+    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note,
+    [StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string? TrainingType,
+    int? Minutes);

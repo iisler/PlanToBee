@@ -4,10 +4,12 @@ import { errorText } from '../api/errors';
 import useMutation from '../hooks/useMutation';
 import StatsBar from '../components/StatsBar';
 import AuditTag from '../components/AuditTag';
-import TimeInput from '../components/TimeInput';
+import EventForm from '../components/EventForm';
+import EditEventDialog from '../components/EditEventDialog';
 import ReadOnlyMark from '../components/ReadOnlyMark';
 import { addDays, dkey, formatDuration, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
 import Loading from '../components/Loading';
+import { deletedText, eventLabel, isTraining, TRAINING_TYPES } from '../utils/events';
 
 function readPref(k, def) { try { return localStorage.getItem(k) || def; } catch { return def; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* yoksay */ } }
@@ -24,17 +26,24 @@ function removeFromWeek(weekDays, key, listKey, id) {
   });
 }
 // Silme düğmesinin ekran okuyucu etiketi için kaydın kısa adı
-function chipName(e) { return e.subject ?? e.type ?? e.title ?? ''; }
+function chipName(e) { return e.subject ?? (e.kind ? eventLabel(e) : ''); }
+// Hafta çipindeki kısa metin: "Top · 17:00 · 1 sa 30 dk", "Deneme sınavı · 10:00"
+function eventChipText(e) {
+  const name = isTraining(e) ? (TRAINING_TYPES.includes(e.trainingType) ? e.trainingType : e.trainingType || 'Antrenman') : e.title;
+  const parts = [name];
+  if (e.time) parts.push(e.time);
+  if (isTraining(e) && e.minutes > 0) parts.push(nb(formatDuration(e.minutes)));
+  return parts.join(` ·${NBSP}`);
+}
 // Çiplerde "· 45 dk" gibi parçalar satır sonunda bölünmesin (satır ancak addan sonra kırılır)
 const NBSP = '\u00a0';
 const nb = t => t.replace(/ /g, NBSP);
-const KIND_LABEL = { study: 'Ders', sport: 'Antrenman', event: 'Etkinlik' };
+const KIND_LABEL = { study: 'Ders', event: 'Etkinlik' };
 const INVALID_TEXT = {
   subject: 'Önce Gün ekranındaki "Dersleri düzenle" ile bir ders ekleyin.',
   minutes: 'Süreyi dakika olarak girin.',
-  title: 'Etkinlik adını yazın.',
 };
-const LIST_KEY = { entries: 'studyEntries', training: 'trainingEntries', events: 'events' };
+const LIST_KEY = { entries: 'studyEntries', events: 'events' };
 
 export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, subjects, myId, onAccessChanged }) {
   const [weekDays, setWeekDays] = useState([]);
@@ -51,7 +60,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
       const res = await client.get(`/days/week/${keys[0]}/details`);
       if (id !== requestId.current) return; // daha yeni bir istek var (hafta değişti)
       const byDate = new Map((res.data.days ?? []).map(d => [d.date, d]));
-      const empty = k => ({ date: k, studyEntries: [], trainingEntries: [], events: [] });
+      const empty = k => ({ date: k, studyEntries: [], events: [] });
       const results = keys.map(k => ({ key: k, data: byDate.get(k) ?? empty(k) }));
       setWeekDays(results);
       setLoadError('');
@@ -78,8 +87,8 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
   const shownWeekSummaries = current.map(({ key, data }) => ({
     date: key,
     studyMinutes: data.studyEntries.reduce((s, e) => s + e.minutes, 0),
-    trainingDone: data.trainingEntries.length > 0,
-    eventCount: data.events.length,
+    trainingDone: data.events.some(isTraining),
+    eventCount: data.events.filter(e => !isTraining(e)).length,
   }));
 
   function changeMode(m) {
@@ -91,7 +100,9 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
   const actions = {
     add: (key, kindPath, body) => mutate(null, () => client.post(`/days/${key}/${kindPath}`, body)),
     remove: (key, kindPath, e) => mutate(w => removeFromWeek(w, key, LIST_KEY[kindPath], e.id),
-      (cfg) => client.delete(`/days/${key}/${kindPath}/${e.id}`, cfg), { undo: `${chipName(e)} silindi` }),
+      (cfg) => client.delete(`/days/${key}/${kindPath}/${e.id}`, cfg), { undo: e.kind ? deletedText(e) : `${chipName(e)} silindi` }),
+    editEvent: (key, e, body) => mutate(w => patchWeek(w, key, 'events', e.id, body),
+      () => client.put(`/days/${key}/events/${e.id}`, body)),
     cycle: (key, entry) => {
       const status = nextStatus(entry.status);
       return mutate(w => patchWeek(w, key, 'studyEntries', entry.id, { status }),
@@ -157,7 +168,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
               );
             })}
 
-            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders, antrenman ve etkinlik girebilirsiniz.</div>
+            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders ve etkinlik (antrenman dahil) girebilirsiniz. Bir etkinliğe dokunarak düzenleyebilirsiniz.</div>
           </>
         )}
     </>
@@ -170,9 +181,10 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
   const defaultDay = keys.includes(todayKey) ? todayKey : keys[0];
 
   const [kind, setKind] = useState('study');
-  const [form, setForm] = useState({ day: defaultDay, subject: '', minutes: '', type: 'Top', title: '', time: '' });
+  const [form, setForm] = useState({ day: defaultDay, subject: '', minutes: '' });
   const [invalid, setInvalid] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(null); // { key, ev }
   const firstFieldRef = useRef(null);
   const formRef = useRef(null);
 
@@ -186,37 +198,35 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
     setForm(f => ({ ...f, day: key }));
     setInvalid(null);
     formRef.current?.scrollIntoView({ block: 'nearest' });
-    setTimeout(() => firstFieldRef.current?.focus(), 0);
+    setTimeout(() => (firstFieldRef.current ?? formRef.current?.querySelector('.evform input, .evform select'))?.focus(), 0);
   }
 
-  async function submit(e) {
+  async function submitStudy(e) {
     e.preventDefault();
     if (busy) return;
     const subject = form.subject || subjects[0];
-    let path, body, clear;
-    if (kind === 'study') {
-      if (!subject) return setInvalid('subject');
-      if (!form.minutes) return setInvalid('minutes');
-      path = 'entries'; body = { subject, topic: '', minutes: parseInt(form.minutes, 10) }; clear = { minutes: '' };
-    } else if (kind === 'sport') {
-      if (!form.minutes) return setInvalid('minutes');
-      path = 'training'; body = { type: form.type, minutes: parseInt(form.minutes, 10), note: '' }; clear = { minutes: '' };
-    } else {
-      if (!form.title.trim()) return setInvalid('title');
-      path = 'events'; body = { title: form.title.trim(), time: form.time.trim(), note: '' }; clear = { title: '', time: '' };
-    }
+    if (!subject) return setInvalid('subject');
+    if (!form.minutes) return setInvalid('minutes');
     setBusy(true);
-    const ok = await actions.add(day, path, body);
+    const ok = await actions.add(day, 'entries', { subject, topic: '', minutes: parseInt(form.minutes, 10) });
     setBusy(false);
-    if (ok) setForm(f => ({ ...f, ...clear }));
+    if (ok) setForm(f => ({ ...f, minutes: '' }));
+  }
+
+  async function addEvent(body) {
+    setBusy(true);
+    const ok = await actions.add(day, 'events', body);
+    setBusy(false);
+    return ok;
   }
 
   let studyTotal = 0, trainTotal = 0, trainDays = 0, eventTotal = 0;
   for (const { data } of weekDays) {
     studyTotal += data.studyEntries.reduce((s, e) => s + e.minutes, 0);
-    trainTotal += data.trainingEntries.reduce((s, e) => s + e.minutes, 0);
-    if (data.trainingEntries.length > 0) trainDays++;
-    eventTotal += data.events.length;
+    const trainings = data.events.filter(isTraining);
+    trainTotal += trainings.reduce((s, e) => s + (e.minutes || 0), 0);
+    if (trainings.length > 0) trainDays++;
+    eventTotal += data.events.length - trainings.length;
   }
 
   const err = f => (invalid === f ? ' input-error' : '');
@@ -230,54 +240,41 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
 
   return (
     <>
-      <form className="wkadd" data-kind={kind} ref={formRef} onSubmit={submit}>
-        <select id="wk-day" aria-label="Gün" value={day} onChange={set('day')}>
-          {keys.map((k, i) => (
-            <option key={k} value={k}>{WEEKDAYS[i]} {addDays(weekStart, i).getDate()}</option>
-          ))}
-        </select>
-        <div className="kind" role="group" aria-label="Tür">
-          <button type="button" data-k="study" aria-pressed={kind === 'study'} onClick={() => setKind('study')}>Ders</button>
-          <button type="button" data-k="sport" aria-pressed={kind === 'sport'} onClick={() => setKind('sport')}>Antrenman</button>
-          <button type="button" data-k="event" aria-pressed={kind === 'event'} onClick={() => setKind('event')}>Etkinlik</button>
+      <div className="wkadd" data-kind={kind} ref={formRef}>
+        <div className="wkadd-top">
+          <select id="wk-day" aria-label="Gün" value={day} onChange={set('day')}>
+            {keys.map((k, i) => (
+              <option key={k} value={k}>{WEEKDAYS[i]} {addDays(weekStart, i).getDate()}</option>
+            ))}
+          </select>
+          <div className="kind" role="group" aria-label="Tür">
+            <button type="button" data-k="study" aria-pressed={kind === 'study'} onClick={() => setKind('study')}>Ders</button>
+            <button type="button" data-k="event" aria-pressed={kind === 'event'} onClick={() => setKind('event')}>Etkinlik</button>
+          </div>
         </div>
 
-        {kind === 'study' && (
-          <>
+        {kind === 'study' ? (
+          <form className="wkadd-study" onSubmit={submitStudy}>
             <select id="wk-subject" className={`grow${err('subject')}`} aria-invalid={bad('subject')} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
               {subjects.length === 0 && <option value="">Önce ders ekleyin</option>}
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <input id="wk-minutes" ref={firstFieldRef} type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-invalid={bad('minutes')} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
-          </>
+            <button type="submit" className="go" disabled={busy}>Ekle</button>
+            {invalid && <div className="inline-error form-error" role="alert">{INVALID_TEXT[invalid]}</div>}
+          </form>
+        ) : (
+          <EventForm mode="add" compact showNote={false} busy={busy} onSubmit={addEvent} />
         )}
-        {kind === 'sport' && (
-          <>
-            <select id="wk-type" className="grow" aria-label="Antrenman türü" value={form.type} onChange={set('type')}>
-              <option value="Top">Top</option>
-              <option value="Kuvvet">Kuvvet</option>
-            </select>
-            <input id="wk-sminutes" ref={firstFieldRef} type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-invalid={bad('minutes')} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
-          </>
-        )}
-        {kind === 'event' && (
-          <>
-            <input id="wk-title" ref={firstFieldRef} placeholder="Etkinlik adı" className={`grow${err('title')}`} aria-invalid={bad('title')} autoComplete="off" aria-label="Etkinlik" value={form.title} onChange={set('title')} />
-            <TimeInput id="wk-time" className="num" value={form.time} onChange={time => set('time')({ target: { value: time } })} />
-          </>
-        )}
-        <button type="submit" className="go" disabled={busy}>Ekle</button>
-        {invalid && <div className="inline-error form-error" role="alert">{INVALID_TEXT[invalid]}</div>}
-      </form>
+      </div>
 
       <div className="wktable-wrap">
-        <table className="wktable">
-          <colgroup><col className="c-day" /><col /><col /><col /></colgroup>
+        <table className="wktable two">
+          <colgroup><col className="c-day" /><col /><col /></colgroup>
           <thead>
             <tr>
               <th><span className="sr-only">Gün</span></th>
               <th><span className="dotc" style={{ background: 'var(--study)' }} />Ders</th>
-              <th><span className="dotc" style={{ background: 'var(--sport)' }} />Antrenman</th>
               <th><span className="dotc" style={{ background: 'var(--event)' }} />Etkinlik</th>
             </tr>
           </thead>
@@ -308,24 +305,8 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
                   </td>
                   <td>
                     <div className="cell">
-                      {data.trainingEntries.map(e => (
-                        <span key={e.id} className="chip sport">
-                          <span className="lbl">{e.type} ·{NBSP}{nb(formatDuration(e.minutes))}</span>
-                          <AuditTag entry={e} myId={myId} compact />
-                          {del(key, 'training', e)}
-                        </span>
-                      ))}
-                      {plus(key, 'sport', i)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="cell">
                       {data.events.map(e => (
-                        <span key={e.id} className="chip event">
-                          <span className="lbl">{e.title}{e.time ? ` ·${NBSP}${e.time}` : ''}</span>
-                          <AuditTag entry={e} myId={myId} compact />
-                          {del(key, 'events', e)}
-                        </span>
+                        <EventChip key={e.id} e={e} myId={myId} onEdit={() => setEditing({ key, ev: e })} del={del(key, 'events', e)} />
                       ))}
                       {plus(key, 'event', i)}
                     </div>
@@ -338,45 +319,48 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
             <tr>
               <th scope="row"><abbr title="Toplam">Top.</abbr></th>
               <td><b>{studyTotal}</b> dk</td>
-              <td><b>{trainDays}</b>/7 gün · {formatDuration(trainTotal)}</td>
-              <td><b>{eventTotal}</b> etkinlik</td>
+              <td><b>{eventTotal}</b> etkinlik · <b>{trainDays}</b>/7 gün antrenman{trainTotal > 0 ? ` · ${formatDuration(trainTotal)}` : ''}</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
+      {editing && (
+        <EditEventDialog ev={editing.ev} onClose={() => setEditing(null)}
+          onSave={body => actions.editEvent(editing.key, editing.ev, body)} />
+      )}
+
       <div className="note">
-        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.
+        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Etkinlik ve antrenmana dokununca düzenleyebilirsiniz.
+        Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.
       </div>
     </>
   );
 }
 
+// Etkinlik / antrenman çipi: düzenleme yetkisi varsa metne dokununca düzenleme penceresi açılır.
+function EventChip({ e, myId, onEdit, del }) {
+  const text = eventChipText(e);
+  return (
+    <span className={`chip ${isTraining(e) ? 'sport' : 'event'}`}>
+      {e.canEdit
+        ? <button type="button" className="clicktext" title="Düzenle" aria-label={`${eventLabel(e)} düzenle`} onClick={onEdit}>{text}</button>
+        : <span className="lbl">{text}</span>}
+      <AuditTag entry={e} myId={myId} compact />
+      {del}
+    </span>
+  );
+}
+
 function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, actions, onGoToDay }) {
   const [studyForm, setStudyForm] = useState({ subject: '', minutes: '' });
-  const [trainForm, setTrainForm] = useState({ type: 'Top', hours: '', minutes: '' });
-  const [eventForm, setEventForm] = useState({ title: '', time: '' });
+  const [editing, setEditing] = useState(null);
 
   async function addStudy(e) {
     e.preventDefault();
     if (!studyForm.subject || !studyForm.minutes) return;
     if (await actions.add(dateKey, 'entries', { subject: studyForm.subject, topic: '', minutes: parseInt(studyForm.minutes, 10) }))
       setStudyForm(f => ({ ...f, minutes: '' }));
-  }
-
-  async function addTraining(e) {
-    e.preventDefault();
-    const totalMins = (parseInt(trainForm.hours, 10) || 0) * 60 + (parseInt(trainForm.minutes, 10) || 0);
-    if (totalMins <= 0) return;
-    if (await actions.add(dateKey, 'training', { type: trainForm.type, minutes: totalMins, note: '' }))
-      setTrainForm(f => ({ ...f, hours: '', minutes: '' }));
-  }
-
-  async function addEvent(e) {
-    e.preventDefault();
-    if (!eventForm.title.trim()) return;
-    if (await actions.add(dateKey, 'events', { title: eventForm.title.trim(), time: eventForm.time.trim(), note: '' }))
-      setEventForm({ title: '', time: '' });
   }
 
   const del = (path, e) => (e.canEdit
@@ -422,49 +406,20 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <button type="submit" aria-label="Ders ekle">+</button>
         </form>
 
-        <div className="sectionlbl sport">Antrenman</div>
-        {data.trainingEntries.length > 0 && (
-          <div className="chiprow">
-            {data.trainingEntries.map(e => (
-              <span key={e.id} className="chip sport">
-                <span className="lbl">{e.type} ·{NBSP}{nb(formatDuration(e.minutes))}</span>
-                <AuditTag entry={e} myId={myId} compact />
-                {del('training', e)}
-              </span>
-            ))}
-          </div>
-        )}
-        <form className="quickrow sport" onSubmit={addTraining}>
-          <select aria-label="Antrenman türü" value={trainForm.type} onChange={e => setTrainForm(f => ({ ...f, type: e.target.value }))}>
-            <option value="Top">Top</option>
-            <option value="Kuvvet">Kuvvet</option>
-          </select>
-          <input type="number" inputMode="numeric" min="0" placeholder="sa" className="small" aria-label="Saat"
-            value={trainForm.hours} onChange={e => setTrainForm(f => ({ ...f, hours: e.target.value }))} />
-          <input type="number" inputMode="numeric" min="0" max="59" placeholder="dk" className="small" aria-label="Dakika"
-            value={trainForm.minutes} onChange={e => setTrainForm(f => ({ ...f, minutes: e.target.value }))} />
-          <button type="submit" aria-label="Antrenman ekle">+</button>
-        </form>
-
         <div className="sectionlbl event">Etkinlik</div>
         {data.events.length > 0 && (
           <div className="chiprow">
             {data.events.map(e => (
-              <span key={e.id} className="chip event">
-                <span className="lbl">{e.title}{e.time ? ` ·${NBSP}${e.time}` : ''}</span>
-                <AuditTag entry={e} myId={myId} compact />
-                {del('events', e)}
-              </span>
+              <EventChip key={e.id} e={e} myId={myId} onEdit={() => setEditing(e)} del={del('events', e)} />
             ))}
           </div>
         )}
-        <form className="quickrow event" onSubmit={addEvent}>
-          <input placeholder="Etkinlik" aria-label="Etkinlik" value={eventForm.title}
-            onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
-          <TimeInput className="small" value={eventForm.time} onChange={time => setEventForm(f => ({ ...f, time }))} />
-          <button type="submit" aria-label="Etkinlik ekle">+</button>
-        </form>
+        <EventForm mode="add" compact showNote={false} onSubmit={body => actions.add(dateKey, 'events', body)} />
       </div>
+
+      {editing && (
+        <EditEventDialog ev={editing} onClose={() => setEditing(null)} onSave={body => actions.editEvent(dateKey, editing, body)} />
+      )}
     </div>
   );
 }

@@ -1,5 +1,8 @@
 namespace PlanToBee.API.Models;
 
+// ESKİ: Antrenmanlar MergeTrainingIntoEvents migration'ıyla Events tablosuna (Kind = Training) taşındı.
+// Bu tablo bir sürüm boyunca yedek olarak bekletilir; uygulama kodu artık okumaz ve yazmaz.
+// Bir sonraki görevde tablo ve bu sınıf kaldırılacak.
 public class TrainingEntry : AuditedEntity
 {
     public int Id { get; set; }
