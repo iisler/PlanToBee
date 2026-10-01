@@ -21,7 +21,8 @@ public class InvitationsController(
     InvitationService invitations,
     FamilyService families,
     MemberContext members,
-    AuthTokenService tokens) : ControllerBase
+    AuthTokenService tokens,
+    PersonalDataProtector personalData) : ControllerBase
 {
     // Davet önizlemesi: aile adı, görünen ad, e-posta. Daveti tüketmez.
     [HttpPost("resolve")]
@@ -86,7 +87,7 @@ public class InvitationsController(
         await using var tx = await db.Database.BeginTransactionAsync();
         var (inv, error) = await invitations.ResolveAsync(dto.Token, dto.Email, dto.Code);
         if (error != null) { await tx.CommitAsync(); return error; }
-        if (!string.Equals(user.NormalizedEmail, inv!.NormalizedEmail, StringComparison.Ordinal))
+        if (!personalData.SameIndex(user.NormalizedEmail, inv!.NormalizedEmail))
             return Err.Forbidden("invite_email_mismatch", "Bu davet başka bir e-posta adresine gönderilmiş. Davetin gönderildiği hesapla giriş yap.");
 
         var current = await members.GetCurrentAsync();

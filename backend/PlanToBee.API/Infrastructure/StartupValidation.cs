@@ -14,6 +14,7 @@ public class StartupValidation
     public string? ConnectionString { get; private set; }
     public string JwtKey { get; private set; } = "";
     public string KeyEncryptionSecret { get; private set; } = "";
+    public string PersonalDataSecret { get; private set; } = "";
     public bool UseSmtp { get; private set; }
     public int? Port { get; private set; }
     public ForwardedHeadersSettings Forwarded { get; private set; } = new();
@@ -61,6 +62,24 @@ public class StartupValidation
                 v.Warnings.Add("DataProtection:KeyEncryptionKey ayarlı değil; Data Protection anahtarları Jwt:Key'den türetilen " +
                                "anahtarla şifreleniyor. Jwt__Key değişirse bekleyen doğrulama ve şifre sıfırlama bağlantıları geçersiz olur.");
         }
+        // ---- Kişisel veri şifrelemesi (e-posta adresleri) ----
+        var pii = config["PersonalData:Key"];
+        if (!string.IsNullOrEmpty(pii))
+        {
+            if (Encoding.UTF8.GetByteCount(pii) < 32)
+                v.Errors.Add("PersonalData:Key (PersonalData__Key) en az 32 karakter olmalı.");
+            else
+                v.PersonalDataSecret = pii;
+        }
+        else if (strict)
+            v.Errors.Add("PersonalData:Key (PersonalData__Key) ayarlı değil. E-posta adresleri veritabanında bu anahtarla şifrelenir; " +
+                         "Render Blueprint'i (render.yaml) üretir. Anahtarın bir kopyasını güvenli bir yerde sakla: kaybolursa adresler kurtarılamaz.");
+        else if (PersonalDataProtector.ResolveSecret(config) is { } derived)
+        {
+            v.PersonalDataSecret = derived;
+            v.Warnings.Add("PersonalData:Key ayarlı değil; e-posta adresleri geliştirme için Jwt:Key'den türetilen anahtarla şifreleniyor.");
+        }
+
         if (strict && string.IsNullOrWhiteSpace(config["Jwt:Issuer"]))
             v.Errors.Add("Jwt:Issuer boş.");
         if (strict && string.IsNullOrWhiteSpace(config["Jwt:Audience"]))

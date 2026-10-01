@@ -20,6 +20,10 @@ services:
       # Oturum anahtarı: Render rastgele üretir
       - key: Jwt__Key
         generateValue: true
+      # E-posta adreslerini veritabanında şifreleyen anahtar: Render rastgele üretir.
+      # DEĞİŞTİRME ve bir kopyasını parola yöneticisinde sakla: kaybolursa e-posta adresleri kurtarılamaz.
+      - key: PersonalData__Key
+        generateValue: true
       # Data Protection anahtarlarını veritabanında şifreleyen anahtar: Render rastgele üretir, değiştirilmemeli
       - key: DataProtection__KeyEncryptionKey
         generateValue: true

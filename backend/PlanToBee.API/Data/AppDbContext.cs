@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using PlanToBee.API.Infrastructure;
 using PlanToBee.API.Models;
 
 namespace PlanToBee.API.Data;
@@ -9,9 +11,12 @@ namespace PlanToBee.API.Data;
 // IDataProtectionKeyContext: Data Protection anahtarları (şifre sıfırlama / e-posta doğrulama
 // belirteçlerini imzalar) veritabanında saklanır. Böylece Render'da konteyner yeniden başlasa ya da
 // uykudan uyansa bile önceden gönderilmiş linkler geçerli kalır.
-public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
+//
+// E-posta adresleri ve kullanıcı adları şifreli, aranan normalize alanları anahtarlı özetle saklanır
+// (Infrastructure/PersonalDataProtector.cs). Uygulama kodu bu alanlarla açık metin olarak çalışır.
+public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataProtector personalData)
+    : IdentityDbContext<User>(options), IDataProtectionKeyContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<Family> Families => Set<Family>();
     public DbSet<FamilyMember> FamilyMembers => Set<FamilyMember>();
@@ -40,6 +45,11 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
         builder.Entity<User>(b =>
         {
             b.Property(u => u.DisplayName).HasMaxLength(100);
+            // Şifreli değer açık metinden uzundur (256 karakterlik adres yaklaşık 380 karakter olur).
+            b.Property(u => u.Email).HasMaxLength(512).HasConversion(personalData.EncryptedConverter());
+            b.Property(u => u.UserName).HasMaxLength(512).HasConversion(personalData.EncryptedConverter());
+            b.Property(u => u.NormalizedEmail).HasConversion(personalData.IndexConverter());
+            b.Property(u => u.NormalizedUserName).HasConversion(personalData.IndexConverter());
         });
 
         builder.Entity<RefreshToken>(b =>
@@ -75,8 +85,8 @@ public class AppDbContext : IdentityDbContext<User>, IDataProtectionKeyContext
 
         builder.Entity<Invitation>(b =>
         {
-            b.Property(i => i.Email).HasMaxLength(256);
-            b.Property(i => i.NormalizedEmail).HasMaxLength(256);
+            b.Property(i => i.Email).HasMaxLength(512).HasConversion((ValueConverter)personalData.EncryptedConverter());
+            b.Property(i => i.NormalizedEmail).HasMaxLength(256).HasConversion((ValueConverter)personalData.IndexConverter());
             b.Property(i => i.TokenHash).HasMaxLength(64);
             b.Property(i => i.CodeHash).HasMaxLength(64);
             b.Property(i => i.CodeSalt).HasMaxLength(64);

@@ -61,6 +61,7 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `Email__Smtp__Password` | Brevo SMTP anahtarı (Brevo hesap şifren **değil**). | **Sorulur** | `xsmtpsib-...` | Brevo > SMTP & API > SMTP > Generate a new SMTP key | **Evet** |
 | `Email__From` | E-postaların gönderen adresi. Brevo'da **doğrulanmış** olmalı. | **Sorulur** | `plantobee.app@gmail.com` | Brevo > Senders'ta doğruladığın adres | Hayır |
 | `Jwt__Key` | Oturum belirteçlerini (giriş anahtarlarını) imzalayan anahtar. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
+| `PersonalData__Key` | E-posta adreslerini veritabanında **şifreleyen** anahtar. Kaybolursa adresler kurtarılamaz; değiştirilirse kimse giriş yapamaz. Üretimde zorunlu. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet, yedeğini al (3.3, 8. adım)** |
 | `DataProtection__KeyEncryptionKey` | E-posta doğrulama ve şifre sıfırlama linklerini imzalayan anahtarları veritabanında **şifreli** tutan anahtar. Yoksa `Jwt__Key`'den türetilir (açılışta uyarı yazılır). | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
 | `App__FrontendBaseUrl` | Sitenin adresi: e-posta linkleri ve CORS izni. `https://` ile başlar, sonunda `/` yok. Site bir alt yoldaysa yol da yazılır. | Hazır | `https://iisler.github.io/PlanToBee/app` | `render.yaml` | Hayır |
 | `Email__FromName` | Gönderen adı (gelen kutusunda görünen). | Varsayılan `PlanToBee` | `PlanToBee` | - | Hayır |
@@ -179,7 +180,7 @@ Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health` sağlık kontro
    | `Email__Smtp__Password` | Brevo SMTP anahtarı (3.2) |
    | `Email__From` | Brevo'da doğruladığın Gmail adresi (3.2) |
 
-   `Jwt__Key`'i Render kendisi üretir; `App__FrontendBaseUrl` hazırdır.
+   `Jwt__Key`, `PersonalData__Key` ve `DataProtection__KeyEncryptionKey`'i Render kendisi üretir; `App__FrontendBaseUrl` hazırdır.
 5. **Apply** (ya da **Deploy Blueprint**). İlk derleme birkaç dakika sürer.
 6. Servis sayfasında **Logs** sekmesinden açılışı izle. Başarılı açılışta sırayla şunları görürsün:
    ```
@@ -196,6 +197,11 @@ Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health` sağlık kontro
    ```json
    {"status":"ok","api":"ok","database":"ok"}
    ```
+
+8. **E-posta şifreleme anahtarını yedekle (önemli):** Render > `plantobee-api` > **Environment** > `PersonalData__Key` satırında değeri göster ve kopyala. Bir parola yöneticisine (ör. iCloud Anahtar Zinciri, 1Password) "PlanToBee PersonalData__Key" adıyla kaydet.
+   - Veritabanındaki e-posta adresleri bu anahtarla şifrelidir. Render servisi silinir ya da değer kaybolursa adresler **kurtarılamaz**.
+   - Değeri **değiştirme**: değişirse mevcut kullanıcılar giriş yapamaz.
+   - Yönetici komutları (Bölüm 7) bu anahtarla çalışır.
 
 Sağlık adresleri:
 - `/health`: API ve veritabanı. Veritabanına ulaşılamazsa **503** ve `"database":"unreachable"` döner. Render bu adresi dağıtım ve çalışma sırasında kontrol eder.
@@ -362,6 +368,28 @@ Kalan risk: Güvenlik, Render'ın konteynere yalnızca kendi proxy'si üzerinden
     -e App__FrontendBaseUrl='https://iisler.github.io/PlanToBee/app' plantobee-api
   # sonra: curl http://localhost:10000/health
   ```
+
+---
+
+## 7b. Yönetici komutları: kullanıcıların e-postasını görmek
+
+E-posta adresleri veritabanında şifreli durur. DBeaver ya da Neon'un SQL ekranında `e1:...` (şifreli adres) ve `h1:...` (arama özeti) görürsün; bu normaldir. Adresleri görmek için kendi bilgisayarında, `backend/PlanToBee.API` klasöründe şu komutları çalıştır. İnternete açık bir yönetici sayfası yoktur; okumak için hem veritabanı adresi hem şifreleme anahtarı gerekir.
+
+| Komut | Ne gösterir |
+|---|---|
+| `dotnet run -- admin users` | Tüm kullanıcılar: ad, e-posta, doğrulandı mı, ailesi |
+| `dotnet run -- admin find ela@ornek.com` | Bu e-postayla kayıtlı kullanıcı var mı |
+| `dotnet run -- admin invitations` | Bekleyen davetler ve davet edilen adresler |
+
+- **Yerel veritabanı için:** Komutu olduğu gibi çalıştır.
+- **Canlı veritabanı (Neon) için:** Neon bağlantı adresini ve yedeklediğin `PersonalData__Key`'i gizli girişle ver. Bu yöntemde değerler ekranda görünmez ve Terminal geçmişine kaydedilmez:
+  ```bash
+  read -s "NEON?Neon adresi: "; echo; read -s "PDKEY?PersonalData anahtarı: "; echo
+  ConnectionStrings__Default="$NEON" PersonalData__Key="$PDKEY" dotnet run -- admin users
+  unset NEON PDKEY
+  ```
+- Çıktı kişisel veri içerir; ekran görüntüsünü paylaşma, dosyaya kaydetme.
+- Yanlış anahtar girilirse "Şifreli e-posta adresi çözülemedi" hatası çıkar; veri bozulmaz.
 
 ---
 

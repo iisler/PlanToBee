@@ -14,6 +14,10 @@ using PlanToBee.API.Models;
 using PlanToBee.API.Services;
 using PlanToBee.API.Services.Email;
 
+// Yönetici komutları (ör. `dotnet run -- admin users`): web sunucusu açılmaz, şifreli e-postaları çözüp listeler.
+if (args is ["admin", ..])
+    return await AdminCli.RunAsync(args[1..]);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Ayar doğrulaması: üretimde zorunlu ayarlar eksik/hatalıysa API anlaşılır bir mesajla durur (StartupValidation.cs).
@@ -29,6 +33,8 @@ if (startup.Errors.Count > 0)
 if (!builder.Environment.IsDevelopment() && startup.Port is int port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
+// E-posta adresleri veritabanında şifreli tutulur (Infrastructure/PersonalDataProtector.cs).
+builder.Services.AddSingleton(new PersonalDataProtector(startup.PersonalDataSecret));
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(startup.ConnectionString));
 
 // Data Protection anahtarları (şifre sıfırlama / e-posta doğrulama linklerini imzalar) veritabanında tutulur;
@@ -167,6 +173,9 @@ try
     if (pending.Count > 0)
         app.Logger.LogInformation("Veritabanı migration'ları uygulanıyor: {Migrations}", string.Join(", ", pending));
     db.Database.Migrate();
+    var encrypted = await PersonalDataBackfill.RunAsync(db, scope.ServiceProvider.GetRequiredService<PersonalDataProtector>());
+    if (encrypted > 0)
+        app.Logger.LogInformation("Şifrelenmemiş {Count} kayıttaki e-posta adresleri şifrelendi.", encrypted);
     app.Logger.LogInformation("Veritabanı hazır.");
 }
 catch (Exception ex)
