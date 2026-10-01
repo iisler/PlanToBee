@@ -10,6 +10,8 @@ namespace PlanToBee.API.Infrastructure;
 // Kullanım (backend/PlanToBee.API klasöründe):
 //   dotnet run -- admin users                  Tüm kullanıcılar: ad, e-posta, doğrulama, aile
 //   dotnet run -- admin find <e-posta>         Bu e-postayla kayıtlı kullanıcı var mı
+//   dotnet run -- admin import-firebase <yedek.json> --email <aile hesabı> --profile <profil adı> [--dry-run] [--force]
+//                                              Eski sürümün Firebase yedeğini aileye aktarır (Infrastructure/FirebaseImport.cs)
 //
 // Canlı veritabanı için bağlantı ve anahtar ortam değişkeniyle verilir (docs/DEPLOY.md > Yönetici komutları):
 //   ConnectionStrings__Default='postgresql://...' PersonalData__Key='...' dotnet run -- admin users
@@ -51,8 +53,18 @@ public static class AdminCli
                     return await ListUsers(db, null);
                 case ["find", var email]:
                     return await ListUsers(db, email.Trim().ToUpperInvariant());
+                case ["import-firebase", var file, .. var rest]:
+                {
+                    var opts = ParseOptions(rest);
+                    if (!opts.TryGetValue("email", out var owner) || !opts.TryGetValue("profile", out var profile))
+                    {
+                        Console.Error.WriteLine("Kullanım: admin import-firebase <yedek.json> --email <aile hesabı> --profile <profil adı> [--dry-run] [--force]");
+                        return 2;
+                    }
+                    return await FirebaseImport.RunAsync(db, file, owner, profile, opts.ContainsKey("dry-run"), opts.ContainsKey("force"));
+                }
                 default:
-                    Console.Error.WriteLine("Komutlar: admin users | admin find <e-posta>");
+                    Console.Error.WriteLine("Komutlar: admin users | admin find <e-posta> | admin import-firebase <yedek.json> --email <e-posta> --profile <ad>");
                     return 2;
             }
         }
@@ -88,6 +100,20 @@ public static class AdminCli
             Console.WriteLine($"{Cut(u.DisplayName, 20),-20} {Cut(u.Email, 36),-36} {(u.EmailConfirmed ? "evet" : "hayır"),-10} {u.Family ?? "-"}");
         Console.WriteLine($"Toplam: {users.Count}");
         return 0;
+    }
+
+    // --ad değer ve --bayrak biçimindeki seçenekler.
+    private static Dictionary<string, string> ParseOptions(string[] args)
+    {
+        var opts = new Dictionary<string, string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (!args[i].StartsWith("--")) continue;
+            var key = args[i][2..];
+            var hasValue = i + 1 < args.Length && !args[i + 1].StartsWith("--");
+            opts[key] = hasValue ? args[++i] : "true";
+        }
+        return opts;
     }
 
     private static string Cut(string? s, int max) => s == null ? "-" : s.Length <= max ? s : s[..(max - 1)] + "…";
