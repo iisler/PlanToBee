@@ -7,7 +7,6 @@ const OTHER = '__other';
 function initialState(kind, initial = {}) {
   const type = initial.trainingType ?? '';
   const preset = TRAINING_TYPES.includes(type);
-  const minutes = initial.minutes ?? 0;
   return {
     kind,
     title: initial.title ?? '',
@@ -15,15 +14,14 @@ function initialState(kind, initial = {}) {
     note: initial.note ?? '',
     typeChoice: !type ? TRAINING_TYPES[0] : preset ? type : OTHER,
     customType: preset ? '' : type,
-    hours: minutes >= 60 ? String(Math.floor(minutes / 60)) : '',
-    mins: minutes % 60 ? String(minutes % 60) : '',
   };
 }
 
 // Etkinlik ya da antrenman ekleme / düzenleme formu (gün kartı, hafta tablosu ve hafta listesi ortak kullanır).
 // - mode 'add': başta "Etkinlik | Antrenman" tür seçici; tür değişince saat ve not korunur.
 // - mode 'edit': tür sabittir (kaydın türü değiştirilemez).
-// - Antrenman türü hazır listeden seçilir ya da "Diğer…" ile yazılır.
+// - Antrenman türü hazır listeden seçilir ya da "Diğer…" ile yazılır. Antrenman da etkinlik gibi yalnızca saatle girilir;
+//   eski kayıtlardaki süre düzenlemede olduğu gibi korunur.
 // onSubmit(body) true dönerse (başarılı) ekleme formu temizlenir.
 export default function EventForm({ mode = 'add', kind: initialKind = 'Event', initial, onSubmit, onCancel, showNote = true, compact = false, busy = false }) {
   const [f, setF] = useState(() => initialState(initialKind, initial));
@@ -38,11 +36,9 @@ export default function EventForm({ mode = 'add', kind: initialKind = 'Event', i
     let body;
     if (training) {
       const trainingType = (f.typeChoice === OTHER ? f.customType : f.typeChoice).trim();
-      const minutes = (parseInt(f.hours, 10) || 0) * 60 + (parseInt(f.mins, 10) || 0);
       if (!trainingType) return setError('Antrenman türünü yazın.');
-      if (minutes <= 0) return setError('Süreyi girin.');
-      if (minutes > 1440) return setError('Süre en fazla 24 saat olabilir.');
-      body = { trainingType, minutes, time: f.time, note: f.note.trim() };
+      body = { trainingType, time: f.time, note: f.note.trim() };
+      if (mode === 'edit') body.minutes = initial?.minutes ?? null;
     } else {
       if (!f.title.trim()) return setError('Etkinlik adını yazın.');
       body = { title: f.title.trim(), time: f.time, note: f.note.trim() };
@@ -80,15 +76,7 @@ export default function EventForm({ mode = 'add', kind: initialKind = 'Event', i
       )}
 
       <div className="evrow">
-        {training && (
-          <>
-            <input type="number" inputMode="numeric" min="0" max="24" placeholder="sa" className="num" aria-label="Süre (saat)"
-              value={f.hours} onChange={setE('hours')} />
-            <input type="number" inputMode="numeric" min="0" max="59" placeholder="dk" className="num" aria-label="Süre (dakika)"
-              value={f.mins} onChange={setE('mins')} />
-          </>
-        )}
-        <TimeInput value={f.time} onChange={set('time')} label={training ? 'Başlama saati (isteğe bağlı)' : 'Saat (isteğe bağlı)'} />
+        <TimeInput value={f.time} onChange={set('time')} label={training ? 'Antrenman saati (isteğe bağlı)' : 'Saat (isteğe bağlı)'} />
       </div>
 
       {showNote && (
@@ -100,7 +88,7 @@ export default function EventForm({ mode = 'add', kind: initialKind = 'Event', i
       {error && <div className="inline-error" role="alert">{error}</div>}
 
       <div className="evrow evactions">
-        <button type="submit" className={`evsubmit ${training ? 'sport' : 'event'}`} disabled={busy}>{mode === 'add' ? 'Ekle' : 'Kaydet'}</button>
+        <button type="submit" className={`evsubmit ${mode === 'add' ? 'add' : training ? 'sport' : 'event'}`} disabled={busy}>{mode === 'add' ? 'Ekle' : 'Kaydet'}</button>
         {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>İptal</button>}
       </div>
     </form>

@@ -29,10 +29,13 @@
   --honey: #F6B51E;
   --honey-soft: #FCEBC0;
   --on-accent: #FFFFFF;
-  --hero-bg: #1E1A14;
-  --hero-ink: #FBF6EA;
-  --hero-soft: #BDB29B;
-  --hero-line: #3A3328;
+  /* Gün sekmesindeki hafta alanı: logodaki morun bir ton koyusu (beyaz yazıyla okunaklı) */
+  --purple: #6D28D9;
+  --on-purple: #FFFFFF;
+  --hero-bg: var(--purple);
+  --hero-ink: #FFFFFF;
+  --hero-soft: #E3D8FD;
+  --hero-line: #8B5CF6;
 
   --radius: 18px;
   --radius-sm: 11px;
@@ -175,7 +178,6 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .addform button { flex: 0 0 auto; min-width: 72px; }
 .addform button { background: var(--study); color: var(--on-accent); }
 .addform.sport button { background: var(--sport); }
-.addform.event button { background: var(--event); }
 
 .manage-toggle { background: none; border: none; color: var(--ink-soft); font-size: 13px; font-weight: 600; padding: 10px 0; margin-top: 4px; min-height: 40px; display: inline-flex; gap: 6px; align-items: center; }
 .manage-toggle:hover { color: var(--ink); }
@@ -275,7 +277,6 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .wkadd .grow { flex: 1 1 120px; }
 .wkadd .num { flex: 0 0 64px; }
 .wkadd .go { border: none; border-radius: 9px; padding: 8px 16px; min-height: 40px; font-size: 13.5px; font-weight: 700; background: var(--study); color: var(--on-accent); }
-.wkadd[data-kind="event"] .go { background: var(--event); }
 
 .wktable-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
 .wktable { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 300px; }
@@ -459,8 +460,7 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .num { flex: 0 0 72px; width: 72px; }
 .evform input[type="time"].time-input { flex: 1 0 110px; }
 .evform .evkind button { min-height: 44px; }
-.evform .evkind button.active { background: var(--event); color: var(--on-accent); }
-.evform.training .evkind button.active { background: var(--sport); color: var(--on-accent); }
+.evform .evkind button.active { background: var(--purple); color: var(--on-purple); }
 .evform .evactions { justify-content: flex-start; }
 .evform .evsubmit { border: none; border-radius: var(--radius-sm); padding: 10px 20px; min-height: 44px; font-weight: 700; font-size: 14px; color: var(--on-accent); }
 .evform .evsubmit.event { background: var(--event); }
@@ -481,4 +481,10 @@ input[type="time"].time-input { min-width: 104px; }
 .wkadd-study { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .wkadd .evform { width: 100%; }
 .wktable.two col.c-day { width: 52px; }
+
+/* "Ekle" düğmeleri: marka sarısı, koyu yazı (sarı üstünde beyaz yazı okunmaz) */
+.addform button, .subject-addrow button, .quickrow button, .wkadd .go, .evform .evsubmit.add {
+  background: var(--honey); color: var(--ink);
+}
+.addform button:hover, .subject-addrow button:hover, .quickrow button:hover, .wkadd .go:hover, .evform .evsubmit.add:hover { filter: brightness(.96); }
 

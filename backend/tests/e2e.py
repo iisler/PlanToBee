@@ -378,8 +378,8 @@ def test_events_and_training():
 
     s, b = req("POST", f"/days/{d}/events", {"kind": "Event", "title": " "}, pt)
     check("adsız etkinlik 400", s == 400, (s, b))
-    s, b = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top"}, pt)
-    check("süresiz antrenman 400", s == 400, (s, b))
+    s, b = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top", "minutes": 0}, pt)
+    check("süre verilirse 0 olamaz (400)", s == 400, (s, b))
     s, b = req("POST", f"/days/{d}/events", {"kind": "Training", "minutes": 30}, pt)
     check("türsüz antrenman 400", s == 400, (s, b))
     s, b = req("POST", f"/days/{d}/events", {"kind": "Event", "title": "X", "time": "25:00"}, pt)
@@ -391,12 +391,14 @@ def test_events_and_training():
     check("saatli antrenman eklendi", s == 200 and t1["kind"] == "Training" and t1["title"] == "" and t1["minutes"] == 90, (s, t1))
     s, t2 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Voleybol kampı", "minutes": 60}, ct)
     check("çocuk kendi yazdığı türde antrenman ekledi", s == 200 and t2["trainingType"] == "Voleybol kampı", (s, t2))
+    s, t3 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Kondisyon", "time": "07:00"}, pt)
+    check("süresiz (yalnızca saatli) antrenman eklendi", s == 200 and t3["minutes"] is None and t3["time"] == "07:00", (s, t3))
     s, e2 = req("POST", f"/days/{d}/events", {"title": "Saatsiz not"}, pt)
 
     s, dd = req("GET", f"/days/{d}", token=pt)
     order = [(e["kind"], e["time"]) for e in dd["events"]]
     check("sıra: saatliler saate göre, sonra saatsizler eklenme sırasıyla",
-          order == [("Event", "09:00"), ("Training", "17:00"), ("Training", ""), ("Event", "")], order)
+          order == [("Training", "07:00"), ("Event", "09:00"), ("Training", "17:00"), ("Training", ""), ("Event", "")], order)
     check("gün cevabında ayrı antrenman listesi yok", "trainingEntries" not in dd, list(dd.keys()))
 
     s, b = req("PUT", f"/days/{d}/events/{t1['id']}", {"trainingType": "Kuvvet", "minutes": 45, "time": "18:30", "note": "salon"}, pt)
@@ -413,7 +415,7 @@ def test_events_and_training():
     s, wk = req("GET", f"/days/week/{monday(day).isoformat()}", token=pt)
     today = next(x for x in wk["days"] if x["date"] == d)
     check("hafta özeti: etkinlik sayısı antrenmanları saymaz", today["eventCount"] == 2, today)
-    check("hafta özeti: antrenman sayısı ve süresi", today["trainingDone"] and today["trainingCount"] == 2 and today["trainingMinutes"] == 95, today)
+    check("hafta özeti: antrenman sayısı ve süresi", today["trainingDone"] and today["trainingCount"] == 3 and today["trainingMinutes"] == 95, today)
 
     s, _ = req("DELETE", f"/days/{d}/events/{t2['id']}", token=pt)
     check("ebeveyn çocuğun antrenmanını siler", s == 204, s)

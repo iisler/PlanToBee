@@ -234,7 +234,8 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         {
             var type = trainingType?.Trim() ?? "";
             if (type.Length == 0) return Err.BadRequest("validation", "Antrenman türünü seçin ya da yazın.");
-            if (minutes is not (>= 1 and <= 1440)) return Err.BadRequest("validation", "Süre 1 ile 1440 dakika arasında olmalı.");
+            // Süre isteğe bağlı (antrenman da etkinlik gibi saatle girilir); verilirse 1-1440 dakika.
+            if (minutes is not null and not (>= 1 and <= 1440)) return Err.BadRequest("validation", "Süre 1 ile 1440 dakika arasında olmalı.");
             ev.Title = "";
             ev.TrainingType = type;
             ev.Minutes = minutes;

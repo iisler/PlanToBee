@@ -48,7 +48,7 @@ public record PatchStatusDto([Required] string Status);
 
 // Kind: "Event" (varsayılan) ya da "Training".
 // - Etkinlik: Title zorunlu; TrainingType ve Minutes yok sayılır.
-// - Antrenman: TrainingType (hazır tür ya da kullanıcının yazdığı) zorunlu, Minutes 1-1440; Title yok sayılır.
+// - Antrenman: TrainingType (hazır tür ya da kullanıcının yazdığı) zorunlu, Minutes isteğe bağlı (1-1440); Title yok sayılır.
 // Time boş ya da SS:dd. Kaydın türü sonradan değiştirilemez (UpdateEventDto'da Kind yok).
 public record AddEventDto(
     Models.EventKind? Kind,
