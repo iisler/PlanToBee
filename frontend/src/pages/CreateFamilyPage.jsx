@@ -7,6 +7,8 @@ import PinInput from '../components/PinInput';
 
 // E-posta doğrulandıktan sonra ailesi olmayan hesap: aileyi ve hesap sahibinin (ebeveyn) profilini kurar.
 // Diğer aile üyeleri sonra "Ailem" ekranından profil olarak eklenir; e-posta gerekmez.
+// "Daha sonra": tek başına kullanım. Arka planda tek profilli aile kurulur, PIN sorulmaz; ilk profil
+// eklenirken PIN istenir.
 export default function CreateFamilyPage() {
   const { user, logout, refreshMe, applyAuth } = useAuth();
   const [name, setName] = useState(user.displayName ? `${user.displayName} Ailesi` : '');
@@ -16,22 +18,31 @@ export default function CreateFamilyPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function submit(e) {
-    e.preventDefault();
-    setError('');
-    if (!/^\d{4}$/.test(pin)) return setError('PIN 4 rakamdan oluşmalı.');
-    if (pin !== pin2) return setError('PIN\'ler aynı değil.');
+  async function create(body) {
     setLoading(true);
     try {
-      const res = await client.post('/family', {
-        name: name.trim(), profileName: profileName.trim(), pin, refreshToken: localStorage.getItem(REFRESH_KEY),
-      });
+      const res = await client.post('/family', { ...body, refreshToken: localStorage.getItem(REFRESH_KEY) });
       applyAuth(res.data); // oturum hesap sahibinin profiliyle açılır
     } catch (err) {
       if (errorCode(err) === 'already_in_family') { refreshMe().catch(() => {}); return; }
       setError(errorText(err));
       setLoading(false);
     }
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (!/^\d{4}$/.test(pin)) return setError('PIN 4 rakamdan oluşmalı.');
+    if (pin !== pin2) return setError('PIN\'ler aynı değil.');
+    create({ name: name.trim(), profileName: profileName.trim(), pin });
+  }
+
+  // Aile adı ve profil adı hesabın adından türetilir; ikisi de sonra Ailem ekranından değiştirilebilir.
+  function later() {
+    setError('');
+    const own = (profileName.trim() || user.displayName || 'Ben').slice(0, 50);
+    create({ name: (name.trim() || `${own} Ailesi`).slice(0, 100), profileName: own, pin: null });
   }
 
   return (
@@ -63,6 +74,10 @@ export default function CreateFamilyPage() {
         {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Oluşturuluyor…' : 'Aileyi oluştur'}</button>
       </form>
+      <div className="later-box">
+        <button type="button" className="btn-ghost later-btn" onClick={later} disabled={loading}>Daha sonra, şimdilik tek başıma kullanacağım</button>
+        <div className="auth-hint">PIN gerekmez. Aileni istediğin zaman ad menüsündeki "Ailem" ekranından profil ekleyerek kurabilirsin.</div>
+      </div>
     </AuthLayout>
   );
 }

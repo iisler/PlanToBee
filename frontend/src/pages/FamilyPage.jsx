@@ -123,7 +123,7 @@ export default function FamilyPage({ family, reloadFamily, onProfileChanged }) {
       </div>
 
       {isParent && (
-        <AddProfileCard busy={busy}
+        <AddProfileCard busy={busy} needMyPin={!family.profiles.find(p => p.isCurrent)?.hasPin}
           onAdd={(body) => run(() => client.post('/profiles', body), `${body.displayName} eklendi.`)} />
       )}
 
@@ -150,24 +150,40 @@ function RoleSeg({ value, onChange, disabled }) {
   );
 }
 
-function AddProfileCard({ busy, onAdd }) {
-  const [form, setForm] = useState({ displayName: '', role: 'Child', pin: '' });
+// needMyPin: profili ekleyen ebeveynin kendi PIN'i yok (tek başına kullanımdan aileye geçiş). Ailede birden fazla
+// profil olunca ebeveyn profilleri PIN ile korunur; bu yüzden önce kendi PIN'i belirlenir.
+function AddProfileCard({ busy, needMyPin, onAdd }) {
+  const [form, setForm] = useState({ displayName: '', role: 'Child', pin: '', myPin: '' });
   const [error, setError] = useState('');
   const parent = form.role === 'Parent';
 
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (needMyPin && form.myPin.length !== 4) return setError('Önce kendi profilin için 4 haneli PIN belirle.');
     if (parent && form.pin.length !== 4) return setError('Ebeveyn profilleri için 4 haneli PIN zorunlu.');
     if (form.pin && form.pin.length !== 4) return setError('PIN 4 rakamdan oluşmalı.');
-    const ok = await onAdd({ displayName: form.displayName.trim(), role: form.role, pin: form.pin || null });
-    if (ok) setForm({ displayName: '', role: 'Child', pin: '' });
+    const ok = await onAdd({
+      displayName: form.displayName.trim(), role: form.role, pin: form.pin || null, myPin: needMyPin ? form.myPin : null,
+    });
+    if (ok) setForm({ displayName: '', role: 'Child', pin: '', myPin: '' });
   }
 
   return (
     <div className="card">
       <div className="card-head"><h2>Profil ekle</h2></div>
       <form className="stack-form" onSubmit={submit}>
+        {needMyPin && (
+          <div className="my-pin">
+            <div className="muted">
+              Ailene profil eklediğinde ebeveyn profilleri PIN ile korunur; böylece çocuklar senin profilinle işlem yapamaz.
+              Önce kendi profilin için bir PIN belirle.
+            </div>
+            <label className="pin-label">Senin PIN'in
+              <PinInput value={form.myPin} onChange={myPin => setForm(f => ({ ...f, myPin }))} label="Senin PIN'in" />
+            </label>
+          </div>
+        )}
         <input aria-label="Ad" placeholder="Ad (ör. Ela)" maxLength={50} value={form.displayName}
           onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} required />
         <RoleSeg value={form.role} onChange={role => setForm(f => ({ ...f, role }))} />

@@ -335,6 +335,35 @@ def test_profiles_and_plan():
     return p_email
 
 
+def test_solo_family():
+    print("Tek başına kullanım: PIN'siz aile, sonra aileye geçiş")
+    email, acc = register_and_verify("Tek")
+    s, own = req("POST", "/family", {"name": "Tek Ailesi", "profileName": "Tek", "refreshToken": acc["refreshToken"]}, acc["token"])
+    check("PIN'siz aile kuruldu, oturum profille açıldı", s == 200 and (own.get("profile") or {}).get("isOwner") is True, (s, own))
+    s, d = req("GET", "/days/" + dt.date.today().isoformat(), token=own["token"])
+    check("tek profille plan açılıyor", s == 200, s)
+
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, b = select(dev, own["profile"]["id"])
+    check("tek profilli ailede PIN'siz ebeveyn seçilebiliyor", s == 200 and b.get("profile"), (s, b))
+
+    s, b = req("POST", "/profiles", {"displayName": "Kız", "role": "Child"}, own["token"])
+    check("ilk profil eklenirken kendi PIN'i istenir", s == 400 and code_of(b) == "my_pin_required", (s, b))
+    s, b = req("POST", "/profiles", {"displayName": "Kız", "role": "Child", "myPin": "12"}, own["token"])
+    check("geçersiz kendi PIN'i 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, kid = req("POST", "/profiles", {"displayName": "Kız", "role": "Child", "myPin": "2468"}, own["token"])
+    check("kendi PIN'iyle profil eklendi", s == 200, (s, kid))
+    s, plist = req("GET", "/profiles", token=own["token"])
+    me = next((p for p in plist if p["isOwner"]), {})
+    check("sahibin profilinde artık PIN var", me.get("hasPin") is True, me)
+
+    s, dev2 = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, b = select(dev2, me["id"])
+    check("ailede 2 profil: PIN'siz seçim reddedilir", s == 400 and code_of(b) == "pin_invalid", (s, b))
+    s, b = select(dev2, me["id"], pin="2468")
+    check("PIN ile seçiliyor", s == 200, (s, b))
+
+
 def main():
     global API, EMAILS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -349,7 +378,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family):
         try:
             t()
         except Exception as e:  # noqa: BLE001

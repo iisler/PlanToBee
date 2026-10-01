@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { initial } from '../utils/format';
 
-// Sağ üstteki profil adı: dokununca Profil değiştir, Ailem ve Çıkış seçenekleri açılır.
+// Sağ üstteki profil adı: dokununca Profil değiştir (ailede birden fazla profil varsa), Ailem ve Çıkış seçenekleri açılır.
 export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
@@ -40,7 +40,7 @@ export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) 
         <>
           <div className="usermenu-backdrop" onClick={() => setOpen(false)} />
           <ul className="usermenu-list" role="menu" ref={listRef}>
-            <li role="none"><button role="menuitem" onClick={() => choose(onSwitchProfile)}>Profil değiştir</button></li>
+            {onSwitchProfile && <li role="none"><button role="menuitem" onClick={() => choose(onSwitchProfile)}>Profil değiştir</button></li>}
             <li role="none"><button role="menuitem" onClick={() => choose(onFamily)}>Ailem</button></li>
             <li role="none"><button role="menuitem" className="danger" onClick={() => choose(onLogout)}>Çıkış yap</button></li>
           </ul>

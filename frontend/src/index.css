@@ -445,4 +445,7 @@ a.auth-link { text-align: center; }
 .pin-input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--honey); }
 .profile-edit { margin-top: 8px; }
 .member-meta .locked { color: var(--danger); font-weight: 600; }
+.later-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.later-btn { width: 100%; min-height: 44px; }
+.my-pin { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--warn-soft); border-radius: var(--radius-sm); margin-bottom: 4px; }
 

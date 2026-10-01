@@ -86,6 +86,9 @@ export function AuthProvider({ children }) {
     return res.data;
   }
 
+  const startSwitch = useCallback(() => setSwitching(true), []);
+  const cancelSwitch = useCallback(() => setSwitching(false), []);
+
   // Profil seçimi: PIN (ya da PIN'i olmayan ebeveyn için hesap şifresi + yeni PIN) ile. Yeni belirteçler bu profile
   // bağlıdır; uygulama yeniden açılınca aynı profille açılır.
   const selectProfile = useCallback(async (id, body = {}) => {
@@ -128,7 +131,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, meError, login, register, logout, applyAuth, refreshMe, selectProfile,
-      switching, startSwitch: () => setSwitching(true), cancelSwitch: () => setSwitching(false),
+      switching, startSwitch, cancelSwitch,
     }}>
       {children}
     </AuthContext.Provider>

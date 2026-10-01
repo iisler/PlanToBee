@@ -8,8 +8,8 @@ public class FamilyService(AppDbContext db)
 {
     public static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
-    // Hesap için yeni bir aile açar; hesap sahibinin profili Ebeveyn rolünde, PIN'iyle oluşturulur.
-    public async Task<FamilyMember> CreateFamilyAsync(User user, string familyName, string profileName, string pin)
+    // Hesap için yeni bir aile açar; hesap sahibinin profili Ebeveyn rolünde oluşturulur (PIN isteğe bağlı).
+    public async Task<FamilyMember> CreateFamilyAsync(User user, string familyName, string profileName, string? pin)
     {
         var now = DateTime.UtcNow;
         var family = new Family { Name = familyName, CreatedAt = now };
@@ -23,7 +23,7 @@ public class FamilyService(AppDbContext db)
             UserId = user.Id,
             CreatedAt = now,
         };
-        owner.PinHash = PinService.Hash(owner, pin);
+        if (pin != null) owner.PinHash = PinService.Hash(owner, pin);
         db.Families.Add(family);
         db.FamilyMembers.Add(owner);
         await db.SaveChangesAsync();

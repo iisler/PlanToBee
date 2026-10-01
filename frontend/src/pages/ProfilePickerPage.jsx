@@ -24,11 +24,23 @@ export default function ProfilePickerPage() {
       const r = await client.get('/profiles');
       setProfiles(r.data);
       setLoadError('');
+      return r.data;
     } catch (err) {
       setLoadError(errorText(err));
+      return null;
     }
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  // Tek başına kullanım (tek, PIN'siz profil): seçilecek başka profil yok, ekran atlanır.
+  const autoSelected = useRef(false);
+  useEffect(() => {
+    load().then(list => {
+      if (autoSelected.current || list?.length !== 1 || list[0].hasPin) return;
+      autoSelected.current = true;
+      if (switching && user.profile?.id === list[0].id) cancelSwitch();
+      else selectProfile(list[0].id).catch(err => setLoadError(errorText(err)));
+    });
+  }, [load, switching, user.profile?.id, cancelSwitch, selectProfile]);
 
   async function submit(profile, body) {
     setBusy(true);

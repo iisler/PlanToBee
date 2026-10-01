@@ -132,7 +132,8 @@ export default function PlanShell() {
         <header className="top">
           <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
           <div className="top-right">
-            <UserMenu name={user.profile.displayName} onSwitchProfile={startSwitch} onFamily={() => changeView('family')} onLogout={logout} />
+            <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
+              onFamily={() => changeView('family')} onLogout={logout} />
           </div>
         </header>
 

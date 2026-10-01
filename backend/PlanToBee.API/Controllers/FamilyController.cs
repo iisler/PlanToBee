@@ -32,7 +32,8 @@ public class FamilyController(
         return Ok(await BuildFamilyDto(db, me));
     }
 
-    // Hesabın ailesini kurar; hesap sahibinin profili Ebeveyn rolünde ve PIN'iyle oluşur, oturum bu profille açılır.
+    // Hesabın ailesini kurar; hesap sahibinin profili Ebeveyn rolünde oluşur, oturum bu profille açılır.
+    // PIN verilmezse ("Daha sonra") profil PIN'siz kalır; ilk profil eklenirken PIN istenir.
     [HttpPost]
     public async Task<IActionResult> Create(CreateFamilyDto dto)
     {
@@ -40,7 +41,7 @@ public class FamilyController(
         var profileName = dto.ProfileName.Trim();
         if (name.Length == 0) return Err.BadRequest("validation", "Aile adı girin.");
         if (profileName.Length == 0) return Err.BadRequest("validation", "Adını girin.");
-        if (!PinService.IsValidFormat(dto.Pin)) return Err.BadRequest("validation", "PIN 4 rakamdan oluşmalı.");
+        if (dto.Pin != null && !PinService.IsValidFormat(dto.Pin)) return Err.BadRequest("validation", "PIN 4 rakamdan oluşmalı.");
         if (await members.GetOwnerAsync() != null)
             return Err.Conflict("already_in_family", "Bu hesabın zaten bir ailesi var.");
 

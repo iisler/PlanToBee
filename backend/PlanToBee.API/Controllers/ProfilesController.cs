@@ -14,7 +14,8 @@ namespace PlanToBee.API.Controllers;
 // Netflix tarzı profiller. Aile tek hesapla giriş yapar; cihazda profil seçilir ("Kim kullanıyor?").
 // - Profil listesi ve seçimi için yalnızca hesabın oturumu yeterlidir (profil seçilmiş olması gerekmez).
 // - Profil ekleme, düzenleme ve silme yalnızca ebeveyn profilinden yapılır.
-// - Ebeveyn profillerinde PIN zorunludur; çocuklarda isteğe bağlıdır. 5 hatalı PIN denemesinde profil 5 dk kilitlenir.
+// - Ailede birden fazla profil varsa ebeveyn profillerinde PIN zorunludur; çocuklarda isteğe bağlıdır.
+//   Tek profilli aile (tek başına kullanım) PIN'siz çalışır. 5 hatalı PIN denemesinde profil 5 dk kilitlenir.
 [ApiController]
 [Route("api/profiles")]
 [Authorize]
@@ -55,7 +56,8 @@ public class ProfilesController(
             // 401 değil: oturum geçerli, yalnızca PIN yanlış (istemci 401'i oturum sonu sayar).
             if (result == PinService.Result.Wrong) return Err.BadRequest("pin_invalid", "PIN hatalı.");
         }
-        else if (profile.Role == FamilyRole.Parent)
+        else if (profile.Role == FamilyRole.Parent &&
+                 await db.FamilyMembers.CountAsync(m => m.FamilyId == owner.FamilyId && m.Status == MemberStatus.Active) > 1)
         {
             // Eski kayıtlarda PIN'siz ebeveyn profili olabilir. PIN'i yalnızca hesap şifresini bilen belirleyebilir;
             // aksi halde aile şifresini bilen bir çocuk ebeveyn profiline kendi PIN'ini koyabilirdi.
@@ -83,8 +85,16 @@ public class ProfilesController(
         if (!Enum.IsDefined(role)) return Err.BadRequest("validation", "Geçersiz rol.");
         var pinError = CheckNewPin(dto.Pin, required: role == FamilyRole.Parent);
         if (pinError != null) return pinError;
-        if (await NameTaken(me!.FamilyId, name, null))
+        // Tek başına kullanımdan aileye geçiş: profili ekleyen ebeveynin PIN'i yoksa önce o belirlenir.
+        if (me!.PinHash == null)
+        {
+            if (dto.MyPin == null)
+                return Err.BadRequest("my_pin_required", "Ailene profil eklemeden önce kendi profilin için 4 haneli PIN belirle.");
+            if (!PinService.IsValidFormat(dto.MyPin)) return Err.BadRequest("validation", "PIN 4 rakamdan oluşmalı.");
+        }
+        if (await NameTaken(me.FamilyId, name, null))
             return Err.Conflict("duplicate_profile", $"\"{name}\" adlı bir profil zaten var.");
+        if (me.PinHash == null) me.PinHash = PinService.Hash(me, dto.MyPin!);
 
         var profile = new FamilyMember
         {
