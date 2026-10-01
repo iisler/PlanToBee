@@ -10,7 +10,6 @@ namespace PlanToBee.API.Infrastructure;
 // Kullanım (backend/PlanToBee.API klasöründe):
 //   dotnet run -- admin users                  Tüm kullanıcılar: ad, e-posta, doğrulama, aile
 //   dotnet run -- admin find <e-posta>         Bu e-postayla kayıtlı kullanıcı var mı
-//   dotnet run -- admin invitations            Bekleyen davetler ve davet edilen adresler
 //
 // Canlı veritabanı için bağlantı ve anahtar ortam değişkeniyle verilir (docs/DEPLOY.md > Yönetici komutları):
 //   ConnectionStrings__Default='postgresql://...' PersonalData__Key='...' dotnet run -- admin users
@@ -52,10 +51,8 @@ public static class AdminCli
                     return await ListUsers(db, null);
                 case ["find", var email]:
                     return await ListUsers(db, email.Trim().ToUpperInvariant());
-                case ["invitations"]:
-                    return await ListInvitations(db);
                 default:
-                    Console.Error.WriteLine("Komutlar: admin users | admin find <e-posta> | admin invitations");
+                    Console.Error.WriteLine("Komutlar: admin users | admin find <e-posta>");
                     return 2;
             }
         }
@@ -75,8 +72,8 @@ public static class AdminCli
             .Select(u => new
             {
                 u.Id, u.DisplayName, u.Email, u.EmailConfirmed,
-                Family = db.FamilyMembers.Where(m => m.UserId == u.Id && m.Status == MemberStatus.Joined)
-                    .Select(m => m.Family!.Name + " (" + m.Role + ")").FirstOrDefault(),
+                Family = db.FamilyMembers.Where(m => m.UserId == u.Id && m.Status == MemberStatus.Active)
+                    .Select(m => m.Family!.Name).FirstOrDefault(),
             })
             .OrderBy(u => u.DisplayName)
             .ToListAsync();
@@ -90,21 +87,6 @@ public static class AdminCli
         foreach (var u in users)
             Console.WriteLine($"{Cut(u.DisplayName, 20),-20} {Cut(u.Email, 36),-36} {(u.EmailConfirmed ? "evet" : "hayır"),-10} {u.Family ?? "-"}");
         Console.WriteLine($"Toplam: {users.Count}");
-        return 0;
-    }
-
-    private static async Task<int> ListInvitations(AppDbContext db)
-    {
-        var now = DateTime.UtcNow;
-        var invites = await db.Invitations.AsNoTracking()
-            .Where(i => i.Status == InvitationStatus.Pending && i.ExpiresAt > now)
-            .OrderBy(i => i.ExpiresAt)
-            .Select(i => new { i.Email, Name = i.Member!.DisplayName, Family = i.Family!.Name, i.ExpiresAt })
-            .ToListAsync();
-        if (invites.Count == 0) { Console.WriteLine("Bekleyen davet yok."); return 0; }
-        Console.WriteLine($"{"Ad",-20} {"E-posta",-36} {"Aile",-20} Son geçerlilik (UTC)");
-        foreach (var i in invites)
-            Console.WriteLine($"{Cut(i.Name, 20),-20} {Cut(i.Email, 36),-36} {Cut(i.Family, 20),-20} {i.ExpiresAt:yyyy-MM-dd HH:mm}");
         return 0;
     }
 

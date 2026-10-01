@@ -22,10 +22,14 @@ public record ResetPasswordDto(
     [Required] string Token,
     [Required(ErrorMessage = "Yeni şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string NewPassword);
 
-public record FamilySummaryDto(int Id, string Name, int MemberId, string DisplayName, string Role, bool IsAdmin);
+public record FamilySummaryDto(int Id, string Name);
+
+// Bu oturumda seçili profil. IsOwner: hesap sahibinin profili.
+public record ProfileSummaryDto(int Id, string DisplayName, string Role, bool IsOwner);
 
 // Token: kısa ömürlü erişim belirteci (Authorization: Bearer). RefreshToken: /auth/refresh ile yeni oturum almak için;
 // her kullanımda değişir. ExpiresIn: erişim belirtecinin ömrü (saniye).
+// Profile: bu cihazda seçili profil; null ise istemci "Kim kullanıyor?" ekranını gösterir (POST /profiles/{id}/select).
 public record AuthResponseDto(
     string Token,
     string RefreshToken,
@@ -34,9 +38,10 @@ public record AuthResponseDto(
     string DisplayName,
     string Username, // geriye dönük uyumluluk: DisplayName ile aynı
     bool EmailVerified,
-    FamilySummaryDto? Family);
+    FamilySummaryDto? Family,
+    ProfileSummaryDto? Profile);
 
-public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family);
+public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family, ProfileSummaryDto? Profile);
 
 // Kayıt cevabı hesap zaten var olsa da aynıdır (hesap varlığı belli olmaz); oturum açılmaz.
 public record RegisterAcceptedDto(string Message, string Email);

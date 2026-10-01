@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PlanToBee uçtan uca API senaryosu (yalnızca Python standart kütüphanesi).
 
-Kayıt, e-posta doğrulama, giriş kilidi, oturum yenileme, şifre sıfırlama, aile kurma, davet, ortak plan
+Kayıt, e-posta doğrulama, giriş kilidi, oturum yenileme, şifre sıfırlama, aile kurma, profiller ve PIN, ortak plan
 yetkileri, ders listesi, hafta ayrıntısı ve başka aile izolasyonunu kontrol eder.
 
 API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmalı (LogEmailSender):
@@ -212,38 +212,82 @@ def test_refresh_tokens():
     check("sıfırlamadan sonraki oturum yenilenebiliyor", s == 200, s)
 
 
-def test_family_and_plan():
-    print("Aile, davet ve ortak plan yetkileri")
-    p_email, parent = register_and_verify("Ebeveyn")
-    pt = parent["token"]
-    s, fam = req("POST", "/family", {"name": "E2E Ailesi"}, pt)
-    check("aile kuruldu", s in (200, 201) and fam.get("name") == "E2E Ailesi", (s, fam))
+def select(auth, profile_id, **body):
+    body.setdefault("refreshToken", auth["refreshToken"])
+    return req("POST", f"/profiles/{profile_id}/select", body, auth["token"])
 
-    c_email = new_email("cocuk")
-    s, inv = req("POST", "/family/invitations", {"displayName": "Çocuk", "role": "Child", "email": c_email}, pt)
-    check("davet gönderildi", s == 200 and inv.get("emailSent") is True, (s, inv))
-    mail = wait_email(c_email, 1)[-1] if wait_email(c_email, 1) else ""
-    check("davet e-postası Türkiye saatiyle", "(Türkiye saati)" in mail and "(UTC)" not in mail)
-    token = (link_params(mail, "invite") or {}).get("token")
-    s, prev = req("POST", "/invitations/resolve", {"token": token})
-    check("davet önizlemesi", s == 200 and prev.get("familyName") == "E2E Ailesi", (s, prev))
-    s, child = req("POST", "/invitations/accept-new", {"token": token, "password": "cocuk123"})
-    check("davetle yeni hesap + refreshToken", s == 200 and child.get("refreshToken") and child["family"]["role"] == "Child", (s, child))
-    ct = child["token"]
 
+def test_profiles_and_plan():
+    print("Aile hesabı, profiller (PIN) ve ortak plan yetkileri")
+    p_email, account = register_and_verify("Ebeveyn")
+    check("girişte profil yok", account.get("profile") is None, account.get("profile"))
+    s, b = req("GET", "/days/" + dt.date.today().isoformat(), token=account["token"])
+    check("aile yokken plan: 403 family_required", s == 403 and code_of(b) == "family_required", (s, b))
+
+    s, b = req("POST", "/family", {"name": "E2E Ailesi", "profileName": "Annem", "pin": "12a4"}, account["token"])
+    check("aile kurarken geçersiz PIN 400", s == 400, (s, b))
+    s, owner = req("POST", "/family", {"name": "E2E Ailesi", "profileName": "Annem", "pin": "1234",
+                                       "refreshToken": account["refreshToken"]}, account["token"])
+    check("aile kuruldu, oturum sahibin profiliyle açıldı",
+          s == 200 and owner["family"]["name"] == "E2E Ailesi" and owner["profile"]["isOwner"] is True, (s, owner))
+    s, r = req("POST", "/auth/refresh", {"refreshToken": account["refreshToken"]})
+    check("aile kurulunca eski profilsiz oturum kapandı", s == 401, s)
+    pt = owner["token"]
+
+    s, child = req("POST", "/profiles", {"displayName": "Ela", "role": "Child"}, pt)
+    check("PIN'siz çocuk profili eklendi", s == 200 and child["hasPin"] is False, (s, child))
+    s, b = req("POST", "/profiles", {"displayName": "Babam", "role": "Parent"}, pt)
+    check("PIN'siz ebeveyn profili reddedildi", s == 400 and code_of(b) == "pin_required", (s, b))
+    s, dad = req("POST", "/profiles", {"displayName": "Babam", "role": "Parent", "pin": "4321"}, pt)
+    check("PIN'li ebeveyn profili eklendi", s == 200 and dad["hasPin"] is True, (s, dad))
+    s, b = req("POST", "/profiles", {"displayName": "ela", "role": "Child"}, pt)
+    check("aynı adlı profil reddedildi", s == 409, (s, b))
+
+    # Başka bir cihaz: aile hesabıyla giriş, profil seçimi
+    s, dev = req("POST", "/auth/login", {"email": p_email, "password": "sifre123"})
+    check("yeni cihazda giriş profilsiz", s == 200 and dev.get("profile") is None, (s, dev.get("profile")))
+    s, b = req("GET", "/days/" + dt.date.today().isoformat(), token=dev["token"])
+    check("profil seçmeden plan: 403 profile_required", s == 403 and code_of(b) == "profile_required", (s, b))
+    s, plist = req("GET", "/profiles", token=dev["token"])
+    check("profil listesi (3 profil, sahip başta)", s == 200 and len(plist) == 3 and plist[0]["isOwner"], (s, plist))
+    s, b = select(dev, owner["profile"]["id"])
+    check("PIN'siz ebeveyn seçimi 400 pin_invalid", s == 400 and code_of(b) == "pin_invalid", (s, b))
+    s, ct = select(dev, child["id"])
+    check("PIN'siz çocuk profili seçildi", s == 200 and ct["profile"]["role"] == "Child", (s, ct))
+    s, r = req("POST", "/auth/refresh", {"refreshToken": ct["refreshToken"]})
+    check("yenilemede profil hatırlanıyor", s == 200 and (r.get("profile") or {}).get("id") == child["id"], (s, r))
+    ct = r
+
+    # Çocuk profili yönetim yapamaz, ebeveyn profilini PIN'siz seçemez
+    s, b = req("POST", "/profiles", {"displayName": "Kardeş", "role": "Child"}, ct["token"])
+    check("çocuk profil ekleyemez (403 parent_only)", s == 403 and code_of(b) == "parent_only", (s, b))
+    s, b = req("DELETE", f"/profiles/{dad['id']}", token=ct["token"])
+    check("çocuk profil silemez", s == 403, s)
+
+    # PIN kilidi
+    codes = [select(ct, dad["id"], pin="0000")[0] for _ in range(5)]
+    check("5 hatalı PIN: 4×400 + kilit 429", codes == [400, 400, 400, 400, 429], codes)
+    s, b = select(ct, dad["id"], pin="4321")
+    check("kilitliyken doğru PIN de reddedilir", s == 429 and code_of(b) == "pin_locked", (s, b))
+    s, plist = req("GET", "/profiles", token=ct["token"])
+    locked = next((p for p in plist if p["id"] == dad["id"]), {})
+    check("listede kilit süresi görünüyor", (locked.get("lockedSeconds") or 0) > 0, locked)
+
+    # Ortak plan yetkileri
     today = dt.date.today()
     day = today.isoformat()
     s, e1 = req("POST", f"/days/{day}/entries", {"subject": "Matematik", "topic": "Kesirler", "minutes": 30}, pt)
     check("ebeveyn ders ekledi", s == 200, (s, e1))
-    s, e2 = req("POST", f"/days/{day}/entries", {"subject": "Fizik", "minutes": 20}, ct)
+    s, e2 = req("POST", f"/days/{day}/entries", {"subject": "Fizik", "minutes": 20}, ct["token"])
     check("çocuk ders ekledi", s == 200, (s, e2))
-    s, d = req("GET", f"/days/{day}", token=ct)
+    s, d = req("GET", f"/days/{day}", token=ct["token"])
     entries = {e["subject"]: e for e in d["studyEntries"]} if s == 200 else {}
     check("çocuk: ebeveynin kaydı canEdit=false", entries.get("Matematik", {}).get("canEdit") is False)
     check("çocuk: kendi kaydı canEdit=true", entries.get("Fizik", {}).get("canEdit") is True)
+    check("ekleyen profil adı görünüyor", entries.get("Matematik", {}).get("createdBy", {}).get("displayName") == "Annem")
     pid = entries.get("Matematik", {}).get("id")
     cid = entries.get("Fizik", {}).get("id")
-    s, b = req("DELETE", f"/days/{day}/entries/{pid}", token=ct)
+    s, b = req("DELETE", f"/days/{day}/entries/{pid}", token=ct["token"])
     check("çocuk ebeveynin kaydını silemiyor (403)", s == 403 and code_of(b) == "plan_read_only", (s, b))
     s, _ = req("PATCH", f"/days/{day}/entries/{cid}/status", {"status": "done"}, pt)
     check("ebeveyn çocuğun kaydını güncelleyebiliyor", s == 200, s)
@@ -252,22 +296,42 @@ def test_family_and_plan():
     check("hafta ayrıntısı 7 gün", s == 200 and len(week["days"]) == 7, s)
     s, _ = req("GET", "/days/week/9999-12-31/details", token=pt)
     check("uç tarih 400", s == 400, s)
-
     s, subj = req("GET", "/subjects", token=pt)
     check("varsayılan ders listesi", s == 200 and len(subj["subjects"]) >= 10, s)
 
+    # Rol ve PIN yönetimi
+    s, b = req("PUT", f"/profiles/{child['id']}", {"displayName": "Ela", "role": "Parent"}, pt)
+    check("çocuğu ebeveyn yapmak PIN ister", s == 400 and code_of(b) == "pin_required", (s, b))
+    s, b = req("PUT", f"/profiles/{owner['profile']['id']}", {"displayName": "Annem", "role": "Child"}, pt)
+    check("hesap sahibi çocuk yapılamaz", s == 400, (s, b))
+    s, b = req("PUT", f"/profiles/{child['id']}/pin", {"pin": "5555"}, ct["token"])
+    check("çocuk kendi PIN'ini koyabiliyor", s == 200 and b["hasPin"] is True, (s, b))
+    s, b = req("PUT", f"/profiles/{dad['id']}/pin", {"pin": None}, pt)
+    check("ebeveyn PIN'i kaldırılamaz", s == 400 and code_of(b) == "pin_required", (s, b))
+
+    # Profil silme: kayıtları "Eski üye" olarak kalır, o profili kullanan cihaz profil seçmeye döner
+    s, _ = req("DELETE", f"/profiles/{child['id']}", token=pt)
+    check("ebeveyn çocuk profilini sildi", s == 204, s)
+    s, b = req("GET", f"/days/{day}", token=ct["token"])
+    check("silinen profilin cihazı: 403 profile_required", s == 403 and code_of(b) == "profile_required", (s, b))
+    s, r = req("POST", "/auth/refresh", {"refreshToken": ct["refreshToken"]})
+    check("silinen profilde yenileme profilsiz döner", s == 200 and r.get("profile") is None, (s, r.get("profile") if isinstance(r, dict) else r))
+    s, d = req("GET", f"/days/{day}", token=pt)
+    fiz = next((e for e in d["studyEntries"] if e["subject"] == "Fizik"), {})
+    check("silinen profilin kaydı 'eski üye' olarak duruyor", (fiz.get("createdBy") or {}).get("isFormerMember") is True, fiz)
+    s, b = req("DELETE", f"/profiles/{owner['profile']['id']}", token=pt)
+    check("hesap sahibinin profili silinemez", s == 400, (s, b))
+
     # Başka aile
     _, stranger = register_and_verify("Yabanci")
-    st = stranger["token"]
-    req("POST", "/family", {"name": "Başka Aile"}, st)
+    s, so = req("POST", "/family", {"name": "Başka Aile", "profileName": "Yabancı", "pin": "9999"}, stranger["token"])
+    st = so["token"]
     s, b = req("DELETE", f"/days/{day}/entries/{cid}", token=st)
     check("başka aile kaydı silemiyor (404)", s == 404, (s, b))
     s, d = req("GET", f"/days/{day}", token=st)
     check("başka aile kayıtları görmüyor", s == 200 and d["studyEntries"] == [], s)
-
-    # Çocuk silebilir: kendi kaydı
-    s, _ = req("DELETE", f"/days/{day}/entries/{cid}", token=ct)
-    check("çocuk kendi kaydını siliyor", s == 204, s)
+    s, b = select(stranger, dad["id"], pin="4321")
+    check("başka ailenin profili seçilemiyor (404)", s == 404, (s, b))
     return p_email
 
 
@@ -285,7 +349,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_family_and_plan):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan):
         try:
             t()
         except Exception as e:  # noqa: BLE001

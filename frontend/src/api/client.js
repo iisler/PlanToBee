@@ -8,7 +8,7 @@ export const USER_KEY = 'plantobee:user';
 // 'email' ve 'username' eski sürümden kalan anahtarlar; çıkışta onlar da temizlenir.
 export const AUTH_KEYS = [TOKEN_KEY, REFRESH_KEY, USER_KEY, 'email', 'username'];
 export const AUTH_EXPIRED_EVENT = 'plantobee:auth-expired';
-// 403 email_not_verified / family_required geldiğinde AuthContext durumu tazeler ve doğru ekrana yönlendirir.
+// 403 email_not_verified / family_required / profile_required geldiğinde AuthContext durumu tazeler ve doğru ekrana yönlendirir.
 export const ACCOUNT_STATE_EVENT = 'plantobee:account-state';
 
 // localhost varsayılanı yalnızca geliştirmede (npm run dev) kullanılır. Üretim derlemesinde VITE_API_URL
@@ -34,7 +34,6 @@ client.interceptors.request.use(async (config) => {
 const ANONYMOUS = [
   '/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/verify-email',
   '/auth/reset-password', '/auth/forgot-password', '/auth/resend-verification',
-  '/invitations/resolve', '/invitations/accept-new',
 ];
 
 export function saveTokens(data) {
@@ -78,7 +77,8 @@ client.interceptors.response.use(
     const status = err.response?.status;
     const code = err.response?.data?.code;
     // Erişim belirtecinin süresi doldu (401): bir kez yenileyip isteği tekrarla; olmazsa oturumu kapat.
-    if (status === 401 && !ANONYMOUS.includes(url) && localStorage.getItem(TOKEN_KEY)) {
+    // Kodu olan 401 cevapları (ör. yanlış şifre) işin kendi hatasıdır, oturum sonu sayılmaz.
+    if (status === 401 && !code && !ANONYMOUS.includes(url) && localStorage.getItem(TOKEN_KEY)) {
       if (!config._retried && localStorage.getItem(REFRESH_KEY)) {
         try {
           refreshing ??= refreshSession().finally(() => { refreshing = null; });
@@ -90,7 +90,7 @@ client.interceptors.response.use(
       }
       expireSession();
     }
-    if (status === 403 && (code === 'email_not_verified' || code === 'family_required')) {
+    if (status === 403 && (code === 'email_not_verified' || code === 'family_required' || code === 'profile_required')) {
       window.dispatchEvent(new CustomEvent(ACCOUNT_STATE_EVENT, { detail: code }));
     }
     return Promise.reject(err);

@@ -9,6 +9,8 @@ public class RefreshToken
     public string UserId { get; set; } = "";
     public User? User { get; set; }
     public string TokenHash { get; set; } = "";
+    // Bu cihazda seçili profil. Yenilenen erişim belirteci aynı profille verilir (cihaz profili hatırlar).
+    public int? MemberId { get; set; }
     // Belirteç verildiğindeki security stamp: şifre değişince eski oturumlar yenilenemez.
     public string SecurityStamp { get; set; } = "";
     public DateTime CreatedAt { get; set; }

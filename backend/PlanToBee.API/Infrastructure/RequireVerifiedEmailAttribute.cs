@@ -8,6 +8,8 @@ public static class AuthClaims
     public const string SecurityStamp = "sstamp";
     // Her istekte veritabanından okunur (Program.cs OnTokenValidated), token'a gömülü değildir.
     public const string EmailVerified = "email_verified";
+    // Bu oturumda seçili profil (FamilyMember.Id). Profil seçilmeden önce verilen belirteçte yoktur.
+    public const string Member = "mid";
 }
 
 // E-postası doğrulanmamış kullanıcıyı aile ve plan uç noktalarından 403 email_not_verified ile geri çevirir.

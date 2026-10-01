@@ -23,9 +23,11 @@ public static class Err
     public static ObjectResult TooMany(string message = "Çok fazla istek. Biraz bekleyip tekrar dene.") => Make(429, "rate_limited", message);
 
     public static ObjectResult FamilyRequired() =>
-        Forbidden("family_required", "Önce bir aile oluşturmalı ya da bir aileye katılmalısın.");
+        Forbidden("family_required", "Önce aileni oluşturmalısın.");
+    public static ObjectResult ProfileRequired() =>
+        Forbidden("profile_required", "Devam etmek için profilini seç.");
+    public static ObjectResult ParentOnly() =>
+        Forbidden("parent_only", "Bu işlemi yalnızca ebeveyn profili yapabilir.");
     public static ObjectResult ReadOnly() =>
         Forbidden("plan_read_only", "Bu kaydı yalnızca ekleyen kişi ya da bir ebeveyn değiştirebilir.");
-    public static ObjectResult AdminOnly() =>
-        Forbidden("admin_only", "Bu işlemi yalnızca aile yöneticisi yapabilir.");
 }

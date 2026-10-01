@@ -45,20 +45,6 @@ public static class EmailTemplates
         null,
         "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; hesabında bir değişiklik yapılmadı.");
 
-    public static EmailMessage Invitation(string to, string memberName, string familyName, string inviterName,
-        string roleText, string link, string code, DateTime expiresAtUtc) => Build(
-        to,
-        $"PlanToBee: {inviterName} seni {familyName} ailesine davet etti",
-        $"Merhaba {memberName},",
-        [
-            $"{inviterName}, seni PlanToBee'de \"{familyName}\" ailesine {roleText} olarak davet etti.",
-            "Katılmak için aşağıdaki bağlantıya tıklayıp şifreni belirlemen yeterli.",
-            $"Davet {TurkeyTime.Format(expiresAtUtc)} tarihine kadar, yani 7 gün geçerlidir ve tek kullanımlıktır."
-        ],
-        ("Daveti kabul et", link),
-        ("Bağlantı çalışmazsa PlanToBee giriş ekranında \"Davet kodum var\" seçeneğine bu e-posta adresini ve şu kodu gir:", code),
-        "Bu daveti beklemiyorsan e-postayı yok sayabilirsin.");
-
     private static EmailMessage Build(string to, string subject, string greeting, string[] paragraphs,
         (string Text, string Url) button, (string Intro, string Code)? code, string footer)
     {

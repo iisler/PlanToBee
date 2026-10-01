@@ -37,32 +37,7 @@ export function formatStamp(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${time}`;
 }
 
-// Davetin kalan süresi: "6 gün kaldı", "5 saat kaldı", "12 dk kaldı"
-export function formatRemaining(seconds) {
-  if (seconds == null) return '';
-  if (seconds >= 86400) return `${Math.floor(seconds / 86400)} gün kaldı`;
-  if (seconds >= 3600) return `${Math.floor(seconds / 3600)} saat kaldı`;
-  return `${Math.max(1, Math.floor(seconds / 60))} dk kaldı`;
-}
-
-// Türkçe iyelik eki: "Ela" → "Ela'nın", "Ömer" → "Ömer'in", "Umut" → "Umut'un"
-export function possessive(name) {
-  const n = (name || '').trim();
-  if (!n) return '';
-  const lower = n.toLocaleLowerCase('tr-TR');
-  const vowels = 'aıoueiöü';
-  let last = '';
-  for (let i = lower.length - 1; i >= 0; i--) {
-    if (vowels.includes(lower[i])) { last = lower[i]; break; }
-  }
-  const suffixVowel = { a: 'ı', ı: 'ı', o: 'u', u: 'u', e: 'i', i: 'i', ö: 'ü', ü: 'ü' }[last] || 'i';
-  const endsWithVowel = vowels.includes(lower[lower.length - 1]);
-  return `${n}'${endsWithVowel ? 'n' : ''}${suffixVowel}n`;
-}
-
 export const ROLE_LABEL = { Parent: 'Ebeveyn', Child: 'Çocuk' };
-export const MEMBER_STATUS_LABEL = { NoAccount: 'Hesabı yok', Invited: 'Davet bekliyor', Joined: 'Katıldı' };
-export const INVITE_STATUS_LABEL = { Pending: 'Bekliyor', Accepted: 'Katıldı', Expired: 'Süresi doldu', Cancelled: 'İptal' };
 
 export function initial(name) {
   return (name || '?').trim().charAt(0).toLocaleUpperCase('tr-TR') || '?';

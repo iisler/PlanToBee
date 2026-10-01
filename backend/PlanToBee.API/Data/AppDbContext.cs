@@ -20,7 +20,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
 
     public DbSet<Family> Families => Set<Family>();
     public DbSet<FamilyMember> FamilyMembers => Set<FamilyMember>();
-    public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Day> Days => Set<Day>();
     public DbSet<StudyEntry> StudyEntries => Set<StudyEntry>();
@@ -58,6 +57,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.Property(t => t.ReplacedByHash).HasMaxLength(64);
             b.Property(t => t.SecurityStamp).HasMaxLength(256);
             b.HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<FamilyMember>().WithMany().HasForeignKey(t => t.MemberId).OnDelete(DeleteBehavior.SetNull);
             b.HasIndex(t => t.TokenHash).IsUnique();
             b.HasIndex(t => t.UserId);
         });
@@ -73,30 +73,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.Property(m => m.DisplayName).HasMaxLength(50);
             b.Property(m => m.Role).HasConversion<string>().HasMaxLength(20);
             b.Property(m => m.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(m => m.PinHash).HasMaxLength(200);
             b.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.SetNull);
-            // Bir kullanıcı aynı anda yalnızca bir aileye üye olabilir.
+            // Bir hesap yalnızca bir ailenin sahibi olabilir.
             b.HasIndex(m => m.UserId).IsUnique().HasFilter("\"UserId\" IS NOT NULL");
-            // Her ailenin en fazla bir yöneticisi olur.
+            // Her ailenin tek bir hesap sahibi profili olur.
             b.HasIndex(m => m.FamilyId).IsUnique().HasFilter("\"IsAdmin\"").HasDatabaseName("IX_FamilyMembers_FamilyId_Admin");
-            // Ailenin üyelerini listeleyen sorgular (Ailem ekranı, davet kontrolleri, "başka üye var mı") ve
+            // Ailenin profillerini listeleyen sorgular (profil seçimi, Ailem ekranı) ve
             // Families silinirken FK taraması için. Yukarıdaki kısmi (IsAdmin) indeks bu sorgularda kullanılamaz.
             b.HasIndex(m => new { m.FamilyId, m.Status });
-        });
-
-        builder.Entity<Invitation>(b =>
-        {
-            b.Property(i => i.Email).HasMaxLength(512).HasConversion((ValueConverter)personalData.EncryptedConverter());
-            b.Property(i => i.NormalizedEmail).HasMaxLength(256).HasConversion((ValueConverter)personalData.IndexConverter());
-            b.Property(i => i.TokenHash).HasMaxLength(64);
-            b.Property(i => i.CodeHash).HasMaxLength(64);
-            b.Property(i => i.CodeSalt).HasMaxLength(64);
-            b.Property(i => i.Status).HasConversion<string>().HasMaxLength(20);
-            b.Property(i => i.Version).IsRowVersion();
-            b.HasOne(i => i.Family).WithMany().HasForeignKey(i => i.FamilyId).OnDelete(DeleteBehavior.Cascade);
-            b.HasOne(i => i.Member).WithMany().HasForeignKey(i => i.MemberId).OnDelete(DeleteBehavior.Cascade);
-            b.HasOne(i => i.InvitedBy).WithMany().HasForeignKey(i => i.InvitedByMemberId).OnDelete(DeleteBehavior.SetNull);
-            b.HasIndex(i => i.TokenHash).IsUnique();
-            b.HasIndex(i => new { i.NormalizedEmail, i.Status });
         });
 
         builder.Entity<Day>(b =>

@@ -8,17 +8,15 @@ namespace PlanToBee.API.Infrastructure;
 public static class RateLimitPolicies
 {
     public const string Auth = "auth";              // kayıt, giriş, doğrulama, şifre sıfırlama
-    public const string InvitePublic = "invite-public"; // davet linki/kodu doğrulama ve kabul
-    public const string InviteSend = "invite-send";     // davet gönderme / yeniden gönderme
+    public const string Pin = "pin";                    // profil seçimi (PIN denemesi): hesap başına
     public const string Session = "session";            // oturum bilgisi (/auth/me): kullanıcı başına geniş sınır
     public const string Api = "api";                    // plan ve aile uç noktaları: kullanıcı başına geniş sınır
 
-    // Varsayılan sınırlar RateLimits:Auth / InvitePublic / InviteSend ayarlarıyla değiştirilebilir.
+    // Varsayılan sınırlar RateLimits:Auth / Pin / Session / Api ayarlarıyla değiştirilebilir.
     public static IServiceCollection AddPlanToBeeRateLimiting(this IServiceCollection services, IConfiguration config)
     {
         var authLimit = config.GetValue("RateLimits:Auth", 20);                 // IP başına / dakika
-        var invitePublicLimit = config.GetValue("RateLimits:InvitePublic", 10); // IP başına / 5 dakika
-        var inviteSendLimit = config.GetValue("RateLimits:InviteSend", 20);     // kullanıcı başına / saat
+        var pinLimit = config.GetValue("RateLimits:Pin", 20);                   // hesap başına / 5 dakika
         var sessionLimit = config.GetValue("RateLimits:Session", 120);          // kullanıcı başına / dakika
         var apiLimit = config.GetValue("RateLimits:Api", 300);                  // kullanıcı başına / dakika
         return services.AddRateLimiter(o =>
@@ -35,14 +33,11 @@ public static class RateLimitPolicies
                 "auth:" + Ip(ctx),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = authLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 
-            // 6 haneli kodun tahmin edilmesini zorlaştırır (davet başına 5 hatalı deneme sınırına ek olarak).
-            o.AddPolicy(InvitePublic, ctx => RateLimitPartition.GetFixedWindowLimiter(
-                "invite:" + Ip(ctx),
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = invitePublicLimit, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
-
-            o.AddPolicy(InviteSend, ctx => RateLimitPartition.GetFixedWindowLimiter(
-                "invite-send:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = inviteSendLimit, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
+            // 4 haneli PIN'in tahmin edilmesini zorlaştırır (profil başına 5 hatalı denemede kilide ek olarak):
+            // farklı profiller sırayla denense de hesap başına toplam deneme sınırlıdır.
+            o.AddPolicy(Pin, ctx => RateLimitPartition.GetFixedWindowLimiter(
+                "pin:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = pinLimit, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
 
             // /auth/me giriş sınırından ayrıdır: aynı ev ağındaki (aynı IP) aile üyeleri birbirini engellemesin.
             // Bölümleme kullanıcıya göredir; oturumsuz istek IP'ye göre bölümlenir.

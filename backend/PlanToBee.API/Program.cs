@@ -88,7 +88,6 @@ builder.Services.AddSingleton<SendThrottle>();
 builder.Services.AddSingleton<MissingAccountLockout>();
 builder.Services.AddScoped<MemberContext>();
 builder.Services.AddScoped<FamilyService>();
-builder.Services.AddScoped<InvitationService>();
 builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddPlanToBeeRateLimiting(builder.Configuration);
 builder.Services.AddPlanToBeeHealthChecks();

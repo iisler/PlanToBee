@@ -26,7 +26,7 @@ public class SubjectsController(AppDbContext db, MemberContext members) : Contro
     public async Task<IActionResult> GetAll()
     {
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var subjects = await LoadAsync(me.FamilyId);
         if (subjects.Count == 0)
@@ -58,7 +58,7 @@ public class SubjectsController(AppDbContext db, MemberContext members) : Contro
         if (string.IsNullOrEmpty(name)) return Err.BadRequest("validation", "Ders adı boş olamaz.");
         if (name.Length > 100) return Err.BadRequest("validation", "Ders adı en fazla 100 karakter olabilir.");
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         // Aynı adın eşzamanlı iki istekle iki kez eklenmemesi için kontrol ve ekleme aile kilidi altında yapılır.
         // Türkçe kurallarıyla büyük/küçük harf duyarsız karşılaştırma (ör. "İngilizce" = "ingilizce")
@@ -79,7 +79,7 @@ public class SubjectsController(AppDbContext db, MemberContext members) : Contro
     public async Task<IActionResult> Delete(int id)
     {
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
         var subject = await db.Subjects.FirstOrDefaultAsync(s => s.Id == id && s.FamilyId == me.FamilyId);
         if (subject == null) return Err.NotFound();
         if (!MemberContext.CanEdit(me, subject)) return Err.ReadOnly();

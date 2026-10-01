@@ -1,7 +1,7 @@
 namespace PlanToBee.API.Models;
 
-// Aile: planların paylaşıldığı grup. Yönetici, IsAdmin=true olan tek üyedir
-// (FamilyMembers üzerinde kısmi benzersiz indeksle zorunlu).
+// Aile: tek hesapla giriş yapılan, profillerin ve ortak planın grubu. Hesap sahibinin profili IsAdmin=true
+// olan tek profildir (FamilyMembers üzerinde kısmi benzersiz indeksle zorunlu).
 public class Family
 {
     public int Id { get; set; }

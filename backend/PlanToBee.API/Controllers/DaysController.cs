@@ -27,7 +27,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         // Okuma kayıt oluşturmaz; gün yoksa boş döner.
         var days = await LoadDaysAsync(me.FamilyId, d, d);
@@ -42,7 +42,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (!PlanText.TryParseDate(monday, out var start)) return InvalidDate();
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var end = start.AddDays(6);
         var totals = await db.Days
@@ -80,7 +80,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (!PlanText.TryParseDate(monday, out var start)) return InvalidDate();
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var end = start.AddDays(6);
         var days = await LoadDaysAsync(me.FamilyId, start, end);
@@ -101,7 +101,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
         if (string.IsNullOrWhiteSpace(dto.Subject)) return Err.BadRequest("validation", "Ders seçin.");
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var entry = new StudyEntry { DayId = dayId, Subject = dto.Subject.Trim(), Topic = dto.Topic?.Trim() ?? "", Minutes = dto.Minutes, Status = "todo" };
@@ -162,7 +162,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
         if (string.IsNullOrWhiteSpace(dto.Type)) return Err.BadRequest("validation", "Antrenman türü seçin.");
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var entry = new TrainingEntry { DayId = dayId, Type = dto.Type.Trim(), Minutes = dto.Minutes, Note = dto.Note?.Trim() ?? "" };
@@ -207,7 +207,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
         if (string.IsNullOrWhiteSpace(dto.Title)) return Err.BadRequest("validation", "Etkinlik adı girin.");
         var me = await members.GetCurrentAsync();
-        if (me == null) return Err.FamilyRequired();
+        if (me == null) return await members.MissingAsync();
 
         var dayId = await GetOrCreateDayId(me.FamilyId, d);
         var ev = new Event { DayId = dayId, Title = dto.Title.Trim(), Time = dto.Time?.Trim() ?? "", Note = dto.Note?.Trim() ?? "" };
@@ -250,7 +250,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     {
         if (!PlanText.TryParseDate(date, out var d)) return (null, InvalidDate());
         var me = await members.GetCurrentAsync();
-        if (me == null) return (null, Err.FamilyRequired());
+        if (me == null) return (null, await members.MissingAsync());
         var day = entry switch
         {
             StudyEntry s => s.Day,

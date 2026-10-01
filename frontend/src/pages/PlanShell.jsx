@@ -22,10 +22,10 @@ function writePlanView(v) {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* depolama kapalı: yalnızca bu oturumda hatırlanır */ }
 }
 
-// Giriş yapmış, e-postası doğrulanmış ve ailesi olan kullanıcının ana ekranı.
-// Gün ve hafta planı ailenin ortak planıdır; herkes kendi hesabıyla görür ve ekler.
+// Profil seçilmiş aile hesabının ana ekranı. Gün ve hafta planı ailenin ortak planıdır;
+// her profil görür ve ekler, kayıtlarda ekleyen profil görünür.
 export default function PlanShell() {
-  const { user, logout, refreshMe } = useAuth();
+  const { user, logout, refreshMe, startSwitch } = useAuth();
   const { notify } = useNotice();
   const [family, setFamily] = useState(null);
   const [familyError, setFamilyError] = useState('');
@@ -56,9 +56,9 @@ export default function PlanShell() {
 
   useEffect(() => { loadFamily(); }, [loadFamily]);
 
-  const myId = family?.myMemberId ?? user.family.memberId;
-  // Ailede başka hesap da varsa plan paylaşılıyordur: kendi kayıtlarında da "Sen ekledin" yazılır.
-  const showOwn = (family?.members ?? []).filter(m => m.hasAccount).length > 1;
+  const myId = family?.myProfileId ?? user.profile.id;
+  // Ailede başka profil de varsa plan paylaşılıyordur: kendi kayıtlarında da "Sen ekledin" yazılır.
+  const showOwn = (family?.profiles ?? []).length > 1;
   const auditSettings = useMemo(() => ({ showOwn }), [showOwn]);
 
   // Haftalık özet (gün şeridi ve istatistikler). Hata gün sayfasında ayrıca gösterilir.
@@ -86,12 +86,12 @@ export default function PlanShell() {
   }, [notify]);
   useEffect(() => { loadSubjects(); }, [loadSubjects]);
 
-  // Yazma reddedildi: rol veya üyelik değişmiş olabilir.
+  // Yazma reddedildi: profilin rolü değişmiş olabilir.
   const onAccessChanged = useCallback(async () => {
-    const f = await loadFamily();
-    if (f && f.id !== user.family.id) refreshMe().catch(() => {});
+    await loadFamily();
+    refreshMe().catch(() => {});
     loadSubjects();
-  }, [loadFamily, loadSubjects, refreshMe, user.family.id]);
+  }, [loadFamily, loadSubjects, refreshMe]);
 
   async function addSubject(name) {
     try {
@@ -132,7 +132,7 @@ export default function PlanShell() {
         <header className="top">
           <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
           <div className="top-right">
-            <UserMenu name={user.displayName} onFamily={() => changeView('family')} onLogout={logout} />
+            <UserMenu name={user.profile.displayName} onSwitchProfile={startSwitch} onFamily={() => changeView('family')} onLogout={logout} />
           </div>
         </header>
 
@@ -183,6 +183,7 @@ export default function PlanShell() {
           <FamilyPage
             family={family}
             reloadFamily={loadFamily}
+            onProfileChanged={() => refreshMe().catch(() => {})}
           />
         )}
       </div>

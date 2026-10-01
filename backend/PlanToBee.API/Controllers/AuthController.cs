@@ -129,7 +129,9 @@ public class AuthController(
     {
         var user = await userManager.GetUserAsync(User);
         if (user == null) return Unauthorized();
-        return Ok(new MeDto(user.Id, user.Email!, user.DisplayName, user.EmailConfirmed, await tokens.GetFamilySummary(user.Id)));
+        int? memberId = int.TryParse(User.FindFirst(AuthClaims.Member)?.Value, out var mid) ? mid : null;
+        return Ok(new MeDto(user.Id, user.Email!, user.DisplayName, user.EmailConfirmed,
+            await tokens.GetFamilySummary(user.Id), await tokens.GetProfileSummary(user.Id, memberId)));
     }
 
     // Doğrulama bağlantısındaki userId ve token ile e-postayı doğrular. Oturum gerekmez.

@@ -4,8 +4,8 @@ import { errorText } from '../api/errors';
 
 const AuthContext = createContext(null);
 
-// Kullanıcı nesnesi: { email, displayName, emailVerified, family: FamilySummary|null }
-// emailVerified === undefined ise durum henüz sunucudan okunmadı demektir.
+// Kullanıcı nesnesi: { email, displayName, emailVerified, family: { id, name }|null, profile: { id, displayName, role, isOwner }|null }
+// emailVerified === undefined ise durum henüz sunucudan okunmadı demektir. profile, bu cihazda seçili profildir.
 // Belirteçler kullanıcı nesnesinde değil, yalnızca localStorage'da tutulur (api/client.js onları yeniler).
 function readStoredUser() {
   if (!localStorage.getItem(TOKEN_KEY)) return null;
@@ -30,6 +30,8 @@ function storeUser(u) {
 export function AuthProvider({ children }) {
   const [user, setUserState] = useState(readStoredUser);
   const [meError, setMeError] = useState('');
+  // "Profil değiştir": seçili profil korunur, profil seçme ekranı açılır (Vazgeç ile geri dönülür).
+  const [switching, setSwitching] = useState(false);
 
   const setUser = useCallback((next) => {
     setUserState((prev) => {
@@ -39,14 +41,16 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // AuthResponse (giriş, şifre sıfırlama, davet kabulü) ile oturumu açar.
+  // AuthResponse (giriş, şifre sıfırlama, aile kurma, profil seçimi) ile oturumu açar.
   const applyAuth = useCallback((data) => {
     saveTokens(data);
+    setSwitching(false);
     setUser({
       email: data.email,
       displayName: data.displayName ?? data.username,
       emailVerified: !!data.emailVerified,
       family: data.family ?? null,
+      profile: data.profile ?? null,
     });
   }, [setUser]);
 
@@ -60,6 +64,7 @@ export function AuthProvider({ children }) {
         displayName: r.data.displayName,
         emailVerified: !!r.data.emailVerified,
         family: r.data.family ?? null,
+        profile: r.data.profile ?? null,
       });
       return r.data;
     } catch (err) {
@@ -81,10 +86,20 @@ export function AuthProvider({ children }) {
     return res.data;
   }
 
+  // Profil seçimi: PIN (ya da PIN'i olmayan ebeveyn için hesap şifresi + yeni PIN) ile. Yeni belirteçler bu profile
+  // bağlıdır; uygulama yeniden açılınca aynı profille açılır.
+  const selectProfile = useCallback(async (id, body = {}) => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    const res = await client.post(`/profiles/${id}/select`, { ...body, refreshToken });
+    applyAuth(res.data);
+    return res.data;
+  }, [applyAuth]);
+
   // Bu cihazın yenileme belirteci sunucuda da iptal edilir; istek başarısız olsa da yerel oturum kapanır.
   const logout = useCallback(() => {
     const refreshToken = localStorage.getItem(REFRESH_KEY);
     if (refreshToken) client.post('/auth/logout', { refreshToken }).catch(() => {});
+    setSwitching(false);
     setUser(null);
   }, [setUser]);
 
@@ -98,7 +113,8 @@ export function AuthProvider({ children }) {
     const onState = (e) => {
       // Önce yerel durumu düzelt (yönlendirme hemen olsun), sonra sunucudan doğrula.
       if (e.detail === 'email_not_verified') setUser((u) => u && { ...u, emailVerified: false });
-      if (e.detail === 'family_required') setUser((u) => u && { ...u, family: null });
+      if (e.detail === 'family_required') setUser((u) => u && { ...u, family: null, profile: null });
+      if (e.detail === 'profile_required') setUser((u) => u && { ...u, profile: null });
       refreshMe().catch(() => {});
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
@@ -110,7 +126,10 @@ export function AuthProvider({ children }) {
   }, [refreshMe, setUser]);
 
   return (
-    <AuthContext.Provider value={{ user, meError, login, register, logout, applyAuth, refreshMe }}>
+    <AuthContext.Provider value={{
+      user, meError, login, register, logout, applyAuth, refreshMe, selectProfile,
+      switching, startSwitch: () => setSwitching(true), cancelSwitch: () => setSwitching(false),
+    }}>
       {children}
     </AuthContext.Provider>
   );

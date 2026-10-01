@@ -6,7 +6,7 @@ using PlanToBee.API.Models;
 namespace PlanToBee.API.Services;
 
 // Kayıtlardaki ekleyen/düzenleyen üye kimliklerini görünen ada çevirir.
-// Üye ayrılmışsa veya başka bir aileye aitse (plan taşınmış) "eski üye" olarak işaretlenir.
+// Profil silinmişse ya da başka bir aileye aitse "eski üye" olarak işaretlenir.
 public class AuditLookup(Dictionary<int, AuditMemberDto> map)
 {
     public AuditMemberDto? Get(int? memberId) =>
@@ -18,7 +18,7 @@ public class AuditLookup(Dictionary<int, AuditMemberDto> map)
         FamilyMember? known = null)
     {
         var map = new Dictionary<int, AuditMemberDto>();
-        if (known != null && known.FamilyId == planFamilyId && known.Status == MemberStatus.Joined)
+        if (known != null && known.FamilyId == planFamilyId && known.Status == MemberStatus.Active)
             map[known.Id] = new AuditMemberDto(known.Id, known.DisplayName, false);
 
         var ids = entities

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { initial } from '../utils/format';
 
-// Sağ üstteki ad etiketi: dokununca Ailem ve Çıkış seçenekleri açılır.
-export default function UserMenu({ name, onFamily, onLogout }) {
+// Sağ üstteki profil adı: dokununca Profil değiştir, Ailem ve Çıkış seçenekleri açılır.
+export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
   const btnRef = useRef(null);
@@ -33,13 +33,14 @@ export default function UserMenu({ name, onFamily, onLogout }) {
   return (
     // Odak menünün dışına çıkınca (ör. Tab ile) menü kapanır
     <div className="usermenu" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
-      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: hesap menüsü (Ailem, Çıkış yap)`} onClick={() => setOpen(o => !o)}>
+      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: profil menüsü (Profil değiştir, Ailem, Çıkış yap)`} onClick={() => setOpen(o => !o)}>
         <span className="av" aria-hidden="true">{initial(name)}</span><span className="uname">{name}</span><span className="caret" aria-hidden="true">▾</span>
       </button>
       {open && (
         <>
           <div className="usermenu-backdrop" onClick={() => setOpen(false)} />
           <ul className="usermenu-list" role="menu" ref={listRef}>
+            <li role="none"><button role="menuitem" onClick={() => choose(onSwitchProfile)}>Profil değiştir</button></li>
             <li role="none"><button role="menuitem" onClick={() => choose(onFamily)}>Ailem</button></li>
             <li role="none"><button role="menuitem" className="danger" onClick={() => choose(onLogout)}>Çıkış yap</button></li>
           </ul>

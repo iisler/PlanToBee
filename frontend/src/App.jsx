@@ -8,15 +8,15 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import VerifyPendingPage from './pages/VerifyPendingPage';
 import CreateFamilyPage from './pages/CreateFamilyPage';
-import InvitePage from './pages/InvitePage';
+import ProfilePickerPage from './pages/ProfilePickerPage';
 import PlanShell from './pages/PlanShell';
 import AuthLayout from './components/AuthLayout';
 import Loading from './components/Loading';
 
-// Hesap durumuna göre doğru ekranı seçer:
-// oturum yok → giriş, e-posta doğrulanmamış → doğrulama, aile yok → aile kurma, aksi halde uygulama.
+// Hesap durumuna göre doğru ekranı seçer: oturum yok → giriş, e-posta doğrulanmamış → doğrulama,
+// aile yok → aile kurma, profil seçilmemiş (ya da "Profil değiştir") → "Kim kullanıyor?", aksi halde uygulama.
 function Gate() {
-  const { user, meError, refreshMe, logout } = useAuth();
+  const { user, meError, refreshMe, logout, switching } = useAuth();
   const status = accountStatus(user);
 
   if (status === 'anon') return (
@@ -39,8 +39,9 @@ function Gate() {
 
   const screen = status === 'unverified' ? <VerifyPendingPage />
     : status === 'nofamily' ? <CreateFamilyPage />
-    // Aile değişince (davetle katılma, ayrılma) ana ekran baştan kurulur
-    : <PlanShell key={user.family.id} />;
+    : status === 'noprofile' || switching ? <ProfilePickerPage />
+    // Profil değişince ana ekran baştan kurulur (kayıt izleri ve yetkiler profile göre)
+    : <PlanShell key={user.profile.id} />;
 
   return (
     <Routes>
@@ -57,8 +58,6 @@ function AppRoutes() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/invite" element={<InvitePage />} />
-      <Route path="/invite-code" element={<InvitePage codeMode />} />
       <Route path="*" element={<Gate />} />
     </Routes>
   );

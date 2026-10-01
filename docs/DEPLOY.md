@@ -19,7 +19,7 @@ Bu rehber PlanToBee'nin yeni sürümünü (React + .NET) ücretsiz servislerle i
 | Veritabanı | **Neon** (yönetilen PostgreSQL) | Kullanıcılar, aileler, planlar burada durur. |
 | API (backend) | **Render** (Docker web servisi) | `backend/PlanToBee.API`. Tarayıcıdan gelen istekleri işler, veritabanına bağlanır, e-posta gönderir. Repodaki `render.yaml` (Blueprint) ile kurulur. |
 | Site (frontend) | **GitHub Pages** | `frontend/`. Kullanıcının tarayıcısına inen React uygulaması. `.github/workflows/pages.yml` her `main` güncellemesinde derleyip yayınlar. |
-| E-posta | **Brevo** (SMTP) | Doğrulama, şifre sıfırlama ve davet e-postalarını gönderir. Gönderen adres bu iş için açılan Gmail hesabıdır. |
+| E-posta | **Brevo** (SMTP) | E-posta doğrulama ve şifre sıfırlama e-postalarını gönderir. Gönderen adres bu iş için açılan Gmail hesabıdır. |
 
 Nasıl konuşurlar:
 
@@ -80,8 +80,7 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `ForwardedHeaders__KnownNetworks` | Güvenilen proxy ağları (CIDR). Render'da boş kalır. | Boş | `10.0.0.0/8` | - | Hayır |
 | `ForwardedHeaders__LogDiagnostics` | Her isteğin ham `X-Forwarded-For` başlığını ve bulunan IP'yi loglar. Yalnızca kontrol için kısa süre aç. | Varsayılan `false` | `true` | - | Hayır |
 | `RateLimits__Auth` | Giriş/kayıt/şifre işlemleri: IP başına dakikada en fazla istek. | Varsayılan `20` | `20` | - | Hayır |
-| `RateLimits__InvitePublic` | Davet linki/kodu doğrulama: IP başına 5 dakikada en fazla istek. | Varsayılan `10` | `10` | - | Hayır |
-| `RateLimits__InviteSend` | Davet gönderme: kullanıcı başına saatte en fazla istek. | Varsayılan `20` | `20` | - | Hayır |
+| `RateLimits__Pin` | Profil seçimi (PIN denemesi): aile hesabı başına 5 dakikada en fazla istek. Ayrıca her profil 5 hatalı PIN'de 5 dk kilitlenir. | Varsayılan `20` | `20` | - | Hayır |
 | `RateLimits__Session` | Oturum bilgisi (`/auth/me`): kullanıcı başına dakikada en fazla istek. | Varsayılan `120` | `120` | - | Hayır |
 
 > Kullanma: `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Bu, .NET'in kendi kısayolu; PlanToBee kendi `ForwardedHeaders__*` ayarlarını kullanır, ikisi birlikte kafa karıştırır.
@@ -155,7 +154,7 @@ Belge: https://help.brevo.com/hc/en-us/articles/7924908994450 (SMTP ayarları), 
    - **From email:** yeni Gmail adresin.
    - Brevo bu adrese bir doğrulama e-postası (ya da kod) gönderir; onayla.
    - Doğrulanmamış adresle gönderim **reddedilir** ya da e-postalar **spam'e düşer**.
-   - Not: Gmail gibi ücretsiz bir adresi gönderen olarak kullanmak çalışır ama e-postalar alıcıda spam'e düşebilir. Test aşamasında davet ettiklerine "spam klasörüne de bak" demen yeterli. Kalıcı çözüm Aşama 2'de kendi alan adını Brevo'da doğrulamaktır (Bölüm 8).
+   - Not: Gmail gibi ücretsiz bir adresi gönderen olarak kullanmak çalışır ama e-postalar alıcıda spam'e düşebilir. Test aşamasında doğrulama e-postası gelmezse spam klasörüne bakman yeterli. Kalıcı çözüm Aşama 2'de kendi alan adını Brevo'da doğrulamaktır (Bölüm 8).
 3. **SMTP anahtarı oluştur:** Hesap menüsü > **SMTP & API** > **SMTP** sekmesi > **Generate a new SMTP key**.
    - İsim: `plantobee-render`. Oluşan anahtarı (`xsmtpsib-...`) **hemen kopyala**; Brevo bir daha göstermez. Bu `Email__Smtp__Password` değeridir. **Gizlidir.**
 4. Aynı ekranda **Login** değerini not al: `...@smtp-brevo.com` biçimindedir. Bu `Email__Smtp__Username` değeridir. (Brevo'ya giriş yaptığın e-posta adresi değildir.)
@@ -226,7 +225,7 @@ Belge: https://docs.github.com/pages/getting-started-with-github-pages/configuri
 
 Bilmen gerekenler:
 - `VITE_API_URL` **build sırasında** koda gömülür. Değeri değiştirirsen iş akışını yeniden çalıştır (3. adım). Yalnızca değişkeni kaydetmek yetmez.
-- Davet ve doğrulama linkleri (`/PlanToBee/app/invite?token=...` gibi) GitHub Pages'te doğrudan açıldığında sunucu 404 döner. İş akışı bunun için uygulamanın bir kopyasını `404.html` olarak yayınlar; tarayıcı uygulamayı açar ve doğru sayfayı gösterir. Adres ve linkteki bilgiler korunur.
+- E-posta doğrulama ve şifre sıfırlama linkleri (`/PlanToBee/app/verify-email?...` gibi) GitHub Pages'te doğrudan açıldığında sunucu 404 döner. İş akışı bunun için uygulamanın bir kopyasını `404.html` olarak yayınlar; tarayıcı uygulamayı açar ve doğru sayfayı gösterir. Adres ve linkteki bilgiler korunur.
 
 ### 3.5 Birbirine bağlama
 
@@ -252,10 +251,10 @@ Sırayla dene; hepsi geçerse kurulum tamamdır.
 2. **Kayıt:** `https://iisler.github.io/PlanToBee/app/` aç > kayıt ol (kendi e-posta adresinle).
 3. **Doğrulama e-postası:** Gelen kutuna (yoksa spam klasörüne) "PlanToBee: E-posta adresini doğrula" gelmeli. Linke tıkla; site açılmalı ve doğrulama başarılı olmalı. Link `https://iisler.github.io/PlanToBee/app/verify-email?...` ile başlamalı.
 4. **Aile kurma:** Aileni oluştur.
-5. **Davet:** Başka bir e-posta adresine davet gönder. Davet e-postasındaki linke tıkla; davet ekranı açılmalı, şifre belirleyip katıl.
+5. **Profiller:** Ailem ekranından bir çocuk profili (PIN'siz) ve bir ebeveyn profili (PIN'li) ekle. Başka bir cihazda (ya da gizli pencerede) aile hesabıyla giriş yap: "Kim kullanıyor?" ekranı gelmeli; çocuk profili doğrudan, ebeveyn profili PIN ile açılmalı.
 6. **Ortak plan:** İki hesaptan aynı güne kayıt ekle; ikisi de her iki kaydı görmeli. Çocuk hesabı ebeveynin kaydını düzenleyememeli.
 7. **Şifre sıfırlama:** Çıkış yap > "Şifremi unuttum" > e-postadaki linkle yeni şifre belirle > yeni şifreyle giriş yap.
-8. **Yenileme / 404:** `/PlanToBee/app/invite-code`, `/PlanToBee/app/forgot-password` gibi bir sayfadayken tarayıcıda yenile (Cmd+R); aynı sayfa gelmeli.
+8. **Yenileme / 404:** `/PlanToBee/app/forgot-password` gibi bir sayfadayken tarayıcıda yenile (Cmd+R); aynı sayfa gelmeli.
 9. **Telefonda ana ekran:** iPhone'da Safari > Paylaş > **Ana Ekrana Ekle**; simgeden açınca tarayıcı çubukları olmadan açılmalı.
 10. **İstemci IP kontrolü (bir kez):** Bölüm 5'teki adımlarla rate limit'in gerçek IP'ne göre çalıştığını doğrula.
 
@@ -289,7 +288,7 @@ Render > Logs'ta hemen altında eksik/hatalı her ayar ayrı satırda yazar (de�
 - Brevo > **Transactional** > **Logs** (ya da Statistics) ekranında e-postanın Brevo'ya ulaşıp ulaşmadığı ve teslim durumu görünür.
 - Günlük 300 e-posta sınırı dolmuş olabilir (Brevo panelinde görünür).
 - Kalıcı spam sorunu için kendi alan adını Brevo'da doğrula (SPF/DKIM).
-- E-posta gönderilemese bile kayıt/davet kaydı oluşur; kullanıcı "doğrulama e-postasını yeniden gönder" ya da yönetici "Yeniden gönder" ile tekrar deneyebilir.
+- E-posta gönderilemese bile hesap oluşur; "E-postayı tekrar gönder" ile yeniden denenebilir.
 
 **`/PlanToBee/app/` 404 veriyor ya da GitHub Actions'ta "VITE_API_URL tanımlı değil" uyarısı var**
 GitHub > Settings > Secrets and variables > Actions > **Variables** sekmesinde `VITE_API_URL` yok (Secrets sekmesine değil, Variables sekmesine girilmeli). Ekle ve iş akışını yeniden çalıştır (3.4). Pages kaynağının **GitHub Actions** olduğunu da kontrol et.
@@ -311,7 +310,7 @@ GitHub > Settings > Secrets and variables > Actions > **Variables** sekmesinde `
 Render ücretsiz planda 15 dakika boşta kalan servis uyur; ilk istek 30-60 sn bekletebilir. Normaldir. (Uykuyu engellemek bu aşamada kapsam dışı.)
 
 **"Çok fazla istek gönderildi" hatası**
-- Sınırlar: giriş/kayıt IP başına dakikada 20, davet linki/kodu IP başına 5 dakikada 10, davet gönderme kullanıcı başına saatte 20. Birkaç dakika bekleyince açılır.
+- Sınırlar: giriş/kayıt IP başına dakikada 20, profil seçimi (PIN) aile hesabı başına 5 dakikada 20. Birkaç dakika bekleyince açılır. Bir profil 5 hatalı PIN'de 5 dakika kilitlenir.
 - Farklı kişiler, farklı evlerden birbirini engelliyorsa IP tespiti yanlış olabilir: Bölüm 5'teki kontrolü yap.
 - Gerekirse Render'da `RateLimits__Auth` gibi değerleri artır.
 
@@ -319,7 +318,7 @@ Render ücretsiz planda 15 dakika boşta kalan servis uyur; ilk istek 30-60 sn b
 
 ## 5. Proxy arkasında istemci IP'si (bir kez kontrol et)
 
-Neden önemli: Giriş denemesi ve davet kodu sınırları IP başına uygulanır. Render'da istek API'ye proxy üzerinden gelir. API proxy'nin IP'sini görürse bütün kullanıcılar aynı sınırı paylaşır; istemcinin gönderdiği başlığa körü körüne güvenirse de saldırgan sahte `X-Forwarded-For` başlığıyla her denemede farklı IP'den geliyormuş gibi görünüp sınırları atlatır.
+Neden önemli: Giriş denemesi sınırları IP başına uygulanır. Render'da istek API'ye proxy üzerinden gelir. API proxy'nin IP'sini görürse bütün kullanıcılar aynı sınırı paylaşır; istemcinin gönderdiği başlığa körü körüne güvenirse de saldırgan sahte `X-Forwarded-For` başlığıyla her denemede farklı IP'den geliyormuş gibi görünüp sınırları atlatır.
 
 Seçilen yaklaşım:
 - Render'ın proxy IP aralığı sabit/yayınlanmış olmadığı için belirli adreslere güvenmek (`KnownProxies`) mümkün değil. Bunun yerine konteynere bağlanan her adres proxy kabul edilir; Render'da konteynere internetten doğrudan ulaşılamaz, tek giriş Render'ın proxy'sidir.
@@ -379,7 +378,6 @@ E-posta adresleri veritabanında şifreli durur. DBeaver ya da Neon'un SQL ekran
 |---|---|
 | `dotnet run -- admin users` | Tüm kullanıcılar: ad, e-posta, doğrulandı mı, ailesi |
 | `dotnet run -- admin find ela@ornek.com` | Bu e-postayla kayıtlı kullanıcı var mı |
-| `dotnet run -- admin invitations` | Bekleyen davetler ve davet edilen adresler |
 
 - **Yerel veritabanı için:** Komutu olduğu gibi çalıştır.
 - **Canlı veritabanı (Neon) için:** Neon bağlantı adresini ve yedeklediğin `PersonalData__Key`'i gizli girişle ver. Bu yöntemde değerler ekranda görünmez ve Terminal geçmişine kaydedilmez:

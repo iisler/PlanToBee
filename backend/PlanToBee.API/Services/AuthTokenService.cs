@@ -24,12 +24,27 @@ public class AuthTokenService(UserManager<User> userManager, AppDbContext db, IC
 
     public async Task<FamilySummaryDto?> GetFamilySummary(string userId) =>
         await db.FamilyMembers
-            .Where(m => m.UserId == userId && m.Status == MemberStatus.Joined)
-            .Select(m => new FamilySummaryDto(m.FamilyId, m.Family!.Name, m.Id, m.DisplayName, m.Role.ToString(), m.IsAdmin))
+            .Where(m => m.UserId == userId && m.Status == MemberStatus.Active)
+            .Select(m => new FamilySummaryDto(m.FamilyId, m.Family!.Name))
             .FirstOrDefaultAsync();
 
-    // Yeni oturum açar (giriş, şifre sıfırlama, davet kabulü): erişim + yenileme belirteci.
-    public async Task<AuthResponseDto> BuildAuthResponse(User user)
+    // Hesabın ailesindeki aktif profil; profil silinmişse ya da başka aileye aitse null.
+    public async Task<ProfileSummaryDto?> GetProfileSummary(string userId, int? memberId)
+    {
+        if (memberId == null) return null;
+        var familyId = await db.FamilyMembers
+            .Where(m => m.UserId == userId && m.Status == MemberStatus.Active)
+            .Select(m => (int?)m.FamilyId).FirstOrDefaultAsync();
+        if (familyId == null) return null;
+        return await db.FamilyMembers
+            .Where(m => m.Id == memberId && m.FamilyId == familyId && m.Status == MemberStatus.Active)
+            .Select(m => new ProfileSummaryDto(m.Id, m.DisplayName, m.Role.ToString(), m.IsAdmin))
+            .FirstOrDefaultAsync();
+    }
+
+    // Yeni oturum açar (giriş, şifre sıfırlama, profil seçimi): erişim + yenileme belirteci.
+    // memberId verilirse oturum o profille açılır ve cihaz profili hatırlar.
+    public async Task<AuthResponseDto> BuildAuthResponse(User user, int? memberId = null)
     {
         var now = DateTime.UtcNow;
         // Süresi dolmuş eski belirteçler temizlenir; tablo kullanıcı başına küçük kalır.
@@ -39,12 +54,13 @@ public class AuthTokenService(UserManager<User> userManager, AppDbContext db, IC
         {
             UserId = user.Id,
             TokenHash = SecureCodes.Sha256(refresh),
+            MemberId = memberId,
             SecurityStamp = await userManager.GetSecurityStampAsync(user),
             CreatedAt = now,
             ExpiresAt = now + RefreshLifetime,
         });
         await db.SaveChangesAsync();
-        return await Response(user, refresh);
+        return await Response(user, refresh, memberId);
     }
 
     // Yenileme belirtecini yenisiyle değiştirir. Hata kodları: refresh_invalid (yeniden giriş gerekir),
@@ -81,16 +97,19 @@ public class AuthTokenService(UserManager<User> userManager, AppDbContext db, IC
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now).SetProperty(t => t.ReplacedByHash, nextHash));
         if (won == 0) return (null, "refresh_retry");
 
+        // Profil silinmişse yeni oturum profilsiz açılır; istemci profil seçme ekranına döner.
+        var memberId = (await GetProfileSummary(user.Id, row.MemberId))?.Id;
         db.RefreshTokens.Add(new RefreshToken
         {
             UserId = user.Id,
             TokenHash = nextHash,
+            MemberId = memberId,
             SecurityStamp = row.SecurityStamp,
             CreatedAt = now,
             ExpiresAt = now + RefreshLifetime,
         });
         await db.SaveChangesAsync();
-        return (await Response(user, next), null);
+        return (await Response(user, next, memberId), null);
     }
 
     // Çıkış: yalnızca bu cihazın belirteci iptal edilir. Bilinmeyen belirteç sessizce yok sayılır.
@@ -106,20 +125,24 @@ public class AuthTokenService(UserManager<User> userManager, AppDbContext db, IC
         db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, DateTime.UtcNow));
 
-    private async Task<AuthResponseDto> Response(User user, string refresh) =>
-        new(await CreateToken(user), refresh, (int)AccessLifetime.TotalSeconds,
-            user.Email!, user.DisplayName, user.DisplayName, user.EmailConfirmed, await GetFamilySummary(user.Id));
+    private async Task<AuthResponseDto> Response(User user, string refresh, int? memberId)
+    {
+        var profile = await GetProfileSummary(user.Id, memberId);
+        return new(await CreateToken(user, profile?.Id), refresh, (int)AccessLifetime.TotalSeconds,
+            user.Email!, user.DisplayName, user.DisplayName, user.EmailConfirmed, await GetFamilySummary(user.Id), profile);
+    }
 
-    private async Task<string> CreateToken(User user)
+    private async Task<string> CreateToken(User user, int? memberId)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Email, user.Email!),
-            new Claim(ClaimTypes.Name, user.DisplayName),
-            new Claim(AuthClaims.SecurityStamp, await userManager.GetSecurityStampAsync(user))
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Email, user.Email!),
+            new(ClaimTypes.Name, user.DisplayName),
+            new(AuthClaims.SecurityStamp, await userManager.GetSecurityStampAsync(user))
         };
+        if (memberId != null) claims.Add(new(AuthClaims.Member, memberId.Value.ToString()));
         var token = new JwtSecurityToken(
             issuer: config["Jwt:Issuer"],
             audience: config["Jwt:Audience"],

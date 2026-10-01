@@ -6,12 +6,8 @@ namespace PlanToBee.API.Infrastructure;
 
 public static class SecureCodes
 {
-    // Tahmin edilemez, URL güvenli davet belirteci (256 bit)
+    // Tahmin edilemez, URL güvenli belirteç (256 bit): oturum yenileme belirteci
     public static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-
-    public static string NewSixDigitCode() => RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-
-    public static string NewSalt() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
 
     public static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 

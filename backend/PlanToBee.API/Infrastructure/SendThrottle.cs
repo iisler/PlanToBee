@@ -6,8 +6,8 @@ namespace PlanToBee.API.Infrastructure;
 // Tek sunucu örneği için yeterli; birden fazla örnekte paylaşılan bir depo (ör. Redis) gerekir.
 public class SendThrottle
 {
-    // Kullanılan en uzun pencere (aile başına günlük davet sınırı). Bundan eski kayıtlar hiçbir sınırı etkilemez.
-    private static readonly TimeSpan MaxWindow = TimeSpan.FromDays(1);
+    // Kullanılan en uzun pencere (e-posta başına saatlik gönderim sınırı). Bundan eski kayıtlar hiçbir sınırı etkilemez.
+    private static readonly TimeSpan MaxWindow = TimeSpan.FromHours(1);
     private const int SweepEvery = 500;
 
     private readonly ConcurrentDictionary<string, Queue<DateTime>> _hits = new();

@@ -15,7 +15,6 @@ public static class PersonalDataBackfill
     private static readonly (string Table, Column[] Columns)[] Targets =
     [
         ("Users", [new("Email", false), new("UserName", false), new("NormalizedEmail", true), new("NormalizedUserName", true)]),
-        ("Invitations", [new("Email", false), new("NormalizedEmail", true)]),
     ];
 
     public static async Task<int> RunAsync(AppDbContext db, PersonalDataProtector protector)

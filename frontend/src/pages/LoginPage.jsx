@@ -80,7 +80,6 @@ export default function LoginPage() {
       footer={mode === 'login' && (
         <div className="auth-links">
           <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
-          <Link className="auth-link" to="/invite-code">Davet kodum var</Link>
         </div>
       )}
     >
