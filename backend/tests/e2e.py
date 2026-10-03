@@ -203,12 +203,14 @@ def test_refresh_tokens():
     mail = wait_email(email, before + 1)[-1]
     p = link_params(mail, "reset-password")
     s, reset = req("POST", "/auth/reset-password", {"userId": p["userId"], "token": p["token"], "newPassword": "yeniSifre9"})
-    check("şifre sıfırlama 200 ve yeni oturum", s == 200 and reset.get("refreshToken"), s)
+    check("şifre sıfırlama 200, oturum açılmaz", s == 200 and "refreshToken" not in reset and "token" not in reset, (s, reset))
     s, r = req("POST", "/auth/refresh", {"refreshToken": other["refreshToken"]})
     check("şifre değişince eski oturum yenilenemiyor", s == 401 and code_of(r) == "refresh_invalid", (s, r))
     s, _ = req("GET", "/auth/me", token=other["token"])
     check("şifre değişince eski erişim belirteci 401", s == 401, s)
-    s, _ = req("POST", "/auth/refresh", {"refreshToken": reset["refreshToken"]})
+    s, relog = req("POST", "/auth/login", {"email": email, "password": "yeniSifre9"})
+    check("yeni şifreyle giriş", s == 200, s)
+    s, _ = req("POST", "/auth/refresh", {"refreshToken": relog["refreshToken"]})
     check("sıfırlamadan sonraki oturum yenilenebiliyor", s == 200, s)
 
 

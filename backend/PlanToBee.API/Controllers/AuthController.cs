@@ -226,9 +226,9 @@ public class AuthController(
         }
         await userManager.ResetAccessFailedCountAsync(user);
         await userManager.SetLockoutEndDateAsync(user, null);
-        // Şifre değişti: diğer cihazlardaki oturumlar da yenilenemez olsun.
+        // Şifre değişti: bütün cihazlardaki oturumlar kapanır. Oturum açılmaz; kullanıcı yeni şifresiyle giriş yapar.
         await tokens.RevokeAllAsync(user.Id);
-        return Ok(await tokens.BuildAuthResponse(user));
+        return Ok(new { message = "Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin." });
     }
 
     private static ObjectResult InvalidCredentials() => Err.Make(401, "invalid_credentials", "E-posta veya şifre hatalı.");

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import { errorCode, errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
+import { useNotice } from '../context/NoticeContext';
 import AuthLayout from '../components/AuthLayout';
 
 // E-postadaki bağlantıdan açılır: /reset-password?userId=…&token=…
@@ -10,7 +11,8 @@ export default function ResetPasswordPage() {
   const [params] = useSearchParams();
   const userId = params.get('userId');
   const token = params.get('token');
-  const { applyAuth } = useAuth();
+  const { user, logout } = useAuth();
+  const { notify } = useNotice();
   const navigate = useNavigate();
   const [pw, setPw] = useState({ a: '', b: '' });
   const [error, setError] = useState('');
@@ -23,9 +25,11 @@ export default function ResetPasswordPage() {
     if (pw.a !== pw.b) return setError('Şifreler eşleşmiyor.');
     setLoading(true);
     try {
-      const r = await client.post('/auth/reset-password', { userId, token, newPassword: pw.a });
-      applyAuth(r.data); // otomatik giriş
-      navigate('/', { replace: true });
+      await client.post('/auth/reset-password', { userId, token, newPassword: pw.a });
+      // Otomatik giriş yapılmaz: şifre değişince bütün oturumlar kapanır, kullanıcı yeni şifresiyle giriş yapar.
+      if (user) logout();
+      notify('Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin.', 'info', { duration: 6000 });
+      navigate('/login', { replace: true });
     } catch (err) {
       if (errorCode(err) === 'reset_invalid') setInvalid(true);
       setError(errorText(err));
