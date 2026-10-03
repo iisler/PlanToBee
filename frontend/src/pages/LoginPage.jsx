@@ -77,7 +77,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      subtitle="Ders & Antrenman Takip"
+      subtitle="Haftalık plan ve takip platformu"
       footer={mode === 'login' && (
         <div className="auth-links">
           <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
