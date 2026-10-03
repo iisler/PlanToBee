@@ -236,9 +236,15 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .quickrow.sport button { background: var(--sport); }
 .quickrow.event button { background: var(--event); }
 .loading { text-align: center; padding: 40px 12px; color: var(--ink-soft); font-size: 13px; font-family: var(--f-mono); display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.loading .spinner { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line-strong); border-top-color: var(--honey); animation: spin .8s linear infinite; }
+/* Petek kümesi yükleniyor göstergesi (components/HoneycombSpinner.jsx): sarı vurgu 6 petekte sırayla döner (0,9 sn) */
+.honeycomb .hc-core { fill: var(--ink); }
+.honeycomb .hc-cell { fill: var(--line-strong); animation: hc-step .9s linear infinite; }
+@keyframes hc-step { 0%, 16.66% { fill: var(--honey); } 16.67%, 100% { fill: var(--line-strong); } }
+@media (prefers-reduced-motion: reduce) {
+  .honeycomb .hc-cell { animation: none; }
+  .honeycomb .hc-cell:nth-of-type(2) { fill: var(--honey); }
+}
 .loading-slow { font-family: var(--f-body); font-size: 12.5px; max-width: 300px; text-wrap: balance; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Auth */
 .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 20px 16px; }
