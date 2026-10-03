@@ -493,4 +493,12 @@ input[type="time"].time-input { min-width: 104px; }
   background: var(--honey); color: var(--ink);
 }
 .addform button:hover, .subject-addrow button:hover, .quickrow button:hover, .wkadd .go:hover, .evform .evsubmit.add:hover { filter: brightness(.96); }
+/* Düğme içinde bekleme: küçük dönen petek + metin (components/BusyLabel.jsx) */
+.btn-busy { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: -6px 0; }
+.honeycomb.on-dark .hc-core { fill: var(--bg); }
+.honeycomb.on-dark .hc-cell { animation-name: hc-step-dark; }
+@keyframes hc-step-dark { 0%, 16.66% { fill: var(--honey); } 16.67%, 100% { fill: rgba(251, 246, 234, .28); } }
+@media (prefers-reduced-motion: reduce) { .honeycomb.on-dark .hc-cell { fill: rgba(251, 246, 234, .28); } .honeycomb.on-dark .hc-cell:nth-of-type(2) { fill: var(--honey); } }
+/* Bekleyen düğme soluklaşmaz: dönen petek ve metin net görünsün (düğme yine de tıklanamaz) */
+button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 

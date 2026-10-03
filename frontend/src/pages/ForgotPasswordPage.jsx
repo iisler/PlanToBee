@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import client from '../api/client';
 import { errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
+import BusyLabel from '../components/BusyLabel';
 
 // Şifre sıfırlama isteği. Hesabın varlığı belli edilmez; sunucu her durumda aynı mesajı döner.
 export default function ForgotPasswordPage() {
@@ -34,7 +35,7 @@ export default function ForgotPasswordPage() {
           <p className="auth-text">E-posta adresini gir; sana yeni şifre belirleyebileceğin bir bağlantı gönderelim.</p>
           <input type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
-          <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Gönderiliyor…' : 'Bağlantı gönder'}</button>
+          <button type="submit" className="auth-submit" disabled={loading}><BusyLabel busy={loading} text="Bağlantı gönder" busyText="Gönderiliyor…" /></button>
         </form>
       )}
     </AuthLayout>

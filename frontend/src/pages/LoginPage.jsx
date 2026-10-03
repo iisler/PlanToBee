@@ -5,6 +5,7 @@ import client from '../api/client';
 import { errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
 import useSlow, { SLOW_TEXT } from '../hooks/useSlow';
+import BusyLabel from '../components/BusyLabel';
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
@@ -106,7 +107,7 @@ export default function LoginPage() {
         />
         {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" className="auth-submit" disabled={loading}>
-          {loading ? 'Yükleniyor…' : mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+          <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
         </button>
         {slow && <div className="auth-hint" role="status">{SLOW_TEXT}</div>}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}

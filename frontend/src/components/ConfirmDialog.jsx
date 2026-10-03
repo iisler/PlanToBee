@@ -1,3 +1,5 @@
+import BusyLabel from './BusyLabel';
+
 // Basit onay penceresi. React Native'de Modal + Alert ile birebir değiştirilebilir.
 export default function ConfirmDialog({ title, message, confirmLabel = 'Onayla', danger = false, busy = false, onConfirm, onCancel, children }) {
   return (
@@ -9,7 +11,7 @@ export default function ConfirmDialog({ title, message, confirmLabel = 'Onayla',
         <div className="dialog-actions">
           <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>Vazgeç</button>
           <button type="button" className={danger ? 'btn-danger' : 'btn'} onClick={onConfirm} disabled={busy}>
-            {busy ? 'Bekle…' : confirmLabel}
+            <BusyLabel busy={busy} text={confirmLabel} busyText="Bekle…" />
           </button>
         </div>
       </div>

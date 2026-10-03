@@ -4,6 +4,7 @@ import { errorCode, errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 import PinInput from '../components/PinInput';
+import BusyLabel from '../components/BusyLabel';
 
 // E-posta doğrulandıktan sonra ailesi olmayan hesap: aileyi ve hesap sahibinin (ebeveyn) profilini kurar.
 // Diğer aile üyeleri sonra "Ailem" ekranından profil olarak eklenir; e-posta gerekmez.
@@ -72,7 +73,7 @@ export default function CreateFamilyPage() {
           <PinInput value={pin2} onChange={setPin2} label="PIN tekrar" disabled={loading} />
         </label>
         {error && <div className="auth-error" role="alert">{error}</div>}
-        <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Oluşturuluyor…' : 'Aileyi oluştur'}</button>
+        <button type="submit" className="auth-submit" disabled={loading}><BusyLabel busy={loading} text="Aileyi oluştur" busyText="Oluşturuluyor…" /></button>
       </form>
       <div className="later-box">
         <button type="button" className="btn-ghost later-btn" onClick={later} disabled={loading}>Daha sonra, şimdilik tek başıma kullanacağım</button>

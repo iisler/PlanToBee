@@ -6,6 +6,7 @@ import AuthLayout from '../components/AuthLayout';
 import Loading from '../components/Loading';
 import PinInput from '../components/PinInput';
 import { initial, ROLE_LABEL } from '../utils/format';
+import BusyLabel from '../components/BusyLabel';
 
 // "Kim kullanıyor?": aile hesabıyla giriş yapıldıktan sonra bu cihazda kullanılacak profil seçilir.
 // - PIN'li profil: 4 haneli PIN sorulur.
@@ -144,7 +145,7 @@ function ChosenProfile({ chosen, busy, error, onSubmit, onBack }) {
           <PinInput ref={pinRef} value={pin} onChange={setPin} autoFocus disabled={busy}
             onComplete={sendPin} label={`${profile.displayName} PIN`} />
           {error && <div className="auth-error" role="alert">{error}</div>}
-          <button type="submit" className="auth-submit" disabled={busy || pin.length !== 4}>{busy ? 'Bekle…' : 'Devam'}</button>
+          <button type="submit" className="auth-submit" disabled={busy || pin.length !== 4}><BusyLabel busy={busy} text="Devam" busyText="Açılıyor…" /></button>
         </form>
       ) : (
         <form onSubmit={submitSetup}>
@@ -161,7 +162,7 @@ function ChosenProfile({ chosen, busy, error, onSubmit, onBack }) {
             <PinInput value={pin2} onChange={setPin2} disabled={busy} label="Yeni PIN tekrar" />
           </label>
           {(localError || error) && <div className="auth-error" role="alert">{localError || error}</div>}
-          <button type="submit" className="auth-submit" disabled={busy}>{busy ? 'Bekle…' : 'PIN\'i kaydet ve devam et'}</button>
+          <button type="submit" className="auth-submit" disabled={busy}><BusyLabel busy={busy} text="PIN'i kaydet ve devam et" busyText="Kaydediliyor…" /></button>
         </form>
       )}
       <button className="auth-link" onClick={onBack} disabled={busy}>‹ Başka profil seç</button>

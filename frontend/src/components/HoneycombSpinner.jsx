@@ -13,9 +13,10 @@ function hex(cx, cy, r) {
   }).join(' ');
 }
 
-export default function HoneycombSpinner({ size = 40 }) {
+// onDark: koyu düğme içinde kullanım (krem çekirdek, soluk petekler).
+export default function HoneycombSpinner({ size = 40, onDark = false }) {
   return (
-    <svg className="honeycomb" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    <svg className={`honeycomb${onDark ? ' on-dark' : ''}`} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
       <polygon className="hc-core" points={hex(32, 32, R - 1.1)} />
       {RING.map(([x, y], i) => (
         <polygon key={i} className="hc-cell" style={{ animationDelay: `${i * 0.15}s` }} points={hex(32 + x, 32 + y, R - 1.1)} />
