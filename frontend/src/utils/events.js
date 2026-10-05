@@ -3,7 +3,7 @@ import { formatDuration } from './format';
 // Aktivite türleri (sunucudaki EventKind). 'Training' Spor, 'Event' Diğer'dir (eski "etkinlik" kayıtları da Diğer'dir).
 // Ad boş bırakılırsa türün adı kullanılır; yalnızca Diğer'de ad zorunludur.
 export const ACTIVITY_KINDS = [
-  { kind: 'Training', icon: '⚽', label: 'Spor', placeholder: 'ör. Voleybol antrenmanı, Maç' },
+  { kind: 'Training', icon: '🏅', label: 'Spor', placeholder: 'ör. Voleybol antrenmanı, Maç' },
   { kind: 'Music', icon: '🎵', label: 'Müzik', placeholder: 'ör. Piyano dersi' },
   { kind: 'Concert', icon: '🎤', label: 'Konser', placeholder: 'ör. Okul konseri' },
   { kind: 'Meeting', icon: '👥', label: 'Buluşma', placeholder: 'ör. Arkadaşlarla sinema' },
