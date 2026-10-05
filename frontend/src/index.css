@@ -465,8 +465,16 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .grow { flex: 1 1 150px; }
 .evform .num { flex: 0 0 72px; width: 72px; }
 .evform input[type="time"].time-input { flex: 1 0 110px; }
-.evform .evkind button { min-height: 44px; }
-.evform .evkind button.active { background: var(--honey); color: var(--ink); }
+/* Aktivite türü ikonları: tek sıra, dokununca sarı */
+.evform .acts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.evform .acts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 7px 0 6px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10.5px; font-weight: 600; color: var(--ink-soft); min-width: 0; overflow: hidden; }
+.evform .acts button .ai { font-size: 19px; line-height: 1.2; }
+.evform .acts button.on { background: var(--honey); border-color: var(--honey); color: var(--ink); }
+.evform .evfields { display: flex; flex-direction: column; gap: 8px; }
+.evform.compact .evfields { gap: 6px; }
+.entry .ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; align-self: center; }
+.entry .ico.sport { background: var(--sport-soft); }
+.entry .ico.evt { background: var(--event-soft); }
 .evform .evactions { justify-content: flex-start; }
 .evform .evsubmit { border: none; border-radius: var(--radius-sm); padding: 10px 20px; min-height: 44px; font-weight: 700; font-size: 14px; color: var(--on-accent); }
 .evform .evsubmit.event { background: var(--event); }
@@ -479,7 +487,8 @@ input[type="time"].time-input { min-width: 104px; }
 .evform.compact { gap: 6px; }
 .evform.compact input, .evform.compact select { min-height: 40px; padding: 7px 9px; font-size: 13.5px; border-radius: 9px; }
 .evform.compact .evsubmit { min-height: 40px; padding: 8px 16px; font-size: 13.5px; border-radius: 9px; }
-.evform.compact .evkind button { min-height: 38px; }
+.evform.compact .acts button { min-height: 46px; padding: 5px 0 4px; }
+.evform.compact .acts button .ai { font-size: 17px; }
 .weekcard .evform { margin-top: 4px; }
 .wkadd { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 .wkadd-top { display: flex; gap: 6px; align-items: center; }

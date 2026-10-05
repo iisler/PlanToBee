@@ -55,7 +55,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
                 EntryCount = d.StudyEntries.Count,
                 TrainingCount = d.Events.Count(e => e.Kind == EventKind.Training),
                 TrainingMinutes = d.Events.Where(e => e.Kind == EventKind.Training).Sum(e => (long?)e.Minutes) ?? 0,
-                EventCount = d.Events.Count(e => e.Kind == EventKind.Event)
+                EventCount = d.Events.Count(e => e.Kind != EventKind.Training)
             })
             .ToDictionaryAsync(x => x.Date);
 
@@ -177,7 +177,7 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         return Ok(await MapOne(ev, me));
     }
 
-    // Kaydın türü (etkinlik / antrenman) değiştirilemez; yanlış türde girilen kayıt silinip yeniden eklenir.
+    // Kaydın türü değiştirilemez; yanlış türde girilen kayıt silinip yeniden eklenir.
     [HttpPut("{date}/events/{id:int}")]
     public async Task<IActionResult> UpdateEvent(string date, int id, UpdateEventDto dto)
     {
@@ -223,27 +223,28 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         return (me, null);
     }
 
-    // Türüne göre alanları doğrular ve kayda yazar. Saat boş ya da SS:dd olmalı; eski kayıtlardaki serbest metin
-    // saat, değiştirilmeden geri gönderildiyse kabul edilir.
+    // Türüne göre alanları doğrular ve kayda yazar. Her aktivitenin adı olur; yalnızca eski antrenman kayıtları ad
+    // yerine TrainingType ile gelebilir. Süre yalnızca sporda tutulur. Saat boş ya da SS:dd olmalı; eski kayıtlardaki
+    // serbest metin saat, değiştirilmeden geri gönderildiyse kabul edilir.
     private static ObjectResult? ApplyEvent(Event ev, string? title, string? time, string? note, string? trainingType, int? minutes)
     {
         var t = time?.Trim() ?? "";
         if (t.Length > 0 && !PlanText.IsTime(t) && t != ev.Time)
             return Err.BadRequest("validation", "Saat SS:dd biçiminde olmalı (örn. 17:30).");
+        var name = title?.Trim() ?? "";
         if (ev.Kind == EventKind.Training)
         {
             var type = trainingType?.Trim() ?? "";
-            if (type.Length == 0) return Err.BadRequest("validation", "Antrenman türünü seçin ya da yazın.");
-            // Süre isteğe bağlı (antrenman da etkinlik gibi saatle girilir); verilirse 1-1440 dakika.
+            if (name.Length == 0 && type.Length == 0) return Err.BadRequest("validation", "Aktivite adını yazın.");
+            // Süre isteğe bağlı; verilirse 1-1440 dakika.
             if (minutes is not null and not (>= 1 and <= 1440)) return Err.BadRequest("validation", "Süre 1 ile 1440 dakika arasında olmalı.");
-            ev.Title = "";
-            ev.TrainingType = type;
+            ev.Title = name;
+            ev.TrainingType = type.Length > 0 ? type : null;
             ev.Minutes = minutes;
         }
         else
         {
-            var name = title?.Trim() ?? "";
-            if (name.Length == 0) return Err.BadRequest("validation", "Etkinlik adını yazın.");
+            if (name.Length == 0) return Err.BadRequest("validation", "Aktivite adını yazın.");
             ev.Title = name;
             ev.TrainingType = null;
             ev.Minutes = null;

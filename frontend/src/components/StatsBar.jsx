@@ -6,8 +6,8 @@ export default function StatsBar({ weekSummaries, standalone = false }) {
   return (
     <div className={`stats${standalone ? ' standalone' : ''}`}>
       <div className="stat study"><div className="num">{ws}<small>dk</small></div><div className="lbl">Haftalık ders</div></div>
-      <div className="stat sport"><div className="num">{wt}<small>/7 gün</small></div><div className="lbl">Antrenman</div></div>
-      <div className="stat evt"><div className="num">{we}</div><div className="lbl">Etkinlik</div></div>
+      <div className="stat sport"><div className="num">{wt}<small>/7 gün</small></div><div className="lbl">Spor</div></div>
+      <div className="stat evt"><div className="num">{we}</div><div className="lbl">Aktivite</div></div>
     </div>
   );
 }

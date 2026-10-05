@@ -1,4 +1,4 @@
-// Etkinlik saati: telefonda saat seçici açılır (HH:mm). Boş bırakılabilir.
+// Aktivite saati: telefonda saat seçici açılır (HH:mm). Boş bırakılabilir.
 // Eski kayıtlarda saat serbest metin olabilir (ör. "akşam"); saat seçici böyle bir değeri gösteremeyeceği için
 // o durumda metin alanı gösterilir, değer kaybolmaz. Alan temizlenince saat seçiciye döner.
 export default function TimeInput({ value, onChange, className = '', label = 'Saat', ...rest }) {

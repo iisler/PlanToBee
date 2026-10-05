@@ -9,7 +9,7 @@ import EditEventDialog from '../components/EditEventDialog';
 import ReadOnlyMark from '../components/ReadOnlyMark';
 import { addDays, dkey, formatDuration, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
 import Loading from '../components/Loading';
-import { deletedText, eventLabel, isTraining, TRAINING_TYPES } from '../utils/events';
+import { deletedText, eventLabel, isTraining, kindInfo } from '../utils/events';
 
 function readPref(k, def) { try { return localStorage.getItem(k) || def; } catch { return def; } }
 function writePref(k, v) { try { localStorage.setItem(k, v); } catch { /* yoksay */ } }
@@ -27,10 +27,9 @@ function removeFromWeek(weekDays, key, listKey, id) {
 }
 // Silme düğmesinin ekran okuyucu etiketi için kaydın kısa adı
 function chipName(e) { return e.subject ?? (e.kind ? eventLabel(e) : ''); }
-// Hafta çipindeki kısa metin: "Top · 17:00 · 1 sa 30 dk", "Deneme sınavı · 10:00"
+// Hafta çipindeki kısa metin: "⚽ Top · 17:00 · 1 sa 30 dk", "📝 Deneme sınavı · 10:00"
 function eventChipText(e) {
-  const name = isTraining(e) ? (TRAINING_TYPES.includes(e.trainingType) ? e.trainingType : e.trainingType || 'Antrenman') : e.title;
-  const parts = [name];
+  const parts = [`${kindInfo(e.kind).icon}${NBSP}${eventLabel(e, true)}`];
   if (e.time) parts.push(e.time);
   if (isTraining(e) && e.minutes > 0) parts.push(nb(formatDuration(e.minutes)));
   return parts.join(` ·${NBSP}`);
@@ -38,7 +37,7 @@ function eventChipText(e) {
 // Çiplerde "· 45 dk" gibi parçalar satır sonunda bölünmesin (satır ancak addan sonra kırılır)
 const NBSP = '\u00a0';
 const nb = t => t.replace(/ /g, NBSP);
-const KIND_LABEL = { study: 'Ders', event: 'Etkinlik' };
+const KIND_LABEL = { study: 'Ders', event: 'Aktivite' };
 const INVALID_TEXT = {
   subject: 'Önce Gün ekranındaki "Dersleri düzenle" ile bir ders ekleyin.',
   minutes: 'Süreyi dakika olarak girin.',
@@ -168,7 +167,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
               );
             })}
 
-            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders ve etkinlik (antrenman dahil) girebilirsiniz. Bir etkinliğe dokunarak düzenleyebilirsiniz.</div>
+            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders ve aktivite girebilirsiniz. Bir aktiviteye dokunarak düzenleyebilirsiniz.</div>
           </>
         )}
     </>
@@ -249,7 +248,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
           </select>
           <div className="kind" role="group" aria-label="Tür">
             <button type="button" data-k="study" aria-pressed={kind === 'study'} onClick={() => setKind('study')}>Ders</button>
-            <button type="button" data-k="event" aria-pressed={kind === 'event'} onClick={() => setKind('event')}>Etkinlik</button>
+            <button type="button" data-k="event" aria-pressed={kind === 'event'} onClick={() => setKind('event')}>Aktivite</button>
           </div>
         </div>
 
@@ -275,7 +274,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
             <tr>
               <th><span className="sr-only">Gün</span></th>
               <th><span className="dotc" style={{ background: 'var(--study)' }} />Ders</th>
-              <th><span className="dotc" style={{ background: 'var(--event)' }} />Etkinlik</th>
+              <th><span className="dotc" style={{ background: 'var(--event)' }} />Aktivite</th>
             </tr>
           </thead>
           <tbody>
@@ -319,7 +318,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
             <tr>
               <th scope="row"><abbr title="Toplam">Top.</abbr></th>
               <td><b>{studyTotal}</b> dk</td>
-              <td><b>{eventTotal}</b> etkinlik · <b>{trainDays}</b>/7 gün antrenman{trainTotal > 0 ? ` · ${formatDuration(trainTotal)}` : ''}</td>
+              <td><b>{eventTotal}</b> aktivite · <b>{trainDays}</b>/7 gün spor{trainTotal > 0 ? ` · ${formatDuration(trainTotal)}` : ''}</td>
             </tr>
           </tfoot>
         </table>
@@ -331,14 +330,14 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
       )}
 
       <div className="note">
-        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Etkinlik ve antrenmana dokununca düzenleyebilirsiniz.
+        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Aktiviteye dokununca düzenleyebilirsiniz.
         Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.
       </div>
     </>
   );
 }
 
-// Etkinlik / antrenman çipi: düzenleme yetkisi varsa metne dokununca düzenleme penceresi açılır.
+// Aktivite çipi: düzenleme yetkisi varsa metne dokununca düzenleme penceresi açılır.
 function EventChip({ e, myId, onEdit, del }) {
   const text = eventChipText(e);
   return (
@@ -406,7 +405,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <button type="submit" aria-label="Ders ekle">+</button>
         </form>
 
-        <div className="sectionlbl event">Etkinlik</div>
+        <div className="sectionlbl event">Aktivite</div>
         {data.events.length > 0 && (
           <div className="chiprow">
             {data.events.map(e => (

@@ -389,8 +389,8 @@ def test_events_and_training():
 
     s, e1 = req("POST", f"/days/{d}/events", {"title": "Sınav", "time": "09:00"}, pt)
     check("etkinlik (tür verilmeden) eklendi", s == 200 and e1["kind"] == "Event" and e1["minutes"] is None, (s, e1))
-    s, t1 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top", "minutes": 90, "time": "17:00", "title": "yok sayılır"}, pt)
-    check("saatli antrenman eklendi", s == 200 and t1["kind"] == "Training" and t1["title"] == "" and t1["minutes"] == 90, (s, t1))
+    s, t1 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Top", "minutes": 90, "time": "17:00"}, pt)
+    check("saatli antrenman (eski biçim: türle) eklendi", s == 200 and t1["kind"] == "Training" and t1["title"] == "" and t1["minutes"] == 90, (s, t1))
     s, t2 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Voleybol kampı", "minutes": 60}, ct)
     check("çocuk kendi yazdığı türde antrenman ekledi", s == 200 and t2["trainingType"] == "Voleybol kampı", (s, t2))
     s, t3 = req("POST", f"/days/{d}/events", {"kind": "Training", "trainingType": "Kondisyon", "time": "07:00"}, pt)
@@ -423,6 +423,28 @@ def test_events_and_training():
     check("ebeveyn çocuğun antrenmanını siler", s == 204, s)
     s, b = req("POST", f"/days/{d}/training", {"type": "Top", "minutes": 30}, pt)
     check("eski /training uç noktası yok", s in (404, 405), s)
+
+    # Aktivite türleri: Spor (Training), Müzik, Konser, Buluşma, Sınav, Diğer (Event). Ayrı günde, yukarıdaki sayımları bozmasın.
+    d2 = (day + dt.timedelta(days=1)).isoformat()
+    s, b = req("POST", f"/days/{d2}/events", {"kind": "Music", "title": " "}, pt)
+    check("adsız müzik aktivitesi 400", s == 400, (s, b))
+    s, b = req("POST", f"/days/{d2}/events", {"kind": "Dance", "title": "X"}, pt)
+    check("tanımsız aktivite türü 400", s == 400, (s, b))
+    s, sp = req("POST", f"/days/{d2}/events", {"kind": "Training", "title": "Voleybol kuvvet çalışması", "time": "17:00"}, ct)
+    check("spor adla eklendi (türsüz)", s == 200 and sp["kind"] == "Training" and sp["title"] == "Voleybol kuvvet çalışması" and sp["trainingType"] is None, (s, sp))
+    kinds = {}
+    for k, title in [("Music", "Piyano dersi"), ("Concert", "Okul konseri"), ("Meeting", "Arkadaşlarla sinema"), ("Exam", "Deneme sınavı"), ("Event", "Veteriner")]:
+        s, b = req("POST", f"/days/{d2}/events", {"kind": k, "title": title, "minutes": 30}, pt)
+        kinds[k] = b
+        check(f"{k} aktivitesi eklendi, süre yok sayıldı", s == 200 and b["kind"] == k and b["title"] == title and b["minutes"] is None, (s, b))
+    s, b = req("PUT", f"/days/{d2}/events/{kinds['Music']['id']}", {"title": "Gitar dersi", "time": "18:00"}, pt)
+    check("müzik aktivitesi düzenlendi, türü korundu", s == 200 and b["kind"] == "Music" and b["title"] == "Gitar dersi", (s, b))
+    s, b = req("PUT", f"/days/{d}/events/{t3['id']}", {"title": "Kondisyon antrenmanı", "trainingType": None, "time": "07:00"}, pt)
+    check("eski antrenman adla kaydedilir, tür temizlenir", s == 200 and b["title"] == "Kondisyon antrenmanı" and b["trainingType"] is None, (s, b))
+    s, wk = req("GET", f"/days/week/{monday(day).isoformat()}", token=pt)
+    nxt = next((x for x in wk["days"] if x["date"] == d2), None)
+    if nxt is not None:  # d2 haftanın dışında kalabilir (pazar)
+        check("hafta özeti: yeni türler etkinlik sayısında, spor ayrı", nxt["eventCount"] == 5 and nxt["trainingCount"] == 1, nxt)
 
 
 def main():

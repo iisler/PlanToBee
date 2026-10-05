@@ -1,24 +1,29 @@
 namespace PlanToBee.API.Models;
 
+// Aktivite türü. Veritabanında metin olarak saklanır; yeni tür eklemek migration gerektirmez (sona eklenir).
 public enum EventKind
 {
-    // Sınav, toplantı gibi adı olan etkinlik
+    // Diğer (eski "etkinlik" kayıtları da bu türdedir)
     Event,
-    // Antrenman: adı yok; antrenman türü (Top, Kuvvet, Maç, Kondisyon ya da yazılan) ve süresi var
-    Training
+    // Spor. Eski antrenman kayıtlarında ad yerine TrainingType (Top, Kuvvet, Maç, Kondisyon ya da yazılan) doludur.
+    Training,
+    Music,
+    Concert,
+    Meeting,
+    Exam
 }
 
-// Günün etkinlikleri ve antrenmanları tek listede. Saat her iki türde isteğe bağlı (SS:dd; eski kayıtlarda serbest metin olabilir).
+// Günün aktiviteleri tek listede. Saat isteğe bağlı (SS:dd; eski kayıtlarda serbest metin olabilir).
 public class Event : AuditedEntity
 {
     public int Id { get; set; }
     public int DayId { get; set; }
     public EventKind Kind { get; set; }
-    // Yalnızca etkinlikte dolu
+    // Aktivitenin adı. Eski antrenman kayıtlarında boş olabilir (ad TrainingType'tan türetilir).
     public string Title { get; set; } = "";
     public string Time { get; set; } = "";
     public string Note { get; set; } = "";
-    // Yalnızca antrenmanda dolu
+    // Yalnızca sporda dolu olabilir (eski antrenman kayıtları)
     public string? TrainingType { get; set; }
     public int? Minutes { get; set; }
     public Day? Day { get; set; }

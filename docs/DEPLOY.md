@@ -351,6 +351,25 @@ Kalan risk: Güvenlik, Render'ın konteynere yalnızca kendi proxy'si üzerinden
 - Elle yeniden dağıtmak için: Render > **Manual Deploy** > **Deploy latest commit**; GitHub > Actions > **GitHub Pages** > **Run workflow**.
 - Veritabanı şemasını değiştiren bir sürüm çıkmadan önce Neon'da yedek almak istersen: Neon > **Branches** > **Create branch** (o anki verinin kopyası).
 
+### 6.1 Geri dönüş: "Aktiviteler" sürümünden önceki sürüme
+
+"Etkinlik/Antrenman" yerine ikonlu "Aktiviteler" (Spor, Müzik, Konser, Buluşma, Sınav, Diğer) gelen sürümden önceki
+hali git'te `rollback-oncesi-aktiviteler` etiketiyle saklanır. Bu sürüm şema değiştirmez (tür alanı zaten metin),
+ama eski kod yeni türleri (`Music`, `Concert`, `Meeting`, `Exam`) tanımaz ve o kayıtları okurken hata verir.
+Bu yüzden geri dönüşte **önce veri, sonra kod**:
+
+1. Neon > **SQL Editor**'da yeni türleri "etkinlik"e çevir (ad, saat ve not korunur):
+   ```sql
+   UPDATE "Events" SET "Kind" = 'Event' WHERE "Kind" IN ('Music', 'Concert', 'Meeting', 'Exam');
+   ```
+2. Kodu etiketteki hale döndür ve yayınla (iki servis de otomatik yayınlar):
+   ```bash
+   git revert --no-edit rollback-oncesi-aktiviteler..main
+   git push origin main
+   ```
+3. Bilinen fark: yeni sürümde adla girilen spor kayıtları (ör. "Voleybol kuvvet çalışması") eski sürümde
+   "Antrenman" adıyla görünür; adları veritabanında (`Title`) durur, yeniden ileri geçince geri gelir.
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

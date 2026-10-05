@@ -36,7 +36,7 @@ export default function WeekTrail({ currentDate, setCurrentDate, weekSummaries }
             className={`trail-dot${isSelected ? ' selected' : ''}${isToday ? ' istoday' : ''}`}
             aria-pressed={isSelected}
             aria-current={isToday ? 'date' : undefined}
-            aria-label={`${WEEKDAYS_FULL[i]} ${date.getDate()}${[hasStudy && 'ders', hasSport && 'antrenman', hasEvt && 'etkinlik'].filter(Boolean).map(x => `, ${x} var`).join('')}`}
+            aria-label={`${WEEKDAYS_FULL[i]} ${date.getDate()}${[hasStudy && 'ders', hasSport && 'spor', hasEvt && 'aktivite'].filter(Boolean).map(x => `, ${x} var`).join('')}`}
             onClick={() => setCurrentDate(new Date(date))}
           >
             <span className="wk">{wd}</span>
