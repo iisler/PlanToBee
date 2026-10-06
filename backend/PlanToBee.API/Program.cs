@@ -10,9 +10,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PlanToBee.API.Data;
 using PlanToBee.API.Infrastructure;
+using PlanToBee.API.Infrastructure.WebPush;
 using PlanToBee.API.Models;
 using PlanToBee.API.Services;
 using PlanToBee.API.Services.Email;
+using PlanToBee.API.Services.Notifications;
 
 // Yönetici komutları (ör. `dotnet run -- admin users`): web sunucusu açılmaz, şifreli e-postaları çözüp listeler.
 if (args is ["admin", ..])
@@ -91,6 +93,25 @@ builder.Services.AddScoped<FamilyService>();
 builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddPlanToBeeRateLimiting(builder.Configuration);
 builder.Services.AddPlanToBeeHealthChecks();
+
+// Bildirimler (Web Push, dış paket yok). WebPush:Key yoksa kapalıdır (uygulama bildirim kartını göstermez).
+// VAPID anahtarı bu gizli değerden türetilir; repoda ya da yapılandırma dosyasında anahtar yoktur.
+builder.Services.Configure<WebPushOptions>(builder.Configuration.GetSection(WebPushOptions.Section));
+if (!builder.Environment.IsDevelopment())
+    builder.Services.PostConfigure<WebPushOptions>(o => o.TestEndpointHosts.Clear()); // sahte push servisi yalnızca testte
+var webPush = builder.Configuration.GetSection(WebPushOptions.Section).Get<WebPushOptions>() ?? new();
+if (webPush.Enabled)
+{
+    var subject = webPush.Subject is { Length: > 0 } s ? s : $"mailto:{builder.Configuration[$"{EmailOptions.Section}:From"]}";
+    builder.Services.AddSingleton(VapidKey.FromSecret(webPush.Key!, subject));
+    builder.Services.AddScoped<PushSender>();
+}
+builder.Services.AddSingleton<NotificationSignal>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddHostedService<NotificationDispatcher>();
+// Push servisine giden istekler yönlendirme izlemez (izin listesi dışına gidilemesin) ve 10 sn'de zaman aşımına uğrar.
+builder.Services.AddHttpClient(PushSender.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
 
 // Anahtar repoda tutulmaz: yerelde `dotnet user-secrets`, sunucuda Jwt__Key ortam değişkeni (StartupValidation kontrol eder).
 var jwtKey = startup.JwtKey;

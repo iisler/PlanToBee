@@ -86,6 +86,12 @@ public sealed class PersonalDataProtector
     public ValueConverter<string?, string?> EncryptedConverter() =>
         new(v => Encrypt(v), v => Decrypt(v));
 
+    // Zorunlu (null olamayan) metin alanları için aynı dönüşümler (örn. bildirim aboneliği).
+    public ValueConverter<string, string> EncryptedTextConverter() =>
+        new(v => Encrypt(v)!, v => Decrypt(v)!);
+    public ValueConverter<string, string> IndexTextConverter() =>
+        new(v => Index(v)!, v => v);
+
     // Özet geri çevrilemez: okunan değer özetin kendisidir. Uygulama bu alanları yalnızca karşılaştırmada kullanır.
     public ValueConverter<string?, string?> IndexConverter() =>
         new(v => Index(v), v => v);

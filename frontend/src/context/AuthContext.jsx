@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import client, { ACCOUNT_STATE_EVENT, AUTH_EXPIRED_EVENT, AUTH_KEYS, REFRESH_KEY, TOKEN_KEY, USER_KEY, saveTokens } from '../api/client';
 import { errorText } from '../api/errors';
+import { detachForLogout } from '../utils/push';
 
 const AuthContext = createContext(null);
 
@@ -100,6 +101,7 @@ export function AuthProvider({ children }) {
 
   // Bu cihazın yenileme belirteci sunucuda da iptal edilir; istek başarısız olsa da yerel oturum kapanır.
   const logout = useCallback(() => {
+    detachForLogout(); // bu cihaza artık bildirim gitmesin
     const refreshToken = localStorage.getItem(REFRESH_KEY);
     if (refreshToken) client.post('/auth/logout', { refreshToken }).catch(() => {});
     setSwitching(false);

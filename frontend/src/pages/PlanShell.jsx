@@ -9,6 +9,8 @@ import FamilyPage from './FamilyPage';
 import UserMenu from '../components/UserMenu';
 import { dkey, mondayOf } from '../utils/format';
 import { AuditContext } from '../context/AuditContext';
+import PushPrompt from '../components/PushPrompt';
+import { syncPush } from '../utils/push';
 
 const VIEW_KEY = 'plantobee:view';
 function readPlanView() {
@@ -16,6 +18,15 @@ function readPlanView() {
     return localStorage.getItem(VIEW_KEY) === 'week' ? 'week' : 'day';
   } catch {
     return 'day';
+  }
+}
+// Bildirime dokununca uygulama "?date=YYYY-MM-DD" ile açılır: o günün Gün ekranı gösterilir.
+function dateFromUrl(url) {
+  try {
+    const m = new URL(url, window.location.href).searchParams.get('date')?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  } catch {
+    return null;
   }
 }
 function writePlanView(v) {
@@ -29,9 +40,10 @@ export default function PlanShell() {
   const { notify } = useNotice();
   const [family, setFamily] = useState(null);
   const [familyError, setFamilyError] = useState('');
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [linkDate] = useState(() => dateFromUrl(window.location.href));
+  const [currentDate, setCurrentDate] = useState(() => linkDate ?? new Date());
   // Son açık plan sekmesi (Gün / Hafta Planı) hatırlanır: uygulama yeniden açılınca ve Ailem'den dönünce.
-  const [view, setView] = useState(readPlanView);
+  const [view, setView] = useState(() => (linkDate ? 'day' : readPlanView()));
   const lastPlanView = useRef(view === 'family' ? 'day' : view);
   const [weekSummaries, setWeekSummaries] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -55,6 +67,28 @@ export default function PlanShell() {
   }, []);
 
   useEffect(() => { loadFamily(); }, [loadFamily]);
+
+  // Bildirim aboneliği seçili profile bağlanır (uygulama açılınca ve profil değişince).
+  const profileId = user.profile.id;
+  useEffect(() => { syncPush(); }, [profileId]);
+
+  // Bildirimden gelen tarih adresten silinir (yenileyince yeniden o güne atlamasın); uygulama açıkken
+  // dokunulan bildirim service worker'dan mesajla gelir.
+  useEffect(() => {
+    if (linkDate) {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('date');
+      window.history.replaceState(window.history.state, '', u.pathname + u.search + u.hash);
+    }
+    if (!('serviceWorker' in navigator)) return;
+    const onMessage = (e) => {
+      if (e.data?.type !== 'plantobee:open') return;
+      const d = dateFromUrl(e.data.url);
+      if (d) { setCurrentDate(d); setView('day'); }
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [linkDate]);
 
   const myId = family?.myProfileId ?? user.profile.id;
   // Ailede başka profil de varsa plan paylaşılıyordur: kendi kayıtlarında da "Sen ekledin" yazılır.
@@ -149,6 +183,8 @@ export default function PlanShell() {
             <h2 ref={familyHeadingRef} tabIndex={-1}>Ailem</h2>
           </div>
         )}
+
+        {view !== 'family' && <PushPrompt />}
 
         {familyError && !family && (
           <div className="load-error" role="alert">

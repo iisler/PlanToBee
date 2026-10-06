@@ -1,0 +1,16 @@
+{
+  "name": "PlanToBee",
+  "short_name": "PlanToBee",
+  "description": "Haftalık plan ve takip platformu",
+  "lang": "tr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#F3ECDC",
+  "theme_color": "#F3ECDC",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

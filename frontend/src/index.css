@@ -516,3 +516,33 @@ input[type="time"].time-input { min-width: 104px; }
 /* Bekleyen düğme soluklaşmaz: dönen petek ve metin net görünsün (düğme yine de tıklanamaz) */
 button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 
+
+/* Bildirimler: izin kartı ve Ailem > Bildirimler */
+.push-prompt { display: flex; gap: 12px; align-items: flex-start; background: var(--ink); color: var(--bg); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+.push-prompt .pp-icon { font-size: 22px; line-height: 1.2; }
+.push-prompt b { font-family: var(--f-display); font-size: 16px; }
+.push-prompt p { margin: 3px 0 10px; font-size: 13px; color: var(--hero-soft); }
+.push-prompt .pp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.push-prompt button { border: none; border-radius: 10px; padding: 10px 14px; min-height: 44px; font-weight: 700; font-size: 13.5px; }
+.push-prompt .pp-yes { background: var(--honey); color: var(--ink); }
+.push-prompt .pp-no { background: none; color: var(--hero-soft); border: 1px solid var(--hero-line); }
+.notif-card .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.notif-card .set-row:last-of-type { border-bottom: none; }
+.notif-card .set-text { font-weight: 600; font-size: 14px; min-width: 0; }
+.notif-card .set-text small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.notif-card .set-sub { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); margin: 14px 0 4px; }
+.switch { position: relative; width: 50px; height: 30px; flex-shrink: 0; border: none; border-radius: 999px; background: var(--line-strong); padding: 0; margin: 7px 0; transition: background .15s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s; }
+.switch.on { background: var(--sport); }
+.switch.on::after { left: 23px; }
+.switch:disabled { opacity: .6; }
+.who-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 6px; }
+.who-chips button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 8px 14px; min-height: 40px; font-weight: 600; font-size: 13px; color: var(--ink-soft); }
+.who-chips button.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.who-chips button.all { border-style: dashed; }
+.quiet-times { display: inline-flex; align-items: center; gap: 6px; }
+.quiet-times input { border: 1px solid var(--line-strong); border-radius: 9px; padding: 6px 8px; min-height: 40px; background: var(--surface-2); font-size: 14px; }
+.device-list { list-style: none; margin: 0; padding: 0; }
+.device-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; color: var(--ink-soft); border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.device-list li:last-child { border-bottom: none; }
+.notif-card .test-push { margin-top: 10px; }

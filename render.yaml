@@ -27,6 +27,10 @@ services:
       # Data Protection anahtarlarını veritabanında şifreleyen anahtar: Render rastgele üretir, değiştirilmemeli
       - key: DataProtection__KeyEncryptionKey
         generateValue: true
+      # Bildirimler (Web Push): sunucu kimlik anahtarı (VAPID) bu değerden türetilir. Render rastgele üretir.
+      # Değişirse cihazların aboneliği geçersiz olur; uygulamayı açınca yeniden abone olurlar.
+      - key: WebPush__Key
+        generateValue: true
       # Brevo > SMTP & API > SMTP sekmesindeki "Login" değeri (…@smtp-brevo.com)
       - key: Email__Smtp__Username
         sync: false

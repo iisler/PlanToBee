@@ -175,6 +175,10 @@ public class ProfilesController(
         await db.SaveChangesAsync();
         await db.RefreshTokens.Where(t => t.MemberId == profile.Id && t.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.MemberId, (int?)null));
+        // Silinen profile bildirim gitmez: cihaz abonelikleri, ayarları ve bekleyen bildirimleri silinir.
+        await db.PushSubscriptions.Where(p => p.MemberId == profile.Id).ExecuteDeleteAsync();
+        await db.NotificationPreferences.Where(p => p.MemberId == profile.Id).ExecuteDeleteAsync();
+        await db.PendingNotifications.Where(p => p.RecipientMemberId == profile.Id).ExecuteDeleteAsync();
         return NoContent();
     }
 

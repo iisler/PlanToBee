@@ -370,6 +370,26 @@ Bu yüzden geri dönüşte **önce veri, sonra kod**:
 3. Bilinen fark: yeni sürümde adla girilen spor kayıtları (ör. "Voleybol kuvvet çalışması") eski sürümde
    "Antrenman" adıyla görünür; adları veritabanında (`Title`) durur, yeniden ileri geçince geri gelir.
 
+### 6.2 Geri dönüş: "Bildirimler" sürümünden önceki sürüme
+
+Bildirimlerden (Web Push) önceki hal git'te `rollback-oncesi-bildirimler` etiketiyle saklanır. Bu sürüm yalnızca
+**yeni tablolar** ekler (`PushSubscriptions`, `NotificationPreferences`, `PendingNotifications`); mevcut tablolara
+dokunmaz. Eski kod bu tabloları bilmez ve görmezden gelir, bu yüzden geri dönüşte veri adımı gerekmez:
+
+```bash
+git revert --no-edit rollback-oncesi-bildirimler..main
+git push origin main
+```
+
+İstenirse tablolar sonra Neon > SQL Editor'da silinebilir (abonelikler şifreli olduğu için içlerinde okunur bilgi yoktur):
+```sql
+DROP TABLE "PendingNotifications"; DROP TABLE "NotificationPreferences"; DROP TABLE "PushSubscriptions";
+DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_PushNotifications';
+```
+
+Bildirimleri kodu geri almadan **kapatmak** için: Render > Environment'ta `WebPush__Key` silinir. Uygulama bildirim
+kartlarını göstermez, hiçbir bildirim gitmez.
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

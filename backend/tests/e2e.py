@@ -447,6 +447,193 @@ def test_events_and_training():
         check("hafta özeti: yeni türler etkinlik sayısında, spor ayrı", nxt["eventCount"] == 5 and nxt["trainingCount"] == 1, nxt)
 
 
+# ---------------------------------------------------------------- bildirimler (Web Push)
+# API'nin WebPush:Key ve WebPush:TestEndpointHosts=localhost ile, kısa toplama süresiyle çalışması gerekir
+# (WebPush__BatchSeconds=2, WebPush__MaxBatchSeconds=6). Ayarlı değilse bu senaryo atlanır.
+# Sahte push servisi gelen istekleri kaydeder; şifrelemenin doğruluğu tests/WebPushSelfTest'te sınanır.
+
+# RFC 8291 test vektöründeki tarayıcı ortak anahtarı (geçerli bir P-256 noktası) ve auth sırrı
+UA_PUBLIC = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+UA_AUTH = "BTBZMqHH6r4Tts7J_aSIgg"
+
+
+class FakePush:
+    def __init__(self):
+        import http.server
+        import threading
+        self.received = []
+        outer = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(n)
+                outer.received.append({"path": self.path, "headers": dict(self.headers), "len": len(body)})
+                self.send_response(410 if self.path.endswith("/gone") else 201)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def url(self, name):
+        return f"http://localhost:{self.port}/push/{name}"
+
+    def to(self, name):
+        return [r for r in self.received if r["path"] == f"/push/{name}"]
+
+    def wait(self, name, count, timeout=10):
+        end = time.time() + timeout
+        while time.time() < end and len(self.to(name)) < count:
+            time.sleep(0.2)
+        return self.to(name)
+
+
+def subscribe(token, endpoint, label="Test · Chrome"):
+    return req("PUT", "/push/subscription", {"endpoint": endpoint, "p256dh": UA_PUBLIC, "auth": UA_AUTH, "deviceLabel": label}, token)
+
+
+def test_push():
+    print("Bildirimler (Web Push)")
+    email, acc = register_and_verify("Push")
+    s, own = req("POST", "/family", {"name": "Push Ailesi", "profileName": "Anne", "pin": "2468", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    s, cfg = req("GET", "/push/config", token=pt)
+    if not (s == 200 and cfg.get("enabled")):
+        print("  -- atlandı: API'de WebPush:Key ayarlı değil")
+        return
+    import base64
+    key = base64.urlsafe_b64decode(cfg["publicKey"] + "==")
+    check("config: ortak anahtar 65 bayt", len(key) == 65 and key[0] == 4, cfg)
+
+    s, kid = req("POST", "/profiles", {"displayName": "Ece", "role": "Child"}, pt)
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    ct = ct["token"]
+    fake = FakePush()
+
+    s, b = subscribe(pt, "https://ornek.com/push/x")
+    check("izinsiz push adresi reddedilir (SSRF)", s == 400 and code_of(b) == "push_endpoint", (s, b))
+    s, b = req("PUT", "/push/subscription", {"endpoint": fake.url("anne"), "p256dh": "AAAA", "auth": UA_AUTH}, pt)
+    check("geçersiz anahtar reddedilir", s == 400 and code_of(b) == "push_keys", (s, b))
+    s, b = subscribe(pt, fake.url("anne"), "iPhone · Safari <script>")
+    check("ebeveyn abone oldu", s == 200 and b["id"] > 0, (s, b))
+    anne_sub = b["id"]
+    s, b = subscribe(ct, fake.url("ece"))
+    check("çocuk abone oldu", s == 200, (s, b))
+    ece_sub = b["id"]
+
+    s, st = req("GET", "/push/settings", token=pt)
+    d = st["settings"]
+    check("varsayılanlar: ders/aktivite/bitti açık, değişiklik kapalı, sessiz 22:00-07:30",
+          d["studyAdded"] and d["activityAdded"] and d["studyDone"] and not d["changes"] and d["quietEnabled"]
+          and d["quietStart"] == "22:00" and d["quietEnd"] == "07:30" and d["mutedMemberIds"] == [], d)
+    check("kimin girişleri: kendisi hariç aile", [m["displayName"] for m in st["members"]] == ["Ece"], st["members"])
+    labels = sorted(x["label"] for x in st["devices"])
+    check("cihaz listesi ve temizlenmiş ad", labels == ["Test · Chrome", "iPhone · Safari script"], labels)
+
+    # Sessiz saatleri test sırasında kapat (gece çalıştırılsa da anında gelsin)
+    off = dict(d, quietEnabled=False)
+    req("PUT", "/push/settings", off, pt)
+    req("PUT", "/push/settings", off, ct)
+
+    day = dt.date.today()
+    d1 = day.isoformat()
+    s, _ = req("POST", f"/days/{d1}/entries", {"subject": "Matematik", "topic": "Türev", "minutes": 60}, pt)
+    got = fake.wait("ece", 1)
+    check("ebeveynin dersi çocuğa bildirim olarak gitti", len(got) == 1, got)
+    if got:
+        h = got[0]["headers"]
+        check("başlıklar: aes128gcm, VAPID, TTL", h.get("Content-Encoding") == "aes128gcm"
+              and h.get("Authorization", "").startswith("vapid t=") and f"k={cfg['publicKey']}" in h.get("Authorization", "")
+              and h.get("TTL") == "86400", h)
+        check("gövde şifreli (başlık + içerik)", got[0]["len"] > 86 + 16, got[0]["len"])
+    time.sleep(1)
+    check("kaydı girene bildirim gitmez", len(fake.to("anne")) == 0, fake.to("anne"))
+
+    for i in range(3):
+        req("POST", f"/days/{d1}/events", {"kind": "Music", "title": f"Piyano {i}"}, ct)
+    got = fake.wait("anne", 1)
+    time.sleep(3)
+    check("art arda 3 kayıt tek bildirimde toplanır", len(fake.to("anne")) == 1, fake.to("anne"))
+
+    s, e = req("POST", f"/days/{d1}/entries", {"subject": "Fizik", "minutes": 30}, ct)
+    fake.wait("anne", 2)
+    s, _ = req("PATCH", f"/days/{d1}/entries/{e['id']}/status", {"status": "done"}, ct)
+    got = fake.wait("anne", 3)
+    check("ders tamamlanınca bildirim", len(got) == 3, len(got))
+
+    n = len(fake.to("anne"))
+    s, _ = req("PUT", f"/days/{d1}/entries/{e['id']}", {"subject": "Fizik", "minutes": 45}, ct)
+    time.sleep(4)
+    check("değişiklik bildirimi varsayılan kapalı", len(fake.to("anne")) == n, len(fake.to("anne")))
+    req("PUT", "/push/settings", dict(off, changes=True), pt)
+    s, _ = req("PUT", f"/days/{d1}/entries/{e['id']}", {"subject": "Fizik", "minutes": 50}, ct)
+    check("değişiklik açılınca bildirim gider", len(fake.wait("anne", n + 1)) == n + 1, len(fake.to("anne")))
+
+    n = len(fake.to("anne"))
+    req("PUT", "/push/settings", dict(off, changes=True, mutedMemberIds=[kid["id"], 999999]), pt)
+    s, st = req("GET", "/push/settings", token=pt)
+    check("susturulan liste yalnızca aile profillerini tutar", st["settings"]["mutedMemberIds"] == [kid["id"]], st["settings"])
+    req("POST", f"/days/{d1}/entries", {"subject": "Kimya", "minutes": 20}, ct)
+    time.sleep(4)
+    check("susturulan kişinin girişleri bildirim üretmez", len(fake.to("anne")) == n, len(fake.to("anne")))
+    req("PUT", "/push/settings", off, pt)
+
+    # Sessiz saat: şu anı kapsayan aralık (Türkiye saati)
+    now = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=3)
+    quiet = dict(off, quietEnabled=True, quietStart=(now - dt.timedelta(hours=1)).strftime("%H:%M"), quietEnd=(now + dt.timedelta(hours=1)).strftime("%H:%M"))
+    req("PUT", "/push/settings", quiet, pt)
+    n = len(fake.to("anne"))
+    req("POST", f"/days/{d1}/entries", {"subject": "Tarih", "minutes": 20}, ct)
+    time.sleep(4)
+    check("sessiz saatte anında bildirim gitmez", len(fake.to("anne")) == n, len(fake.to("anne")))
+    req("PUT", "/push/settings", off, pt)
+
+    s, b = req("PUT", "/push/settings", dict(off, quietStart="25:00"), pt)
+    check("geçersiz sessiz saat 400", s == 400, (s, b))
+
+    s, b = req("POST", "/push/test", token=ct)
+    check("deneme bildirimi kendi cihazına", s == 200 and b["sent"] == 1, (s, b))
+
+    # Yetki ve izolasyon
+    s, b = req("DELETE", f"/push/devices/{anne_sub}", token=ct)
+    check("çocuk ebeveynin cihazını kaldıramaz (403)", s == 403, (s, b))
+    other_email, other = register_and_verify("PushB")
+    s, oo = req("POST", "/family", {"name": "Başka", "profileName": "Baba", "pin": "1357", "refreshToken": other["refreshToken"]}, other["token"])
+    s, b = req("DELETE", f"/push/devices/{ece_sub}", token=oo["token"])
+    check("başka aile cihazı kaldıramaz (404)", s == 404, (s, b))
+    s, st = req("GET", "/push/settings", token=oo["token"])
+    check("başka aile cihazları görmez", st["devices"] == [], st["devices"])
+
+    # Profil değişimi: aynı cihaz (uç nokta) başka profille yeniden kaydolur
+    s, b = subscribe(pt, fake.url("ece"))
+    s, st = req("GET", "/push/settings", token=pt)
+    owner = {x["id"]: x["memberName"] for x in st["devices"]}
+    check("profil değişince abonelik yeni profile geçer", b["id"] == ece_sub and owner.get(ece_sub) == "Anne", owner)
+    subscribe(ct, fake.url("ece"))
+
+    # 410: abonelik silinir
+    s, b = subscribe(pt, fake.url("gone"))
+    gone_id = b["id"]
+    req("POST", "/push/test", token=pt)
+    s, st = req("GET", "/push/settings", token=pt)
+    check("push servisi 410 dönünce abonelik silinir", gone_id not in [x["id"] for x in st["devices"]], st["devices"])
+
+    s, _ = req("DELETE", "/push/subscription", {"endpoint": fake.url("ece")}, ct)
+    s2, st = req("GET", "/push/settings", token=ct)
+    check("abonelikten çıkış (çıkış yaparken)", s == 204 and ece_sub not in [x["id"] for x in st["devices"]], (s, st["devices"]))
+
+    s, b = subscribe(ct, fake.url("ece2"))
+    s, _ = req("DELETE", f"/profiles/{kid['id']}", token=pt)
+    s, st = req("GET", "/push/settings", token=pt)
+    check("profil silinince cihazları silinir", all(x["memberName"] != "Ece" for x in st["devices"]), st["devices"])
+    fake.server.shutdown()
+
+
 def main():
     global API, EMAILS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -461,7 +648,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_push):
         try:
             t()
         except Exception as e:  # noqa: BLE001

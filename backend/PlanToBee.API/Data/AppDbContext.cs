@@ -28,6 +28,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
     public DbSet<Event> Events => Set<Event>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<PendingNotification> PendingNotifications => Set<PendingNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -107,6 +110,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.Property(e => e.TrainingType).HasMaxLength(50);
         });
         ConfigureAudit<Subject>(builder);
+
+        // Bildirimler (Web Push). Abonelik adresi ve anahtarları şifreli; aramak için anahtarlı özet.
+        builder.Entity<PushSubscription>(b =>
+        {
+            b.Property(p => p.Endpoint).HasMaxLength(2048).HasConversion(personalData.EncryptedTextConverter());
+            b.Property(p => p.P256dh).HasMaxLength(256).HasConversion(personalData.EncryptedTextConverter());
+            b.Property(p => p.Auth).HasMaxLength(128).HasConversion(personalData.EncryptedTextConverter());
+            b.Property(p => p.EndpointIndex).HasMaxLength(64).HasConversion(personalData.IndexTextConverter());
+            b.Property(p => p.DeviceLabel).HasMaxLength(60);
+            b.HasIndex(p => p.EndpointIndex).IsUnique();
+            b.HasIndex(p => p.FamilyId);
+            b.HasIndex(p => p.MemberId);
+            b.HasOne<Family>().WithMany().HasForeignKey(p => p.FamilyId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(p => p.Member).WithMany().HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<NotificationPreference>(b =>
+        {
+            b.HasKey(p => p.MemberId);
+            b.HasOne(p => p.Member).WithMany().HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<PendingNotification>(b =>
+        {
+            b.Property(p => p.Category).HasConversion<string>().HasMaxLength(20);
+            b.Property(p => p.ActorName).HasMaxLength(50);
+            b.Property(p => p.Title).HasMaxLength(120);
+            b.Property(p => p.Body).HasMaxLength(300);
+            b.HasIndex(p => p.RecipientMemberId);
+            b.HasOne<Family>().WithMany().HasForeignKey(p => p.FamilyId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<FamilyMember>().WithMany().HasForeignKey(p => p.RecipientMemberId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     private static void ConfigureAudit<T>(ModelBuilder builder) where T : AuditedEntity

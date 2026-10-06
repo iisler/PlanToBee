@@ -6,6 +6,7 @@ import { useNotice } from '../context/NoticeContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Loading from '../components/Loading';
 import PinInput from '../components/PinInput';
+import NotificationsCard from '../components/NotificationsCard';
 import { initial, ROLE_LABEL } from '../utils/format';
 
 const ROLES = ['Child', 'Parent'];
@@ -126,6 +127,8 @@ export default function FamilyPage({ family, reloadFamily, onProfileChanged }) {
         <AddProfileCard busy={busy} needMyPin={!family.profiles.find(p => p.isCurrent)?.hasPin}
           onAdd={(body) => run(() => client.post('/profiles', body), `${body.displayName} eklendi.`)} />
       )}
+
+      <NotificationsCard />
 
       {removing && (
         <ConfirmDialog danger title="Profili sil" confirmLabel="Profili sil" busy={busy}

@@ -8,6 +8,7 @@ using PlanToBee.API.DTOs;
 using PlanToBee.API.Infrastructure;
 using PlanToBee.API.Models;
 using PlanToBee.API.Services;
+using PlanToBee.API.Services.Notifications;
 
 namespace PlanToBee.API.Controllers;
 
@@ -18,7 +19,7 @@ namespace PlanToBee.API.Controllers;
 [Authorize]
 [RequireVerifiedEmail]
 [EnableRateLimiting(RateLimitPolicies.Api)]
-public class DaysController(AppDbContext db, MemberContext members) : ControllerBase
+public class DaysController(AppDbContext db, MemberContext members, NotificationService notifications) : ControllerBase
 {
     private static readonly string[] ValidStatuses = ["todo", "inprogress", "done"];
 
@@ -110,6 +111,8 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         StampCreated(entry, me);
         db.StudyEntries.Add(entry);
         await db.SaveChangesAsync();
+        await notifications.EnqueueAsync(me, NotificationCategory.StudyAdded, $"{me.DisplayName} ders ekledi",
+            $"{NotificationText.Study(entry)} — {NotificationText.Date(d)}", d);
         return Ok(await MapOne(entry, me));
     }
 
@@ -122,12 +125,14 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         var (me, error) = await AuthorizeEntry(date, entry);
         if (error != null) return error;
 
-        entry!.Subject = dto.Subject.Trim();
+        var wasDone = entry!.Status == "done";
+        entry.Subject = dto.Subject.Trim();
         entry.Topic = dto.Topic?.Trim() ?? "";
         entry.Minutes = dto.Minutes;
         if (dto.Status != null) entry.Status = dto.Status;
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
+        await NotifyStudyChange(me!, entry, wasDone, changed: true);
         return Ok(await MapOne(entry, me!));
     }
 
@@ -139,9 +144,11 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         var (me, error) = await AuthorizeEntry(date, entry);
         if (error != null) return error;
 
-        entry!.Status = dto.Status; // durum değiştirmek de düzenleme sayılır
+        var wasDone = entry!.Status == "done";
+        entry.Status = dto.Status; // durum değiştirmek de düzenleme sayılır
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
+        await NotifyStudyChange(me!, entry, wasDone, changed: false);
         return Ok(await MapOne(entry, me!));
     }
 
@@ -149,10 +156,12 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     public async Task<IActionResult> DeleteEntry(string date, int id)
     {
         var entry = await db.StudyEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(date, entry);
+        var (me, error) = await AuthorizeEntry(date, entry);
         if (error != null) return error;
         db.StudyEntries.Remove(entry!);
         await db.SaveChangesAsync();
+        await notifications.EnqueueAsync(me!, NotificationCategory.Deleted, $"{me!.DisplayName} bir dersi sildi",
+            $"{NotificationText.Study(entry!)} — {NotificationText.Date(entry!.Day!.Date)}", entry.Day.Date);
         return NoContent();
     }
 
@@ -174,6 +183,8 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         StampCreated(ev, me);
         db.Events.Add(ev);
         await db.SaveChangesAsync();
+        await notifications.EnqueueAsync(me, NotificationCategory.ActivityAdded, $"{me.DisplayName} aktivite ekledi",
+            $"{NotificationText.Activity(ev)} — {NotificationText.Date(d)}", d);
         return Ok(await MapOne(ev, me));
     }
 
@@ -189,6 +200,8 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
         if (error != null) return error;
         StampUpdated(ev!, me!);
         await db.SaveChangesAsync();
+        await notifications.EnqueueAsync(me!, NotificationCategory.Changed, $"{me!.DisplayName} bir aktiviteyi değiştirdi",
+            $"{NotificationText.Activity(ev!)} — {NotificationText.Date(ev!.Day!.Date)}", ev.Day.Date);
         return Ok(await MapOne(ev!, me!));
     }
 
@@ -196,14 +209,30 @@ public class DaysController(AppDbContext db, MemberContext members) : Controller
     public async Task<IActionResult> DeleteEvent(string date, int id)
     {
         var ev = await db.Events.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (_, error) = await AuthorizeEntry(date, ev);
+        var (me, error) = await AuthorizeEntry(date, ev);
         if (error != null) return error;
         db.Events.Remove(ev!);
         await db.SaveChangesAsync();
+        await notifications.EnqueueAsync(me!, NotificationCategory.Deleted, $"{me!.DisplayName} bir aktiviteyi sildi",
+            $"{NotificationText.Activity(ev!)} — {NotificationText.Date(ev!.Day!.Date)}", ev.Day.Date);
         return NoContent();
     }
 
     // ---------- Yardımcılar ----------
+
+    // Ders Tamam'a geçtiyse "bitirdi" bildirimi; değilse (düzenleme formundan) değişiklik bildirimi.
+    // Durum rozetiyle Yapılacak/Devam arasında geçiş bildirim üretmez.
+    private Task NotifyStudyChange(FamilyMember me, StudyEntry entry, bool wasDone, bool changed)
+    {
+        var date = entry.Day!.Date;
+        var body = $"{NotificationText.Study(entry)} — {NotificationText.Date(date)}";
+        if (!wasDone && entry.Status == "done")
+            return notifications.EnqueueAsync(me, NotificationCategory.StudyDone,
+                $"{me.DisplayName} {NotificationText.Accusative(entry.Subject)} bitirdi ✅", body, date);
+        return changed
+            ? notifications.EnqueueAsync(me, NotificationCategory.Changed, $"{me.DisplayName} bir dersi değiştirdi", body, date)
+            : Task.CompletedTask;
+    }
 
     // Kayıt yoksa, başka ailedeyse ya da rotadaki tarihte değilse 404 (varlığı belli edilmez);
     // görülebiliyor ama istek sahibi düzenleyemiyorsa 403.
