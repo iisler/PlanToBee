@@ -30,7 +30,7 @@ export default function VerifyEmailPage() {
 
   return (
     <AuthLayout subtitle="E-posta doğrulama">
-      {state.status === 'loading' && <Loading text="Doğrulanıyor…" />}
+      {state.status === 'loading' && <Loading text="Doğrulanıyor, lütfen bekleyiniz…" />}
       {state.status === 'ok' && (
         <>
           <div className="auth-info" role="status">{state.message}</div>

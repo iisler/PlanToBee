@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import { errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
-import useSlow, { SLOW_TEXT } from '../hooks/useSlow';
+import useSlow from '../hooks/useSlow';
+import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
@@ -19,7 +20,8 @@ export default function LoginPage() {
   // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
-  const slow = useSlow(loading);
+  // Sunucu uyanıyorsa giriş uzun sürer: 2 sn sonra ekranı kaplayan bekleme katmanı gösterilir.
+  const slow = useSlow(loading, 2000);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -109,7 +111,7 @@ export default function LoginPage() {
         <button type="submit" className="auth-submit" disabled={loading}>
           <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
         </button>
-        {slow && <div className="auth-hint" role="status">{SLOW_TEXT}</div>}
+        {slow && <Loading text={mode === 'login' ? 'Giriş yapılıyor, lütfen bekleyiniz…' : 'Kaydediliyor, lütfen bekleyiniz…'} />}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}
       </form>
     </AuthLayout>
