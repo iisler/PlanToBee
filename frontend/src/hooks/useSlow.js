@@ -11,5 +11,3 @@ export default function useSlow(active, delay = 5000) {
   }, [active, delay]);
   return active && slow;
 }
-
-export const SLOW_TEXT = 'Sunucu uykudan uyanıyor olabilir; ilk açılışta bu 1 dakikaya kadar sürebilir.';

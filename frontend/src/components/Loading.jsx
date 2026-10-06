@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import useSlow, { SLOW_TEXT } from '../hooks/useSlow';
 import HoneycombSpinner from './HoneycombSpinner';
 
 // Kısa yüklemelerde (ör. gün değiştirme) katman yanıp sönmesin diye kısa bir gecikmeyle görünür.
 const SHOW_AFTER_MS = 300;
 
 // Yükleniyor göstergesi: ekranın tamamını kaplayan katman. Arka plan karartılır ve tıklanamaz,
-// ortada büyük dönen petek ve "Yükleniyor, lütfen bekleyiniz" yazar. Birkaç saniyeden uzun sürerse
-// sunucunun uyanıyor olabileceğini açıklar (Render ücretsiz planında ilk açılış 30-60 sn sürebilir).
+// ortada büyük dönen petek ve "Yükleniyor, lütfen bekleyiniz" yazar (sunucu uyanırken ilk açılış 30-60 sn sürebilir).
 export default function Loading({ text = 'Yükleniyor, lütfen bekleyiniz…' }) {
   const [visible, setVisible] = useState(false);
-  const slow = useSlow(true);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -29,7 +26,6 @@ export default function Loading({ text = 'Yükleniyor, lütfen bekleyiniz…' })
       <div className="loading-card">
         <HoneycombSpinner size={112} />
         <div className="loading-text">{text}</div>
-        {slow && <div className="loading-slow">{SLOW_TEXT}</div>}
       </div>
     </div>
   );

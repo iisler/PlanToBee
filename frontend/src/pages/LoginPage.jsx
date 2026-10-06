@@ -111,7 +111,7 @@ export default function LoginPage() {
         <button type="submit" className="auth-submit" disabled={loading}>
           <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
         </button>
-        {slow && <Loading text={mode === 'login' ? 'Giriş yapılıyor, lütfen bekleyiniz…' : 'Kaydediliyor, lütfen bekleyiniz…'} />}
+        {slow && <Loading />}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}
       </form>
     </AuthLayout>
