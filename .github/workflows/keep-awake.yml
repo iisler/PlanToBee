@@ -1,0 +1,36 @@
+# API'yi uyanık tutar: Render ücretsiz planı 15 dk istek gelmezse sunucuyu uyutur, ilk açılış 30-60 sn sürer.
+# Her 10 dakikada bir /health/live adresine istek atılır (veritabanına dokunmaz; Neon gereksiz yere uyanık kalmaz).
+# Render ücretsiz planı ayda 750 saat verir; tek servisin bütün ay açık kalmasına yeter.
+# Not: GitHub zamanlanmış görevleri yoğunlukta birkaç dakika geç çalıştırabilir. Repoda 60 gün hiç
+# hareket olmazsa GitHub zamanlanmış görevleri durdurur; Actions sekmesinden yeniden açılır.
+name: Sunucuyu uyanık tut
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: API'ye istek at (/health/live)
+        env:
+          # GitHub Pages yayınının kullandığı değişken (ör. https://plantobee-api.onrender.com/api)
+          API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "VITE_API_URL değişkeni tanımlı değil; atlanıyor."
+            exit 0
+          fi
+          base="${API_URL%/}"
+          base="${base%/api}"
+          curl -fsS --retry 3 --retry-delay 10 --retry-all-errors --max-time 90 "$base/health/live"
+          echo
