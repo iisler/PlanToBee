@@ -40,7 +40,7 @@ export default function EventForm({ mode = 'add', initial, onSubmit, onCancel, s
     e.preventDefault();
     if (busy || !info) return;
     const name = f.title.trim();
-    if (!name && info.nameRequired) return setError('Aktivite adını yazın.');
+    if (!name && info.nameRequired) return setError('Aktivite adını yaz.');
     const body = { title: name || info.label, time: f.time, note: f.note.trim() };
     if (mode === 'add') body.kind = kind;
     else if (isTraining(initial)) { body.trainingType = null; body.minutes = initial.minutes ?? null; }

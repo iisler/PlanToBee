@@ -34,7 +34,7 @@ export default function PushPrompt() {
     }).catch((err) => {
       decidePrompt('done');
       setShow(false);
-      notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}). ad menüsündeki Bildirimler'den tekrar deneyebilirsin.`);
+      notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}). Ad menüsündeki Bildirimler'den tekrar deneyebilirsin.`);
     });
   }
 

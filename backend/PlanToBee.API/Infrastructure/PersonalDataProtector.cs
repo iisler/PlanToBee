@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -40,9 +41,17 @@ public sealed class PersonalDataProtector
     public static bool IsEncrypted(string? value) => value != null && value.StartsWith(EncryptedPrefix, StringComparison.Ordinal);
     public static bool IsIndexed(string? value) => value != null && value.StartsWith(IndexPrefix, StringComparison.Ordinal);
 
+    // Önekle başlayan her değer şifreli sayılmaz: yalnızca biçimi tutan (önek + en az nonce ve etiket uzunluğunda
+    // geçerli base64) değer olduğu gibi bırakılır. Aksi halde "e1:ad@ornek.com" gibi bir e-posta adresi açık metin
+    // saklanır, okunurken çözülemez ve o hesabı okuyan her istek 500 dönerdi. '@' base64'te olmadığı için
+    // geçerli bir e-posta adresi bu kontrolü geçemez.
+    private static bool IsCiphertext(string value) =>
+        IsEncrypted(value) &&
+        Base64.IsValid(value.AsSpan(EncryptedPrefix.Length), out var length) && length >= NonceSize + TagSize;
+
     public string? Encrypt(string? plain)
     {
-        if (plain == null || IsEncrypted(plain)) return plain;
+        if (plain == null || IsCiphertext(plain)) return plain;
         var data = Encoding.UTF8.GetBytes(plain);
         var output = new byte[NonceSize + TagSize + data.Length];
         var nonce = output.AsSpan(0, NonceSize);
@@ -54,7 +63,8 @@ public sealed class PersonalDataProtector
 
     public string? Decrypt(string? stored)
     {
-        if (stored == null || !IsEncrypted(stored)) return stored;
+        // Biçimi tutmayan değer (bu düzeltmeden önce yazılmış "e1:..." e-posta adresi) açık metindir.
+        if (stored == null || !IsCiphertext(stored)) return stored;
         var input = Convert.FromBase64String(stored[EncryptedPrefix.Length..]);
         if (input.Length < NonceSize + TagSize)
             throw new CryptographicException("Şifreli kişisel veri bozuk.");

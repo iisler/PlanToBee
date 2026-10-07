@@ -18,6 +18,10 @@ public class PushSender(AppDbContext db, IHttpClientFactory http, VapidKey vapid
     public async Task<int> SendToMemberAsync(int memberId, PushMessage message, CancellationToken ct = default)
     {
         var subs = await db.PushSubscriptions.Where(s => s.MemberId == memberId).ToListAsync(ct);
+        if (subs.Count == 0) return 0;
+        // İçerik her cihaz için ayrı şifrelenir; JSON bir kez üretilir.
+        var payload = message.ToJson();
+        var client = http.CreateClient(HttpClientName);
         var sent = 0;
         foreach (var sub in subs)
         {
@@ -28,7 +32,7 @@ public class PushSender(AppDbContext db, IHttpClientFactory http, VapidKey vapid
             }
             try
             {
-                var body = WebPushCrypto.Encrypt(message.ToJson(), Base64Url.Decode(sub.P256dh), Base64Url.Decode(sub.Auth));
+                var body = WebPushCrypto.Encrypt(payload, Base64Url.Decode(sub.P256dh), Base64Url.Decode(sub.Auth));
                 using var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new ByteArrayContent(body) };
                 req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                 req.Content.Headers.ContentEncoding.Add("aes128gcm");
@@ -36,7 +40,7 @@ public class PushSender(AppDbContext db, IHttpClientFactory http, VapidKey vapid
                 // Cihaz kapalıysa push servisi bildirimi en fazla 1 gün saklar.
                 req.Headers.Add("TTL", "86400");
                 req.Headers.Add("Urgency", "normal");
-                using var res = await http.CreateClient(HttpClientName).SendAsync(req, ct);
+                using var res = await client.SendAsync(req, ct);
                 if (res.IsSuccessStatusCode)
                 {
                     sub.LastSuccessAt = DateTime.UtcNow;

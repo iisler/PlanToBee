@@ -64,7 +64,15 @@ public class NotificationService(AppDbContext db, NotificationSignal signal, IOp
         _ => false
     };
 
-    private static string Trim(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
+    // Kesme noktası bir emojinin (vekil çift) ortasına denk gelirse yarım karakter kalmaz; aksi halde veritabanı
+    // geçersiz UTF-16 metni reddeder ve bildirim kaybolurdu.
+    private static string Trim(string s, int max)
+    {
+        if (s.Length <= max) return s;
+        var cut = max - 1;
+        if (char.IsHighSurrogate(s[cut - 1])) cut--;
+        return s[..cut] + "…";
+    }
 }
 
 // Sessiz saatler Türkiye saatine göredir (UTC+3; Türkiye 2016'dan beri yaz saati uygulamıyor).

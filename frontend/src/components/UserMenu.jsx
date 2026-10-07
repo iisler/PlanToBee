@@ -34,7 +34,7 @@ export default function UserMenu({ name, onSwitchProfile, onFamily, onNotificati
     // Odak menünün dışındaki bir öğeye geçince (ör. Tab ile) menü kapanır. relatedTarget boşsa kapanmaz: iPhone
     // Safari dokunulan düğmeye odak vermez, menü dokunuş işlenmeden kapanırdı. Dışarı dokunuşu arka katman kapatır.
     <div className="usermenu" onBlur={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
-      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: profil menüsü (Profil değiştir, Ailem, Bildirimler, Çıkış yap)`} onClick={() => setOpen(o => !o)}>
+      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: profil menüsü (${[onSwitchProfile && 'Profil değiştir', 'Ailem', onNotifications && 'Bildirimler', 'Çıkış yap'].filter(Boolean).join(', ')})`} onClick={() => setOpen(o => !o)}>
         <span className="av" aria-hidden="true">{initial(name)}</span><span className="uname">{name}</span><span className="caret" aria-hidden="true">▾</span>
       </button>
       {open && (

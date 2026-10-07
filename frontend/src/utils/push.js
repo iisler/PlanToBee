@@ -100,6 +100,10 @@ async function sendToServer(sub, config) {
   const res = await client.put('/push/subscription', {
     endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, deviceLabel: deviceLabel(),
   });
+  // Tarayıcı aboneliği yenilendiyse (izin geri alınıp verildi, anahtar değişti) bu cihazın eski kaydı kaldırılır;
+  // cihaz listesinde aynı cihaz iki kez görünmez.
+  const previous = thisDeviceId();
+  if (previous && previous !== res.data.id) client.delete(`/push/devices/${previous}`).catch(() => {});
   store.set(SUB_ID_KEY, String(res.data.id));
   store.set(SERVER_KEY, config.publicKey);
   return res.data.id;

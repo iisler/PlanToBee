@@ -77,7 +77,7 @@ export default function DayPage({
       )}
 
       <div className="note">
-        "Hafta Planı" sekmesinden gelecek günler için önceden ders ve aktivite girebilirsiniz.
+        "Hafta Planı" sekmesinden gelecek günler için önceden ders ve aktivite girebilirsin.
       </div>
     </>
   );

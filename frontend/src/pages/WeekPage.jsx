@@ -27,7 +27,7 @@ function removeFromWeek(weekDays, key, listKey, id) {
 }
 // Silme düğmesinin ekran okuyucu etiketi için kaydın kısa adı
 function chipName(e) { return e.subject ?? (e.kind ? eventLabel(e) : ''); }
-// Hafta çipindeki kısa metin: "⚽ Top · 17:00 · 1 sa 30 dk", "📝 Deneme sınavı · 10:00"
+// Hafta çipindeki kısa metin: "🏅 Top · 17:00 · 1 sa 30 dk", "📝 Deneme sınavı · 10:00"
 function eventChipText(e) {
   const parts = [`${kindInfo(e.kind).icon}${NBSP}${eventLabel(e, true)}`];
   if (e.time) parts.push(e.time);
@@ -39,8 +39,8 @@ const NBSP = '\u00a0';
 const nb = t => t.replace(/ /g, NBSP);
 const KIND_LABEL = { study: 'Ders', event: 'Aktivite' };
 const INVALID_TEXT = {
-  subject: 'Önce Gün ekranındaki "Dersleri düzenle" ile bir ders ekleyin.',
-  minutes: 'Süreyi dakika olarak girin.',
+  subject: 'Önce Gün ekranındaki "Dersleri düzenle" ile bir ders ekle.',
+  minutes: 'Süreyi dakika olarak gir.',
 };
 const LIST_KEY = { entries: 'studyEntries', events: 'events' };
 
@@ -167,7 +167,7 @@ export default function WeekPage({ currentDate, setCurrentDate, onDataChanged, s
               );
             })}
 
-            <div className="note">Buradan gelecek (veya geçmiş) günlere direkt ders ve aktivite girebilirsiniz. Bir aktiviteye dokunarak düzenleyebilirsiniz.</div>
+            <div className="note">Buradan gelecek (veya geçmiş) günlere doğrudan ders ve aktivite girebilirsin. Bir aktiviteye dokunarak düzenleyebilirsin.</div>
           </>
         )}
     </>
@@ -255,7 +255,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
         {kind === 'study' ? (
           <form className="wkadd-study" onSubmit={submitStudy}>
             <select id="wk-subject" className={`grow${err('subject')}`} aria-invalid={bad('subject')} aria-label="Ders" value={form.subject || subjects[0] || ''} onChange={set('subject')}>
-              {subjects.length === 0 && <option value="">Önce ders ekleyin</option>}
+              {subjects.length === 0 && <option value="">Önce ders ekle</option>}
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <input id="wk-minutes" ref={firstFieldRef} type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className={`num${err('minutes')}`} aria-invalid={bad('minutes')} aria-label="Dakika" value={form.minutes} onChange={set('minutes')} />
@@ -330,8 +330,8 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
       )}
 
       <div className="note">
-        Ders kaydına dokununca durumu değişir (Yapılacak → Devam → Tamam). Aktiviteye dokununca düzenleyebilirsiniz.
-        Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsiniz.
+        Ders kaydına dokununca durumu değişir (Yapılacak → Devam Ediyor → Tamamlandı). Aktiviteye dokununca düzenleyebilirsin.
+        Hücredeki + o günü ve türü ekleme çubuğuna getirir. Gün numarasına dokunarak o günün detayına geçebilirsin.
       </div>
     </>
   );
@@ -354,6 +354,9 @@ function EventChip({ e, myId, onEdit, del }) {
 function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, actions, onGoToDay }) {
   const [studyForm, setStudyForm] = useState({ subject: '', minutes: '' });
   const [editing, setEditing] = useState(null);
+  // Ekleme formları yalnızca "+ Ekle"ye dokunulan günde açılır (liste kısa kalır).
+  const [adding, setAdding] = useState(false);
+  const empty = data.studyEntries.length === 0 && data.events.length === 0;
 
   async function addStudy(e) {
     e.preventDefault();
@@ -378,10 +381,16 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             {WEEKDAYS_FULL[dayIndex]}
             {isToday && <span className="datep today-tag">bugün</span>}
           </div>
-          <button className="goto" onClick={onGoToDay}>Güne git →</button>
+          <div className="weekcard-actions">
+            <button type="button" className={`add-toggle${adding ? ' on' : ''}`} aria-expanded={adding} onClick={() => setAdding(a => !a)}>
+              {adding ? 'Kapat' : '+ Ekle'}
+            </button>
+            <button className="goto" onClick={onGoToDay}>Güne git →</button>
+          </div>
         </div>
 
-        <div className="sectionlbl">Ders</div>
+        {empty && !adding && <div className="empty-day">Plan yok</div>}
+        {(data.studyEntries.length > 0 || adding) && <div className="sectionlbl">Ders</div>}
         {data.studyEntries.length > 0 && (
           <div className="chiprow">
             {data.studyEntries.map(e => (
@@ -395,7 +404,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             ))}
           </div>
         )}
-        <form className="quickrow" onSubmit={addStudy}>
+        {adding && <form className="quickrow" onSubmit={addStudy}>
           <select aria-label="Ders" value={studyForm.subject} onChange={e => setStudyForm(f => ({ ...f, subject: e.target.value }))}>
             <option value="">Ders</option>
             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -403,9 +412,9 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <input type="number" inputMode="numeric" min="1" max="1440" placeholder="dk" className="small" aria-label="Dakika"
             value={studyForm.minutes} onChange={e => setStudyForm(f => ({ ...f, minutes: e.target.value }))} />
           <button type="submit" aria-label="Ders ekle">+</button>
-        </form>
+        </form>}
 
-        <div className="sectionlbl event">Aktivite</div>
+        {(data.events.length > 0 || adding) && <div className="sectionlbl event">Aktivite</div>}
         {data.events.length > 0 && (
           <div className="chiprow">
             {data.events.map(e => (
@@ -413,7 +422,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
             ))}
           </div>
         )}
-        <EventForm mode="add" compact showNote={false} onSubmit={body => actions.add(dateKey, 'events', body)} />
+        {adding && <EventForm mode="add" compact showNote={false} onSubmit={body => actions.add(dateKey, 'events', body)} />}
       </div>
 
       {editing && (

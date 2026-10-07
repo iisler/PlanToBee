@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
 import { errorText } from '../api/errors';
 import { useNotice } from '../context/NoticeContext';
+import Loading from './Loading';
 import { currentSubscription, disablePush, permission, pushConfig, pushSupported, requestPermission, subscribeDevice, thisDeviceId } from '../utils/push';
 
 const TYPES = [
@@ -27,6 +28,8 @@ export default function NotificationsCard() {
   const [deviceOn, setDeviceOn] = useState(false);
   const [perm, setPerm] = useState(permission());
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const loaded = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -37,15 +40,25 @@ export default function NotificationsCard() {
       setData(res.data);
       const myDevice = thisDeviceId();
       setDeviceOn(!!sub && permission() === 'granted' && res.data.devices.some((d) => d.id === myDevice));
+      loaded.current = true;
+      setLoadError('');
     } catch (err) {
-      notify(errorText(err));
+      // İlk yüklemede hata: sayfada tekrar dene gösterilir; sonraki yenilemelerde kısa bildirim yeter.
+      if (loaded.current) notify(errorText(err));
+      else setLoadError(errorText(err));
     }
   }, [notify]);
 
   useEffect(() => { load(); }, [load]);
 
   if (enabled === false) return <div className="card"><div className="muted">Bildirimler şu an kapalı.</div></div>;
-  if (!data) return null;
+  if (!data && loadError) return (
+    <div className="load-error" role="alert">
+      <p>Bildirim ayarları yüklenemedi: {loadError}</p>
+      <button className="btn" onClick={() => { setLoadError(''); load(); }}>Tekrar dene</button>
+    </div>
+  );
+  if (!data) return <Loading />;
 
   const s = data.settings;
 

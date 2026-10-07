@@ -94,6 +94,8 @@ export default function PlanShell() {
   const myId = family?.myProfileId ?? user.profile.id;
   // Ailede başka profil de varsa plan paylaşılıyordur: kendi kayıtlarında da "Sen ekledin" yazılır.
   const showOwn = (family?.profiles ?? []).length > 1;
+  // Bildirimler yalnızca ailede başka profil varsa anlamlı (tek başına kullanımda bildirim gönderecek kimse yok).
+  const hasOthers = showOwn;
   const auditSettings = useMemo(() => ({ showOwn }), [showOwn]);
 
   // Haftalık özet (gün şeridi ve istatistikler). Hata gün sayfasında ayrıca gösterilir.
@@ -169,7 +171,7 @@ export default function PlanShell() {
           <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
           <div className="top-right">
             <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
-              onFamily={() => changeView('family')} onNotifications={() => changeView('notifications')} onLogout={logout} />
+              onFamily={() => changeView('family')} onNotifications={hasOthers ? () => changeView('notifications') : undefined} onLogout={logout} />
           </div>
         </header>
 
@@ -186,7 +188,7 @@ export default function PlanShell() {
           </div>
         )}
 
-        {(view === 'day' || view === 'week') && <PushPrompt />}
+        {view === 'day' && hasOthers && <PushPrompt />}
 
         {familyError && !family && (
           <div className="load-error" role="alert">

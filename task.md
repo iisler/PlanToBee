@@ -15,7 +15,7 @@ dokununca uygulama ilgili günün sayfasında açılır.
 - Bildirimler standart **Web Push** ile gönderilir; üçüncü taraf bildirim servisi kullanılmaz, ek ücret yoktur.
 - Abonelik **cihaz + profil** bazlıdır: cihazda hangi profil seçiliyse bildirimler o profil adına gelir.
 - Her profil hangi kişilerin girişlerinden, hangi türlerde bildirim alacağını ve sessiz saatleri seçer.
-- Ayarlar Ailem ekranındaki yeni **"Bildirimler"** kartındadır.
+- Ayarlar ad menüsündeki ayrı **"Bildirimler"** sayfasındadır (Profil değiştir · Ailem · Bildirimler · Çıkış yap).
 
 ### Verilen kararlar (kullanıcı onayladı)
 
@@ -58,7 +58,7 @@ Varsayım: Örnek metinler yön gösterir; kesin metinleri frontend/tasarım bel
 tek özet bildirim olarak gider.
 
 **8. İzin isteme:** Uygulamada bir kez "Aileden haberdar ol" kartı gösterilir ("Bildirimleri aç" / "Şimdi değil").
-"Şimdi değil" denirse o cihazda bir daha sorulmaz. Ayarlar Ailem ekranındaki "Bildirimler" kartından yapılır:
+"Şimdi değil" denirse o cihazda bir daha sorulmaz. Ayarlar ad menüsündeki "Bildirimler" sayfasından yapılır:
 bu cihaz aç/kapa, kimin girişleri, türler, sessiz saatler, bildirim alan cihaz listesi.
 
 **9. Dokununca:** Uygulama ilgili günün sayfasında açılır.
@@ -93,7 +93,7 @@ eklenmiş uygulamada çalışır; bu bilinen bir kısıttır.
 1. Bildirim desteği olan bir tarayıcıda, cihazda daha önce karar verilmemişse uygulamada "Aileden haberdar ol" kartı
    "Bildirimleri aç" ve "Şimdi değil" düğmeleriyle görünür.
 2. "Bildirimleri aç"a basılınca tarayıcının izin penceresi açılır; izin verilirse cihaz seçili profil adına abone olur
-   ve kart kaybolur. Ailem > Bildirimler kartında "Bu cihaz" açık görünür.
+   ve kart kaybolur. Bildirimler sayfasında "Bu cihaz" açık görünür.
 3. "Şimdi değil"e basılırsa kart kaybolur ve o cihazda sayfa yenilense, çıkış yapılıp girilse bile bir daha görünmez.
 4. Tarayıcı izni reddedilirse kart kaybolur; Bildirimler kartında bildirimin tarayıcıda engellendiği ve tarayıcı
    ayarlarından açılması gerektiği yazar.
@@ -134,7 +134,7 @@ eklenmiş uygulamada çalışır; bu bilinen bir kısıttır.
     birden çok gün varsa en erken gün açılır (Varsayım).
 24. Uygulama zaten açıkken gelen bildirim de sistem bildirimi olarak gösterilir (Varsayım).
 
-### Ayarlar: Ailem > Bildirimler kartı
+### Ayarlar: ad menüsü > Bildirimler sayfası
 25. Kartta şunlar bulunur: Bu cihaz aç/kapa, Kimin girişleri (aile üyeleri listesi, kendisi hariç), 4 bildirim türü
     anahtarı, Sessiz saatler (aç/kapa + başlangıç/bitiş), Bildirim alan cihazlar listesi.
 26. Ayarlar seçili profile aittir; başka profil seçilince o profilin ayarları görünür.

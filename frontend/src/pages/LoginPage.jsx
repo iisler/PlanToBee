@@ -89,7 +89,7 @@ export default function LoginPage() {
     >
       <div className="auth-tabs">
         <button className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => switchMode('login')}>Giriş</button>
-        <button className={mode === 'register' ? 'active' : ''} aria-pressed={mode === 'register'} onClick={() => switchMode('register')}>Kayıt Ol</button>
+        <button className={mode === 'register' ? 'active' : ''} aria-pressed={mode === 'register'} onClick={() => switchMode('register')}>Kayıt ol</button>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -109,7 +109,7 @@ export default function LoginPage() {
         />
         {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" className="auth-submit" disabled={loading}>
-          <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
+          <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş yap' : 'Kayıt ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
         </button>
         {slow && <Loading />}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}

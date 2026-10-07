@@ -63,23 +63,32 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         var app = scope.ServiceProvider.GetRequiredService<IOptions<AppOptions>>().Value;
         var o = options.Value;
 
-        var pending = await db.PendingNotifications.ToListAsync(ct);
-        if (pending.Count == 0) return;
+        var window = TimeSpan.FromSeconds(o.BatchSeconds);
+        // Yalnızca gönderilebilecekler okunur: sessiz saatte bekleyen (vadesi gelmemiş) satırlar her turda
+        // yeniden yüklenmez.
+        var pending = await db.PendingNotifications.Where(p => p.HoldUntil == null || p.HoldUntil <= now).ToListAsync(ct);
 
         var messages = new List<(int Recipient, PushMessage Message, List<PendingNotification> Rows)>();
-        var window = TimeSpan.FromSeconds(o.BatchSeconds);
-        foreach (var key in _lastSent.Where(x => now - x.Value >= window).Select(x => x.Key).ToList()) _lastSent.Remove(key);
         // Anında gidenler: alıcı + kaydı giren kişi başına. Yakın zamanda bildirim gittiyse süre dolana kadar toplanır.
         foreach (var g in pending.Where(p => p.HoldUntil == null).GroupBy(p => (p.RecipientMemberId, p.ActorMemberId)))
         {
-            var followUp = _lastSent.ContainsKey(g.Key);
-            if (followUp && now - _lastSent[g.Key] < window) continue;
-            messages.Add((g.Key.RecipientMemberId, Compose(g.ToList(), app, held: false, followUp), g.ToList()));
+            var rows = g.ToList();
+            var hasLast = _lastSent.TryGetValue(g.Key, out var last);
+            if (hasLast && now - last < window) continue;
+            // Devam bildirimi ("3 kayıt daha"): girişler önceki bildirimin toplama süresi içinde geldiyse.
+            // Süre dolduktan sonra gelen giriş yeni bir başlangıçtır.
+            var followUp = hasLast && rows.Min(r => r.CreatedAt) - last < window;
+            messages.Add((g.Key.RecipientMemberId, Compose(rows, app, held: false, followUp), rows));
             _lastSent[g.Key] = now;
         }
         // Sessiz saatte bekleyenler: süresi dolunca alıcı başına tek özet.
-        foreach (var g in pending.Where(p => p.HoldUntil != null && p.HoldUntil <= now).GroupBy(p => p.RecipientMemberId))
-            messages.Add((g.Key, Compose(g.ToList(), app, held: true), g.ToList()));
+        foreach (var g in pending.Where(p => p.HoldUntil != null).GroupBy(p => p.RecipientMemberId))
+        {
+            var rows = g.ToList();
+            messages.Add((g.Key, Compose(rows, app, held: true), rows));
+        }
+        // Süresi dolmuş ve bu turda yenilenmemiş kayıtlar: bellekte birikmesin.
+        foreach (var key in _lastSent.Where(x => now - x.Value >= window).Select(x => x.Key).ToList()) _lastSent.Remove(key);
         if (messages.Count == 0) return;
 
         // Önce kuyruktan sil (aynı bildirim iki kez gitmesin), sonra gönder.
