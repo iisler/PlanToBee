@@ -577,6 +577,15 @@ def test_push():
     s, _ = req("PUT", f"/days/{d1}/entries/{e['id']}", {"subject": "Fizik", "minutes": 50}, ct)
     check("değişiklik açılınca bildirim gider", len(fake.wait("anne", n + 1)) == n + 1, len(fake.to("anne")))
 
+    # Silme ve değişiklik toplama süresini beklemez: hemen önce ekleme bildirimi gitmiş olsa da anında gider.
+    n = len(fake.to("anne"))
+    s, ev2 = req("POST", f"/days/{d1}/events", {"kind": "Exam", "title": "Deneme"}, ct)
+    fake.wait("anne", n + 1)
+    t0 = time.time()
+    s, _ = req("DELETE", f"/days/{d1}/events/{ev2['id']}", token=ct)
+    got = fake.wait("anne", n + 2, timeout=5)
+    check("silme bildirimi beklemeden gider", len(got) == n + 2 and time.time() - t0 < 1.8, (len(got), round(time.time() - t0, 2)))
+
     n = len(fake.to("anne"))
     req("PUT", "/push/settings", dict(off, changes=True, mutedMemberIds=[kid["id"], 999999]), pt)
     s, st = req("GET", "/push/settings", token=pt)

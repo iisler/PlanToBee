@@ -15,8 +15,9 @@ public class WebPushOptions
     public string? Key { get; set; }
     // Push servislerine verilen iletişim adresi (RFC 8292). Boşsa Email:From kullanılır.
     public string? Subject { get; set; }
-    // Bir kişinin girişi için alıcıya bildirim hemen gider; aynı kişinin bu süre içindeki sonraki girişleri
-    // toplanır ve süre dolunca tek bildirim olarak gider ("Ela 3 kayıt daha ekledi").
+    // Bir kişinin girişi için alıcıya bildirim hemen gider; aynı kişinin bu süre içindeki sonraki eklemeleri
+    // toplanır ve süre dolunca tek bildirim olarak gider ("Ela 3 kayıt daha ekledi"). Değişiklik ve silme
+    // toplanmaz, her zaman hemen gider.
     public int BatchSeconds { get; set; } = 60;
     // Yalnızca geliştirme/test: izin listesine eklenen sahte push servisi adresleri (örn. "localhost").
     public List<string> TestEndpointHosts { get; set; } = [];
@@ -69,8 +70,11 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         var pending = await db.PendingNotifications.Where(p => p.HoldUntil == null || p.HoldUntil <= now).ToListAsync(ct);
 
         var messages = new List<(int Recipient, PushMessage Message, List<PendingNotification> Rows)>();
-        // Anında gidenler: alıcı + kaydı giren kişi başına. Yakın zamanda bildirim gittiyse süre dolana kadar toplanır.
-        foreach (var g in pending.Where(p => p.HoldUntil == null).GroupBy(p => (p.RecipientMemberId, p.ActorMemberId)))
+        // Değişiklik ve silme her zaman beklemeden, tek tek gider (toplanmaz, toplama süresini de etkilemez).
+        foreach (var row in pending.Where(p => p.HoldUntil == null && IsInstant(p.Category)))
+            messages.Add((row.RecipientMemberId, Compose([row], app, held: false), [row]));
+        // Eklemeler ve "bitirdi": alıcı + kaydı giren kişi başına. Yakın zamanda bildirim gittiyse süre dolana kadar toplanır.
+        foreach (var g in pending.Where(p => p.HoldUntil == null && !IsInstant(p.Category)).GroupBy(p => (p.RecipientMemberId, p.ActorMemberId)))
         {
             var rows = g.ToList();
             var hasLast = _lastSent.TryGetValue(g.Key, out var last);
@@ -97,6 +101,8 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         foreach (var (recipient, message, _) in messages)
             await sender.SendToMemberAsync(recipient, message, ct);
     }
+
+    private static bool IsInstant(NotificationCategory c) => c is NotificationCategory.Changed or NotificationCategory.Deleted;
 
     // Tek kayıt: kaydın kendi metni. Birden çok: türlere göre sayılar. Sessiz saat özeti: kişi başına sayılar.
     public static PushMessage Compose(List<PendingNotification> rows, AppOptions app, bool held, bool followUp = false)
