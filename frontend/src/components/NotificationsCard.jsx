@@ -18,7 +18,7 @@ function Switch({ checked, onChange, label, disabled }) {
   );
 }
 
-// Ailem > Bildirimler: bu cihaz aç/kapa, kimin girişleri, türler, sessiz saatler ve bildirim alan cihazlar.
+// Ad menüsü > Bildirimler: bu cihaz aç/kapa, kimin girişleri, türler, sessiz saatler ve bildirim alan cihazlar.
 // Ayarlar seçili profile aittir ve her değişiklikte kaydedilir.
 export default function NotificationsCard() {
   const { notify } = useNotice();
@@ -44,7 +44,7 @@ export default function NotificationsCard() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (enabled === false) return null;
+  if (enabled === false) return <div className="card"><div className="muted">Bildirimler şu an kapalı.</div></div>;
   if (!data) return null;
 
   const s = data.settings;
@@ -105,7 +105,6 @@ export default function NotificationsCard() {
 
   return (
     <div className="card notif-card">
-      <div className="card-head"><h2>🔔 Bildirimler</h2></div>
 
       {!pushSupported() ? (
         <div className="muted small-note">

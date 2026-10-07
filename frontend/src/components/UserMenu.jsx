@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { initial } from '../utils/format';
 
-// Sağ üstteki profil adı: dokununca Profil değiştir (ailede birden fazla profil varsa), Ailem ve Çıkış seçenekleri açılır.
-export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) {
+// Sağ üstteki profil adı: dokununca Profil değiştir (ailede birden fazla profil varsa), Ailem, Bildirimler ve Çıkış seçenekleri açılır.
+export default function UserMenu({ name, onSwitchProfile, onFamily, onNotifications, onLogout }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
   const btnRef = useRef(null);
@@ -34,7 +34,7 @@ export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) 
     // Odak menünün dışındaki bir öğeye geçince (ör. Tab ile) menü kapanır. relatedTarget boşsa kapanmaz: iPhone
     // Safari dokunulan düğmeye odak vermez, menü dokunuş işlenmeden kapanırdı. Dışarı dokunuşu arka katman kapatır.
     <div className="usermenu" onBlur={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
-      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: profil menüsü (Profil değiştir, Ailem, Çıkış yap)`} onClick={() => setOpen(o => !o)}>
+      <button ref={btnRef} className="tag usermenu-btn" aria-haspopup="menu" aria-expanded={open} aria-label={`${name}: profil menüsü (Profil değiştir, Ailem, Bildirimler, Çıkış yap)`} onClick={() => setOpen(o => !o)}>
         <span className="av" aria-hidden="true">{initial(name)}</span><span className="uname">{name}</span><span className="caret" aria-hidden="true">▾</span>
       </button>
       {open && (
@@ -43,6 +43,7 @@ export default function UserMenu({ name, onSwitchProfile, onFamily, onLogout }) 
           <ul className="usermenu-list" role="menu" ref={listRef}>
             {onSwitchProfile && <li role="none"><button role="menuitem" onClick={() => choose(onSwitchProfile)}>Profil değiştir</button></li>}
             <li role="none"><button role="menuitem" onClick={() => choose(onFamily)}>Ailem</button></li>
+            {onNotifications && <li role="none"><button role="menuitem" onClick={() => choose(onNotifications)}>Bildirimler</button></li>}
             <li role="none"><button role="menuitem" className="danger" onClick={() => choose(onLogout)}>Çıkış yap</button></li>
           </ul>
         </>

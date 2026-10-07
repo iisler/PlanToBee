@@ -61,13 +61,32 @@ function withTimeout(promise, ms, step) {
   ]);
 }
 
-// Service worker kayıtlı değilse (ör. ilk açılışta kayıt başarısız olduysa) yeniden kaydedilir.
+// Service worker kaydı doğrudan kapsam adresiyle bulunur (yoksa kaydedilir) ve etkinleşmesi beklenir.
+// navigator.serviceWorker.ready kullanılmaz: iPhone (WebKit) onu sayfanın o anki adresine göre eşler; giriş
+// sonrası adres "…/app" (sondaki / olmadan) olunca kapsam dışında kalır ve hiç tamamlanmaz.
 async function registration() {
   const scope = import.meta.env.BASE_URL;
-  if (!(await navigator.serviceWorker.getRegistration(scope))) {
-    await navigator.serviceWorker.register(`${scope}sw.js`, { scope });
+  let reg = await navigator.serviceWorker.getRegistration(scope);
+  if (!reg) {
+    try {
+      reg = await navigator.serviceWorker.register(`${scope}sw.js`, { scope });
+    } catch (e) {
+      throw new PushStepError('servis kaydı', e);
+    }
   }
-  return withTimeout(navigator.serviceWorker.ready, 15000, 'servis');
+  if (reg.active) return reg;
+  const worker = reg.installing || reg.waiting;
+  const state = () => `durum: ${worker ? worker.state : 'yok'}`;
+  if (!worker) throw new PushStepError('servis', state());
+  await withTimeout(new Promise((resolve, reject) => {
+    const check = () => {
+      if (worker.state === 'activated') resolve();
+      else if (worker.state === 'redundant') reject(new Error('servis kurulamadı'));
+    };
+    worker.addEventListener('statechange', check);
+    check();
+  }), 15000, `servis (${state()})`);
+  return reg;
 }
 
 export async function currentSubscription() {

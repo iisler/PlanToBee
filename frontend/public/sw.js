@@ -27,7 +27,9 @@ self.addEventListener('notificationclick', (event) => {
   const url = event.notification.data?.url || self.registration.scope;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const open = windows.find((w) => w.url.startsWith(self.registration.scope));
+    // Uygulama adresi "…/app" (sondaki / olmadan) da olabilir
+    const base = self.registration.scope.replace(/\/$/, '');
+    const open = windows.find((w) => w.url === base || w.url.startsWith(self.registration.scope));
     if (open) {
       await open.focus();
       open.postMessage({ type: 'plantobee:open', url });

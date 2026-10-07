@@ -3,7 +3,7 @@ import { useNotice } from '../context/NoticeContext';
 import { decidePrompt, permission, promptDecided, pushConfig, requestPermission, subscribeDevice } from '../utils/push';
 
 // "Aileden haberdar ol": bildirim izni bu cihazda bir kez önerilir. "Şimdi değil" denirse bir daha gösterilmez;
-// bildirimler sonra Ailem > Bildirimler'den açılabilir. Desteklenmeyen ortamda hiç görünmez.
+// bildirimler sonra ad menüsündeki Bildirimler sayfasından açılabilir. Desteklenmeyen ortamda hiç görünmez.
 export default function PushPrompt() {
   const { notify } = useNotice();
   const [show, setShow] = useState(false);
@@ -29,12 +29,12 @@ export default function PushPrompt() {
       if (result === 'denied') return notify('Bildirim izni verilmedi. İstersen tarayıcı ayarlarından açabilirsin.', 'info');
       if (result !== 'granted') return undefined;
       await subscribeDevice();
-      notify('Bildirimler açıldı. Ayarları Ailem › Bildirimler\'den değiştirebilirsin.', 'info');
+      notify('Bildirimler açıldı. Ayarları ad menüsündeki Bildirimler\'den değiştirebilirsin.', 'info');
       return undefined;
     }).catch((err) => {
       decidePrompt('done');
       setShow(false);
-      notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}). Ailem › Bildirimler'den tekrar deneyebilirsin.`);
+      notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}). ad menüsündeki Bildirimler'den tekrar deneyebilirsin.`);
     });
   }
 

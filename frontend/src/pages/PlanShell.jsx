@@ -10,6 +10,7 @@ import UserMenu from '../components/UserMenu';
 import { dkey, mondayOf } from '../utils/format';
 import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
+import NotificationsCard from '../components/NotificationsCard';
 import { syncPush } from '../utils/push';
 
 const VIEW_KEY = 'plantobee:view';
@@ -44,14 +45,14 @@ export default function PlanShell() {
   const [currentDate, setCurrentDate] = useState(() => linkDate ?? new Date());
   // Son açık plan sekmesi (Gün / Hafta Planı) hatırlanır: uygulama yeniden açılınca ve Ailem'den dönünce.
   const [view, setView] = useState(() => (linkDate ? 'day' : readPlanView()));
-  const lastPlanView = useRef(view === 'family' ? 'day' : view);
+  const lastPlanView = useRef(view === 'family' || view === 'notifications' ? 'day' : view);
   const [weekSummaries, setWeekSummaries] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const familyHeadingRef = useRef(null);
 
   // Ailem ad menüsünden açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
   useEffect(() => {
-    if (view === 'family') familyHeadingRef.current?.focus();
+    if (view === 'family' || view === 'notifications') familyHeadingRef.current?.focus();
   }, [view]);
 
   const loadFamily = useCallback(async () => {
@@ -154,6 +155,7 @@ export default function PlanShell() {
   function changeView(v) {
     setView(v);
     if (v === 'family') loadFamily();
+    else if (v === 'notifications') { /* plan sekmesi değişmez */ }
     else {
       lastPlanView.current = v;
       writePlanView(v);
@@ -167,7 +169,7 @@ export default function PlanShell() {
           <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
           <div className="top-right">
             <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
-              onFamily={() => changeView('family')} onLogout={logout} />
+              onFamily={() => changeView('family')} onNotifications={() => changeView('notifications')} onLogout={logout} />
           </div>
         </header>
 
@@ -177,14 +179,14 @@ export default function PlanShell() {
         </div>
 
         {/* Ailem ad menüsünden açılır; sekmelerde karşılığı olmadığı için nerede olunduğu başlıkla belirtilir */}
-        {view === 'family' && (
+        {(view === 'family' || view === 'notifications') && (
           <div className="pagehead">
             <button className="btn-ghost small" onClick={() => changeView(lastPlanView.current)}>‹ Plana dön</button>
-            <h2 ref={familyHeadingRef} tabIndex={-1}>Ailem</h2>
+            <h2 ref={familyHeadingRef} tabIndex={-1}>{view === 'family' ? 'Ailem' : 'Bildirimler'}</h2>
           </div>
         )}
 
-        {view !== 'family' && <PushPrompt />}
+        {(view === 'day' || view === 'week') && <PushPrompt />}
 
         {familyError && !family && (
           <div className="load-error" role="alert">
@@ -216,6 +218,7 @@ export default function PlanShell() {
             onAccessChanged={onAccessChanged}
           />
         )}
+        {view === 'notifications' && <NotificationsCard />}
         {view === 'family' && !(familyError && !family) && (
           <FamilyPage
             family={family}
