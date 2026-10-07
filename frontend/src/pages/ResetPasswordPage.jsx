@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotice } from '../context/NoticeContext';
 import AuthLayout from '../components/AuthLayout';
 import BusyLabel from '../components/BusyLabel';
+import PasswordInput from '../components/PasswordInput';
 
 // E-postadaki bağlantıdan açılır: /reset-password?userId=…&token=…
 export default function ResetPasswordPage() {
@@ -47,8 +48,8 @@ export default function ResetPasswordPage() {
         </>
       ) : (
         <form onSubmit={submit}>
-          <input type="password" aria-label="Yeni şifre" placeholder="Yeni şifre (en az 6 karakter)" autoComplete="new-password" minLength={6} value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
-          <input type="password" aria-label="Yeni şifre (tekrar)" placeholder="Yeni şifre (tekrar)" autoComplete="new-password" value={pw.b} onChange={e => setPw(p => ({ ...p, b: e.target.value }))} required />
+          <PasswordInput aria-label="Yeni şifre" placeholder="Yeni şifre (en az 6 karakter)" autoComplete="new-password" minLength={6} value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
+          <PasswordInput aria-label="Yeni şifre (tekrar)" placeholder="Yeni şifre (tekrar)" autoComplete="new-password" value={pw.b} onChange={e => setPw(p => ({ ...p, b: e.target.value }))} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}><BusyLabel busy={loading} text="Şifreyi kaydet" busyText="Kaydediliyor…" /></button>
         </form>

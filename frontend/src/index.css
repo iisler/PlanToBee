@@ -546,3 +546,11 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .device-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; color: var(--ink-soft); border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .device-list li:last-child { border-bottom: none; }
 .notif-card .test-push { margin-top: 10px; }
+
+/* Şifre alanı: basılı tutunca gösteren göz düğmesi */
+.pw-field { position: relative; display: flex; }
+.pw-field input { flex: 1; width: 100%; padding-right: 50px !important; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; display: grid; place-items: center;
+  border: none; background: none; color: var(--ink-soft); border-radius: 10px; padding: 0;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.pw-eye[aria-pressed="true"] { color: var(--ink); }

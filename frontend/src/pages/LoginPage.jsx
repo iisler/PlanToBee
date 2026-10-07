@@ -7,6 +7,7 @@ import AuthLayout from '../components/AuthLayout';
 import useSlow from '../hooks/useSlow';
 import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
+import PasswordInput from '../components/PasswordInput';
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
@@ -96,9 +97,8 @@ export default function LoginPage() {
           <input id="displayName" aria-label="Adın" placeholder="Adın (ör. Ilker)" autoComplete="name" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
         )}
         <input id="email" type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           aria-label="Şifre"
           placeholder={mode === 'login' ? 'Şifre' : 'Şifre (en az 6 karakter)'}
           autoComplete={mode === 'login' ? 'current-password' : 'new-password'}

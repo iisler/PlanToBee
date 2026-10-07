@@ -7,6 +7,7 @@ import Loading from '../components/Loading';
 import PinInput from '../components/PinInput';
 import { initial, ROLE_LABEL } from '../utils/format';
 import BusyLabel from '../components/BusyLabel';
+import PasswordInput from '../components/PasswordInput';
 
 // "Kim kullanıyor?": aile hesabıyla giriş yapıldıktan sonra bu cihazda kullanılacak profil seçilir.
 // - PIN'li profil: 4 haneli PIN sorulur.
@@ -153,7 +154,7 @@ function ChosenProfile({ chosen, busy, error, onSubmit, onBack }) {
             Ebeveyn profilleri PIN ile korunur; böylece aile şifresini bilen çocuklar ebeveyn olarak işlem yapamaz.
             Bu profil için bir PIN belirle. Onaylamak için aile hesabının şifresini de gir.
           </p>
-          <input type="password" aria-label="Aile hesabının şifresi" placeholder="Aile hesabının şifresi" autoComplete="current-password"
+          <PasswordInput aria-label="Aile hesabının şifresi" placeholder="Aile hesabının şifresi" autoComplete="current-password"
             value={password} onChange={e => setPassword(e.target.value)} required autoFocus />
           <label className="pin-label">Yeni PIN
             <PinInput value={pin} onChange={setPin} disabled={busy} label="Yeni PIN" />
