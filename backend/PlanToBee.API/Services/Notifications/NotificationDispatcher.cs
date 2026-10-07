@@ -15,10 +15,9 @@ public class WebPushOptions
     public string? Key { get; set; }
     // Push servislerine verilen iletişim adresi (RFC 8292). Boşsa Email:From kullanılır.
     public string? Subject { get; set; }
-    // Aynı kişinin art arda girişleri bu kadar sessizlikten sonra tek bildirim olarak gider...
+    // Bir kişinin girişi için alıcıya bildirim hemen gider; aynı kişinin bu süre içindeki sonraki girişleri
+    // toplanır ve süre dolunca tek bildirim olarak gider ("Ela 3 kayıt daha ekledi").
     public int BatchSeconds { get; set; } = 60;
-    // ...ama ilk girişin üzerinden en fazla bu kadar geçince beklemeden gider.
-    public int MaxBatchSeconds { get; set; } = 120;
     // Yalnızca geliştirme/test: izin listesine eklenen sahte push servisi adresleri (örn. "localhost").
     public List<string> TestEndpointHosts { get; set; } = [];
 
@@ -33,11 +32,16 @@ public class NotificationSignal
     public Task WaitAsync(TimeSpan timeout, CancellationToken ct) => _signal.WaitAsync(timeout, ct);
 }
 
-// Kuyruktaki bildirimleri toplayıp gönderir. Açılışta da çalışır: sunucu uykudayken vadesi gelen (örn. sessiz saat
-// sonu) bildirimler uyanınca gider.
+// Kuyruktaki bildirimleri gönderir. Açılışta da çalışır: sunucu uykudayken vadesi gelen (örn. sessiz saat sonu)
+// bildirimler uyanınca gider.
+// Toplama: alıcı + kaydı giren kişi için son bildirimden bu yana BatchSeconds geçtiyse yeni giriş hemen gider;
+// geçmediyse bekler ve süre dolunca o arada gelenler tek bildirim olur. Son gönderim zamanı bellekte tutulur
+// (sunucu yeniden başlarsa ilk giriş yine hemen gider).
 public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSignal signal, IOptions<WebPushOptions> options,
     ILogger<NotificationDispatcher> logger) : BackgroundService
 {
+    private readonly Dictionary<(int Recipient, int Actor), DateTime> _lastSent = [];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Value.Enabled) return;
@@ -63,13 +67,15 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         if (pending.Count == 0) return;
 
         var messages = new List<(int Recipient, PushMessage Message, List<PendingNotification> Rows)>();
-        // Anında gidenler: alıcı + kaydı giren kişi başına toplanır.
+        var window = TimeSpan.FromSeconds(o.BatchSeconds);
+        foreach (var key in _lastSent.Where(x => now - x.Value >= window).Select(x => x.Key).ToList()) _lastSent.Remove(key);
+        // Anında gidenler: alıcı + kaydı giren kişi başına. Yakın zamanda bildirim gittiyse süre dolana kadar toplanır.
         foreach (var g in pending.Where(p => p.HoldUntil == null).GroupBy(p => (p.RecipientMemberId, p.ActorMemberId)))
         {
-            var last = g.Max(p => p.CreatedAt);
-            var first = g.Min(p => p.CreatedAt);
-            if (now - last < TimeSpan.FromSeconds(o.BatchSeconds) && now - first < TimeSpan.FromSeconds(o.MaxBatchSeconds)) continue;
-            messages.Add((g.Key.RecipientMemberId, Compose(g.ToList(), app, held: false), g.ToList()));
+            var followUp = _lastSent.ContainsKey(g.Key);
+            if (followUp && now - _lastSent[g.Key] < window) continue;
+            messages.Add((g.Key.RecipientMemberId, Compose(g.ToList(), app, held: false, followUp), g.ToList()));
+            _lastSent[g.Key] = now;
         }
         // Sessiz saatte bekleyenler: süresi dolunca alıcı başına tek özet.
         foreach (var g in pending.Where(p => p.HoldUntil != null && p.HoldUntil <= now).GroupBy(p => p.RecipientMemberId))
@@ -84,7 +90,7 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
     }
 
     // Tek kayıt: kaydın kendi metni. Birden çok: türlere göre sayılar. Sessiz saat özeti: kişi başına sayılar.
-    public static PushMessage Compose(List<PendingNotification> rows, AppOptions app, bool held)
+    public static PushMessage Compose(List<PendingNotification> rows, AppOptions app, bool held, bool followUp = false)
     {
         var date = rows.Min(r => r.Date);
         var url = app.Link("/", ("date", date.ToString("yyyy-MM-dd")));
@@ -94,7 +100,8 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         {
             var name = rows[^1].ActorName;
             var allAdds = rows.All(r => r.Category is NotificationCategory.StudyAdded or NotificationCategory.ActivityAdded);
-            var title = allAdds ? $"{name} {rows.Count} kayıt ekledi" : $"{name}: {rows.Count} güncelleme";
+            var more = followUp ? " daha" : "";
+            var title = allAdds ? $"{name} {rows.Count} kayıt{more} ekledi" : $"{name}: {rows.Count} güncelleme{more}";
             return new PushMessage(title, Counts(rows), url);
         }
         var body = string.Join(" · ", rows.GroupBy(r => r.ActorMemberId).Select(g => $"{g.Last().ActorName}: {Counts(g.ToList())}"));

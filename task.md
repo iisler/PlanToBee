@@ -51,7 +51,7 @@ dokununca uygulama ilgili günün sayfasında açılır.
 
 Varsayım: Örnek metinler yön gösterir; kesin metinleri frontend/tasarım belirler, kabul kriterlerindeki bilgileri taşıması yeterlidir.
 
-**6. Toplama:** Aynı kişinin kısa sürede (ör. 2 dk) art arda girişleri tek bildirimde toplanır
+**6. Toplama:** İlk giriş için bildirim hemen gider; aynı kişinin sonraki ~1 dk içindeki girişleri tek bildirimde toplanır
 ("Ela 4 kayıt ekledi · 3 ders, 1 aktivite").
 
 **7. Sessiz saatler:** Var; varsayılan AÇIK, 22:00–07:30 (Türkiye saati). Bu aralıkta oluşanlar sessiz saat bitince
@@ -117,7 +117,7 @@ eklenmiş uygulamada çalışır; bu bilinen bir kısıttır.
 16. Bir türü kapatan kişiye o türde bildirim gitmez; diğer kişilerin ayarı etkilenmez.
 
 ### Toplama
-17. Aynı kişi ~2 dk içinde art arda birden fazla kayıt girerse alıcıya tek bildirim gider ve sayıları türüne göre
+17. Aynı kişi art arda birden fazla kayıt girerse ilki hemen gider, ~1 dk içindeki devamı tek bildirimde toplanır ve sayıları türüne göre
     gösterir (örn. "Ela 4 kayıt ekledi · 3 ders, 1 aktivite").
 18. Tek kayıt girildiyse bildirim o kaydın adını taşır (toplama metni kullanılmaz).
 19. Toplanan bildirimler yalnızca alıcının açık türlerini içerir (örn. aktivite bildirimi kapalı olana "3 ders" gider).
@@ -166,7 +166,7 @@ eklenmiş uygulamada çalışır; bu bilinen bir kısıttır.
 3. Uç noktalar: abone ol / profil değiştir / abonelikten çık; ayarları oku/güncelle; cihaz listesi ve cihaz kaldırma;
    VAPID açık anahtarını verme. Çıkış ve profil silme abonelikleri temizler.
 4. Kayıt ekleme/düzenleme/silme ve durum Tamam'a geçişi bildirim olayı üretir; alıcılar ayarlara göre süzülür.
-5. Toplama (~2 dk) ve sessiz saat kuyruğu kalıcı (veritabanında) tutulur; sunucu yeniden başlasa da kaybolmaz.
+5. Toplama (ilki hemen, devamı ~1 dk) ve sessiz saat kuyruğu kalıcı (veritabanında) tutulur; sunucu yeniden başlasa da kaybolmaz.
 6. Web Push gönderimi, aes128gcm şifreleme ve VAPID ES256 imzası yerleşik kriptografiyle; dış paket yok.
 7. Gönderim hatası kayıt isteğini başarısız yapmaz; 404/410 aboneliği siler, diğer hatalar günlüğe yazılır.
 8. Uçtan uca testler (`backend/tests/e2e.py`): abonelik, ayarlar, SSRF reddi, yetki (403/404), alıcı süzme.
@@ -197,7 +197,7 @@ eklenmiş uygulamada çalışır; bu bilinen bir kısıttır.
 ## Açık Riskler
 
 1. **Render ücretsiz sunucu uykusu.** Anlık bildirimler kayıt isteği sırasında (sunucu uyanıkken) gönderilir, sorun yok.
-   Ancak toplama (~2 dk sonra gönderim) ve sessiz saat bitişindeki özet için arka plan işi sunucu uykudayken çalışamaz;
+   Ancak toplanan devam bildirimleri (~1 dk sonra gönderim) ve sessiz saat bitişindeki özet için arka plan işi sunucu uykudayken çalışamaz;
    07:30'da kimse uygulamayı açmazsa özet gecikir.
    **Önerilen basit çözüm:** Kuyruk veritabanında tutulur; sunucu her uyanışta ve her gelen istekte süresi dolmuş
    bekleyenleri boşaltır (arka plan zamanlayıcı da uyanıkken çalışır). Toplama için: kişi yeni kayıt girdikçe, kendi

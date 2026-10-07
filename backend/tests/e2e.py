@@ -449,7 +449,7 @@ def test_events_and_training():
 
 # ---------------------------------------------------------------- bildirimler (Web Push)
 # API'nin WebPush:Key ve WebPush:TestEndpointHosts=localhost ile, kısa toplama süresiyle çalışması gerekir
-# (WebPush__BatchSeconds=2, WebPush__MaxBatchSeconds=6). Ayarlı değilse bu senaryo atlanır.
+# (WebPush__BatchSeconds=2). Ayarlı değilse bu senaryo atlanır.
 # Sahte push servisi gelen istekleri kaydeder; şifrelemenin doğruluğu tests/WebPushSelfTest'te sınanır.
 
 # RFC 8291 test vektöründeki tarayıcı ortak anahtarı (geçerli bir P-256 noktası) ve auth sırrı
@@ -554,17 +554,20 @@ def test_push():
     time.sleep(1)
     check("kaydı girene bildirim gitmez", len(fake.to("anne")) == 0, fake.to("anne"))
 
+    t0 = time.time()
     for i in range(3):
         req("POST", f"/days/{d1}/events", {"kind": "Music", "title": f"Piyano {i}"}, ct)
-    got = fake.wait("anne", 1)
-    time.sleep(3)
-    check("art arda 3 kayıt tek bildirimde toplanır", len(fake.to("anne")) == 1, fake.to("anne"))
+    got = fake.wait("anne", 1, timeout=5)
+    check("ilk kayıt beklemeden gider", len(got) >= 1 and time.time() - t0 < 2.5, round(time.time() - t0, 2))
+    time.sleep(4)
+    n = len(fake.to("anne"))
+    check("art arda 3 kayıt: ilki hemen, devamı tek bildirimde (en fazla 2 bildirim)", 1 <= n <= 2, n)
 
     s, e = req("POST", f"/days/{d1}/entries", {"subject": "Fizik", "minutes": 30}, ct)
-    fake.wait("anne", 2)
+    fake.wait("anne", n + 1)
     s, _ = req("PATCH", f"/days/{d1}/entries/{e['id']}/status", {"status": "done"}, ct)
-    got = fake.wait("anne", 3)
-    check("ders tamamlanınca bildirim", len(got) == 3, len(got))
+    got = fake.wait("anne", n + 2)
+    check("ders tamamlanınca bildirim", len(got) == n + 2, len(got))
 
     n = len(fake.to("anne"))
     s, _ = req("PUT", f"/days/{d1}/entries/{e['id']}", {"subject": "Fizik", "minutes": 45}, ct)
