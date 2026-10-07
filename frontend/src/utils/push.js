@@ -176,8 +176,11 @@ export function detachForLogout() {
   const token = store.get(TOKEN_KEY);
   if (!token || !pushSupported()) return;
   currentSubscription().then((sub) => {
-    if (!sub) return;
-    return client.delete('/push/subscription', { data: { endpoint: sub.endpoint }, headers: { Authorization: `Bearer ${token}` } });
+    if (!sub) return undefined;
+    // Sunucuya ulaşılamazsa tarayıcı aboneliği iptal edilir: push servisi sonraki gönderimde 410 döner ve
+    // sunucu kaydı kendisi siler. Böylece çıkıştan sonra bu cihaza bildirim gitmez.
+    return client.delete('/push/subscription', { data: { endpoint: sub.endpoint }, headers: { Authorization: `Bearer ${token}` } })
+      .catch(() => sub.unsubscribe());
   }).catch(() => {});
   store.del(SUB_ID_KEY);
 }

@@ -298,7 +298,9 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .wktable .chip .ro.compact { height: 22px; }
 .wktable .chip .audit.compact { margin: 0; }
 .wktable .chip .audit.compact::before { content: none; }
-.wktable .plus { border: 1px dashed var(--line-faint); background: none; color: var(--ink-soft); border-radius: 999px; width: 34px; height: 30px; font-size: 16px; line-height: 1; padding: 0; opacity: .7; }
+.wktable .plus { border: 1px dashed var(--line-faint); background: none; color: var(--ink-soft); border-radius: 999px; width: 34px; height: 30px; font-size: 16px; line-height: 1; padding: 0; opacity: .7; position: relative; }
+/* Görünüm aynı; dokunma alanı 44 px (hücrede tek başına durduğu için komşu öğeyle çakışmaz) */
+.wktable .plus::before { content: ''; position: absolute; inset: -7px -5px; }
 @media (hover: none) { .wktable .plus { opacity: 1; } }
 .wktable tr:hover .plus, .wktable .plus:focus-visible { opacity: 1; }
 .wktable .plus:hover { color: var(--ink); border-color: var(--ink-soft); }
