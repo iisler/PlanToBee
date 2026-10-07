@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import client from '../api/client';
 import { errorText } from '../api/errors';
 import { useNotice } from '../context/NoticeContext';
-import { currentSubscription, disablePush, enablePush, permission, pushConfig, pushSupported, thisDeviceId } from '../utils/push';
+import { currentSubscription, disablePush, permission, pushConfig, pushSupported, requestPermission, subscribeDevice, thisDeviceId } from '../utils/push';
 
 const TYPES = [
   { key: 'studyAdded', label: 'Ders eklenince' },
@@ -61,22 +61,19 @@ export default function NotificationsCard() {
     }
   }
 
-  async function toggleDevice(on) {
+  // Açarken izin, dokunuşun hemen içinde istenir (iPhone şartı); abonelik ardından tamamlanır.
+  function toggleDevice(on) {
     setBusy(true);
-    try {
-      if (on) {
-        const result = await enablePush();
+    const work = on
+      ? requestPermission().then((result) => {
         setPerm(permission());
         if (result === 'denied') notify('Bildirim izni verilmedi. Tarayıcı ayarlarından izin verebilirsin.', 'info');
-      } else {
-        await disablePush();
-      }
-      await load();
-    } catch (err) {
-      notify(errorText(err) || 'Bildirimler açılamadı.');
-    } finally {
-      setBusy(false);
-    }
+        return result === 'granted' ? subscribeDevice() : null;
+      })
+      : disablePush();
+    work.then(load)
+      .catch((err) => notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}).`))
+      .finally(() => setBusy(false));
   }
 
   async function sendTest() {

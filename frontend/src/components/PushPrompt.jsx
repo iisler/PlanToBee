@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNotice } from '../context/NoticeContext';
-import { decidePrompt, enablePush, permission, promptDecided, pushConfig } from '../utils/push';
+import { decidePrompt, permission, promptDecided, pushConfig, requestPermission, subscribeDevice } from '../utils/push';
 
 // "Aileden haberdar ol": bildirim izni bu cihazda bir kez önerilir. "Şimdi değil" denirse bir daha gösterilmez;
 // bildirimler sonra Ailem > Bildirimler'den açılabilir. Desteklenmeyen ortamda hiç görünmez.
@@ -18,19 +18,24 @@ export default function PushPrompt() {
 
   if (!show) return null;
 
-  async function enable() {
+  // İzin penceresi dokunuşun hemen içinde açılır (iPhone şartı). Kart izin cevabı gelince kapanır;
+  // abonelik arka planda tamamlanır ve sonucu bildirim mesajıyla söylenir.
+  function enable() {
     setBusy(true);
-    try {
-      const result = await enablePush();
+    const asked = requestPermission();
+    asked.then(async (result) => {
       decidePrompt('done');
       setShow(false);
-      if (result === 'granted') notify('Bildirimler açıldı. Ayarları Ailem › Bildirimler\'den değiştirebilirsin.', 'info');
-      else if (result === 'denied') notify('Bildirim izni verilmedi. İstersen tarayıcı ayarlarından açabilirsin.', 'info');
-    } catch {
-      notify('Bildirimler açılamadı. Biraz sonra Ailem › Bildirimler\'den tekrar dene.');
-    } finally {
-      setBusy(false);
-    }
+      if (result === 'denied') return notify('Bildirim izni verilmedi. İstersen tarayıcı ayarlarından açabilirsin.', 'info');
+      if (result !== 'granted') return undefined;
+      await subscribeDevice();
+      notify('Bildirimler açıldı. Ayarları Ailem › Bildirimler\'den değiştirebilirsin.', 'info');
+      return undefined;
+    }).catch((err) => {
+      decidePrompt('done');
+      setShow(false);
+      notify(`Bildirimler açılamadı (${err?.message || 'bilinmeyen hata'}). Ailem › Bildirimler'den tekrar deneyebilirsin.`);
+    });
   }
 
   function later() {

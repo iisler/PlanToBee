@@ -45,8 +45,29 @@ function keyBytes(base64url) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
+// Bir adım takılırsa (izin penceresi, servis kaydı, push servisi) sonsuza kadar beklenmez; hangi adımda
+// kalındığı hata mesajında görünür.
+export class PushStepError extends Error {
+  constructor(step, cause) {
+    super(`${step}: ${cause?.message || cause || 'zaman aşımı'}`);
+    this.step = step;
+  }
+}
+
+function withTimeout(promise, ms, step) {
+  return Promise.race([
+    promise.catch((e) => { throw new PushStepError(step, e); }),
+    new Promise((_, reject) => setTimeout(() => reject(new PushStepError(step)), ms)),
+  ]);
+}
+
+// Service worker kayıtlı değilse (ör. ilk açılışta kayıt başarısız olduysa) yeniden kaydedilir.
 async function registration() {
-  return navigator.serviceWorker.ready;
+  const scope = import.meta.env.BASE_URL;
+  if (!(await navigator.serviceWorker.getRegistration(scope))) {
+    await navigator.serviceWorker.register(`${scope}sw.js`, { scope });
+  }
+  return withTimeout(navigator.serviceWorker.ready, 15000, 'servis');
 }
 
 export async function currentSubscription() {
@@ -73,20 +94,35 @@ async function ensureSubscription(config) {
     await sub.unsubscribe().catch(() => {});
     sub = null;
   }
-  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(config.publicKey) });
+  sub ??= await withTimeout(
+    reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(config.publicKey) }),
+    30000, 'abonelik');
   return sub;
 }
 
-// İzin ister ve abone olur. Dönüş: 'granted' | 'denied' | 'default' | 'unsupported' | 'disabled'.
-export async function enablePush() {
-  if (!pushSupported()) return 'unsupported';
-  const config = await pushConfig();
+// İzin ister. iPhone'da izin penceresi yalnızca dokunuşun hemen içinde istenirse açılır; bu yüzden bu fonksiyon
+// tıklama işleyicisinde ilk iş olarak, araya başka bekleme girmeden çağrılmalıdır.
+// Dönüş: 'granted' | 'denied' | 'default' | 'unsupported'.
+export function requestPermission() {
+  if (!pushSupported()) return Promise.resolve('unsupported');
+  if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+  return withTimeout(Notification.requestPermission(), 120000, 'izin');
+}
+
+// İzin verildikten sonra abone olur ve sunucuya bildirir.
+export async function subscribeDevice() {
+  const config = await withTimeout(pushConfig(), 30000, 'sunucu');
   if (!config.enabled) return 'disabled';
-  const result = await Notification.requestPermission();
-  if (result !== 'granted') return result;
   const sub = await ensureSubscription(config);
-  await sendToServer(sub, config);
+  await withTimeout(sendToServer(sub, config), 30000, 'kayıt');
   return 'granted';
+}
+
+// İzin + abonelik. Dönüş: requestPermission ile aynı, ya da 'disabled'.
+export async function enablePush() {
+  const result = await requestPermission();
+  if (result !== 'granted') return result;
+  return subscribeDevice();
 }
 
 // "Bu cihaz" kapatılınca: sunucudan ve tarayıcıdan aboneliği kaldırır.
