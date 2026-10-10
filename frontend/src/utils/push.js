@@ -184,3 +184,9 @@ export function detachForLogout() {
   }).catch(() => {});
   store.del(SUB_ID_KEY);
 }
+
+// Hesap silindi: sunucu abonelikleri zaten sildi; tarayıcı aboneliği ve bu cihazdaki bildirim kayıtları da temizlenir.
+export function forgetDevice() {
+  currentSubscription().then((sub) => sub?.unsubscribe()).catch(() => {});
+  [SUB_ID_KEY, SERVER_KEY, DECISION_KEY].forEach((k) => store.del(k));
+}

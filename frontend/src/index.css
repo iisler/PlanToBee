@@ -461,3 +461,21 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .menu-item:hover { background: var(--surface-2); }
 .menu-item.danger { color: var(--danger); }
 .menu-item.soft { color: var(--ink-soft); }
+
+/* Hesap silme (Görev 08) */
+.btn-ghost.danger { color: var(--danger); border-color: var(--danger); }
+.danger-zone .btn-ghost.danger { width: 100%; min-height: 44px; margin-top: 12px; }
+.owner-note { text-align: center; margin: 8px 0 16px; }
+.delete-lead { margin: 0 0 8px; font-size: 14px; }
+.delete-list { margin: 0 0 10px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
+.delete-list li { margin: 3px 0; }
+.delete-list b { font-family: var(--f-mono); font-weight: 500; font-size: 12.5px; overflow-wrap: anywhere; }
+.delete-warn { margin: 0 0 4px; font-weight: 700; color: var(--danger); font-size: 14px; }
+.delete-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.delete-form input { font-size: 16px; }
+.delete-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.delete-actions button { min-height: 44px; font-size: 14px; }
+.field-hint { font-size: 12.5px; color: var(--warn); font-weight: 600; }
+.auth-link.danger { color: var(--danger); text-decoration-color: currentColor; }
+.auth-card .delete-card { box-shadow: none; border: none; padding: 0; margin: 0; background: none; }
+.deleted-info { margin-bottom: 12px; }

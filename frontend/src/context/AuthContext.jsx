@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import client, { ACCOUNT_STATE_EVENT, AUTH_EXPIRED_EVENT, AUTH_KEYS, REFRESH_KEY, TOKEN_KEY, USER_KEY, saveTokens } from '../api/client';
 import { errorText } from '../api/errors';
-import { detachForLogout } from '../utils/push';
+import { detachForLogout, forgetDevice } from '../utils/push';
+
+// Hesap silindikten sonra giriş ekranında bir kez gösterilen bilgi (sayfa yenilenince de kalır, okununca silinir).
+export const ACCOUNT_DELETED_KEY = 'plantobee:account-deleted';
 
 const AuthContext = createContext(null);
 
@@ -108,6 +111,15 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, [setUser]);
 
+  // Hesap silindi (POST /account/delete 204): sunucuda oturumlar zaten yok; yalnızca bu cihaz temizlenir ve
+  // giriş ekranında "Hesabın silindi" bilgisi gösterilir.
+  const accountDeleted = useCallback(() => {
+    forgetDevice();
+    try { sessionStorage.setItem(ACCOUNT_DELETED_KEY, '1'); } catch { /* depolama kapalı: bilgi gösterilmez */ }
+    setSwitching(false);
+    setUser(null);
+  }, [setUser]);
+
   // Açılışta doğrulama ve aile durumunu sunucudan tazele.
   useEffect(() => {
     if (localStorage.getItem(TOKEN_KEY)) refreshMe().catch(() => { /* meError gösterilir */ });
@@ -132,7 +144,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, meError, login, register, logout, applyAuth, refreshMe, selectProfile,
+      user, meError, login, register, logout, accountDeleted, applyAuth, refreshMe, selectProfile,
       switching, startSwitch, cancelSwitch,
     }}>
       {children}

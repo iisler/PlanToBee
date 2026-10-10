@@ -2,7 +2,7 @@
 """PlanToBee uçtan uca API senaryosu (yalnızca Python standart kütüphanesi).
 
 Kayıt, e-posta doğrulama, giriş kilidi, oturum yenileme, şifre sıfırlama, aile kurma, profiller ve PIN, ortak plan
-yetkileri, ders listesi, hafta ayrıntısı ve başka aile izolasyonunu kontrol eder.
+yetkileri, ders listesi, hafta ayrıntısı, başka aile izolasyonu, bildirimler ve hesap silmeyi kontrol eder.
 
 API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmalı (LogEmailSender):
 
@@ -24,6 +24,8 @@ import datetime as dt
 import json
 import os
 import re
+import shlex
+import subprocess
 import sys
 import time
 import urllib.error
@@ -33,6 +35,7 @@ import uuid
 
 API = ""
 EMAILS = ""
+PSQL = []  # --psql verilirse silme senaryosu tablo bazında satır sayar
 PASSED = 0
 FAILED = []
 
@@ -650,13 +653,213 @@ def test_push():
     fake.server.shutdown()
 
 
+# ---------------------------------------------------------------- hesap silme
+
+def db_count(sql):
+    """--psql verilmişse sorgunun sonucu (tek sayı), verilmemişse None."""
+    if not PSQL:
+        return None
+    out = subprocess.run(PSQL + ["-Atc", sql], capture_output=True, text=True, timeout=30)
+    if out.returncode != 0:
+        raise RuntimeError(out.stderr.strip())
+    return int(out.stdout.strip())
+
+
+def account_rows(user_id, family_id, member_ids, entry_ids, event_ids):
+    """Hesaba/aileye ait satır sayıları (tablo adı -> sayı)."""
+    mids = ",".join(str(i) for i in member_ids) or "0"
+    q = {
+        "Users": f"""SELECT count(*) FROM "Users" WHERE "Id" = '{user_id}'""",
+        "UserTokens+Claims+Logins+Roles": f"""SELECT (SELECT count(*) FROM "UserTokens" WHERE "UserId" = '{user_id}')
+            + (SELECT count(*) FROM "UserClaims" WHERE "UserId" = '{user_id}')
+            + (SELECT count(*) FROM "UserLogins" WHERE "UserId" = '{user_id}')
+            + (SELECT count(*) FROM "UserRoles" WHERE "UserId" = '{user_id}')""",
+        "Families": f"""SELECT count(*) FROM "Families" WHERE "Id" = {family_id}""",
+        "FamilyMembers": f"""SELECT count(*) FROM "FamilyMembers" WHERE "FamilyId" = {family_id} OR "UserId" = '{user_id}'""",
+        "Days": f"""SELECT count(*) FROM "Days" WHERE "FamilyId" = {family_id}""",
+        "StudyEntries": f"""SELECT count(*) FROM "StudyEntries" WHERE "Id" IN ({",".join(map(str, entry_ids)) or "0"})""",
+        "Events": f"""SELECT count(*) FROM "Events" WHERE "Id" IN ({",".join(map(str, event_ids)) or "0"})""",
+        "Subjects": f"""SELECT count(*) FROM "Subjects" WHERE "FamilyId" = {family_id}""",
+        "PushSubscriptions": f"""SELECT count(*) FROM "PushSubscriptions" WHERE "FamilyId" = {family_id} OR "MemberId" IN ({mids})""",
+        "NotificationPreferences": f"""SELECT count(*) FROM "NotificationPreferences" WHERE "MemberId" IN ({mids})""",
+        "PendingNotifications": f"""SELECT count(*) FROM "PendingNotifications" WHERE "FamilyId" = {family_id} OR "RecipientMemberId" IN ({mids})""",
+        "RefreshTokens": f"""SELECT count(*) FROM "RefreshTokens" WHERE "UserId" = '{user_id}' OR "MemberId" IN ({mids})""",
+    }
+    return {k: db_count(v) for k, v in q.items()}
+
+
+def test_account_delete():
+    print("Hesap silme")
+    email, acc = register_and_verify("Silinecek")
+    s, me = req("GET", "/auth/me", token=acc["token"])
+    user_id = me["userId"]
+    s, own = req("POST", "/family", {"name": "Silinecek Aile", "profileName": "Anne", "pin": "1470", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    family_id = own["family"]["id"]
+    owner_id = own["profile"]["id"]
+    s, kid = req("POST", "/profiles", {"displayName": "Kuzu", "role": "Child"}, pt)
+    s, dad = req("POST", "/profiles", {"displayName": "Baba", "role": "Parent", "pin": "2580"}, pt)
+    member_ids = [owner_id, kid["id"], dad["id"]]
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dt_ = select(dev, dad["id"], pin="2580")
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, other_device = select(dev, owner_id, pin="1470")
+    s, noprof = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+
+    day = dt.date.today().isoformat()
+    s, e1 = req("POST", f"/days/{day}/entries", {"subject": "Matematik", "minutes": 30}, pt)
+    s, e2 = req("POST", f"/days/{day}/entries", {"subject": "Fizik", "minutes": 20}, ct["token"])
+    s, ev = req("POST", f"/days/{day}/events", {"kind": "Music", "title": "Piyano"}, ct["token"])
+    req("GET", "/subjects", token=pt)  # varsayılan ders listesi oluşur
+    entry_ids, event_ids = [e1["id"], e2["id"]], [ev["id"]]
+
+    # Bildirim: abonelik + ayar + sessiz saatte bekleyen (kuyrukta duran) bildirim
+    fake = None
+    s, cfg = req("GET", "/push/config", token=pt)
+    if s == 200 and cfg.get("enabled"):
+        fake = FakePush()
+        subscribe(pt, fake.url("del-anne"))
+        subscribe(ct["token"], fake.url("del-kuzu"))
+        s, st = req("GET", "/push/settings", token=pt)
+        now = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=3)
+        quiet = dict(st["settings"], quietEnabled=True, quietStart=(now - dt.timedelta(hours=1)).strftime("%H:%M"),
+                     quietEnd=(now + dt.timedelta(hours=1)).strftime("%H:%M"))
+        req("PUT", "/push/settings", quiet, pt)
+        req("POST", f"/days/{day}/entries", {"subject": "Kimya", "minutes": 15}, ct["token"])
+        time.sleep(0.5)
+
+    # Başka aile: silmeden etkilenmemeli
+    o_email, o_acc = register_and_verify("Komsu")
+    s, o_own = req("POST", "/family", {"name": "Komşu Aile", "profileName": "Komşu", "pin": "3690", "refreshToken": o_acc["refreshToken"]}, o_acc["token"])
+    ot = o_own["token"]
+    s, oe = req("POST", f"/days/{day}/entries", {"subject": "Tarih", "minutes": 40}, ot)
+    s, o_before = req("GET", f"/days/{day}", token=ot)
+    s, o_subj_before = req("GET", "/subjects", token=ot)
+    s, o_me = req("GET", "/auth/me", token=ot)
+    other_rows_before = account_rows(o_me["userId"], o_own["family"]["id"], [o_own["profile"]["id"]], [oe["id"]], [])
+    dpk_before = db_count('SELECT count(*) FROM "DataProtectionKeys"')
+
+    body = {"password": "sifre123", "confirm": "SİL"}
+    s, b = req("POST", "/account/delete", body)
+    check("silme: oturumsuz 401", s == 401, (s, b))
+    s, b = req("POST", "/account/delete", body, ct["token"])
+    check("silme: çocuk profili 403 owner_only", s == 403 and code_of(b) == "owner_only", (s, b))
+    s, b = req("POST", "/account/delete", body, dt_["token"])
+    check("silme: diğer ebeveyn profili 403 owner_only", s == 403 and code_of(b) == "owner_only", (s, b))
+    s, b = req("POST", "/account/delete", body, noprof["token"])
+    check("silme: profil seçilmemiş 403 profile_required", s == 403 and code_of(b) == "profile_required", (s, b))
+    bad = [c for c in ["sil", "SIL", "Sil", "S İL", "SİL!", "", None]
+           if code_of(req("POST", "/account/delete", {"password": "sifre123", "confirm": c}, pt)[1]) != "confirm_invalid"]
+    check("silme: SİL dışındaki yazımlar 400 confirm_invalid", bad == [], bad)
+    s, b = req("POST", "/account/delete", {"password": "yanlis1", "confirm": "SİL"}, pt)
+    check("silme: yanlış şifre 400 password_invalid", s == 400 and code_of(b) == "password_invalid", (s, b))
+    s, b = req("POST", "/account/delete", {"confirm": "SİL"}, pt)
+    check("silme: şifresiz 400 password_invalid", s == 400 and code_of(b) == "password_invalid", (s, b))
+    s, d = req("GET", f"/days/{day}", token=pt)
+    check("reddedilen isteklerden sonra veri duruyor", s == 200 and len(d["studyEntries"]) >= 2, s)
+    s, _ = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    check("başarılı girişte hatalı deneme sayacı sıfırlanır", s == 200, s)
+
+    rows_before = account_rows(user_id, family_id, member_ids, entry_ids, event_ids)
+    if rows_before["Users"] is not None:
+        check("silmeden önce satırlar var (bildirim kuyruğu ve abonelik dahil)",
+              all(rows_before[k] > 0 for k in ["Users", "Families", "FamilyMembers", "Days", "StudyEntries", "Events", "Subjects", "RefreshTokens"])
+              and (fake is None or (rows_before["PushSubscriptions"] > 0 and rows_before["PendingNotifications"] > 0
+                                    and rows_before["NotificationPreferences"] > 0)), rows_before)
+    anne_pushes = len(fake.to("del-anne")) if fake else 0
+
+    s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "  SİL "}, pt)
+    check("hesap sahibi siler (204; baştaki/sondaki boşluk kırpılır)", s == 204, (s, b))
+    for name, tok in [("silen cihaz", pt), ("diğer cihaz (sahip)", other_device["token"]), ("çocuk cihazı", ct["token"]), ("profilsiz oturum", noprof["token"])]:
+        s, _ = req("GET", "/auth/me", token=tok)
+        check(f"silme sonrası {name}: erişim belirteci 401", s == 401, s)
+    s, _ = req("GET", f"/days/{day}", token=other_device["token"])
+    check("silme sonrası plan isteği 401", s == 401, s)
+    s, r = req("POST", "/auth/refresh", {"refreshToken": other_device["refreshToken"]})
+    check("silme sonrası yenileme reddedilir", s == 401 and code_of(r) == "refresh_invalid", (s, r))
+    s, b = req("POST", "/account/delete", body, other_device["token"])
+    check("silme sonrası tekrar silme 401", s == 401, s)
+    s1, b1 = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s2, b2 = req("POST", "/auth/login", {"email": new_email("yok"), "password": "sifre123"})
+    check("silinen e-postayla giriş: olmayan hesapla aynı hata", s1 == s2 == 401 and b1 == b2, (s1, b1, s2, b2))
+
+    rows_after = account_rows(user_id, family_id, member_ids, entry_ids, event_ids)
+    if rows_after["Users"] is not None:
+        left = {k: v for k, v in rows_after.items() if v != 0}
+        check("veritabanı: silinen hesaba/aileye ait satır kalmadı (tablo bazında 0)", left == {}, left)
+        o_after = account_rows(o_me["userId"], o_own["family"]["id"], [o_own["profile"]["id"]], [oe["id"]], [])
+        check("veritabanı: başka ailenin satırları aynen duruyor", o_after == other_rows_before, (other_rows_before, o_after))
+        check("veritabanı: Data Protection anahtarları korunuyor", db_count('SELECT count(*) FROM "DataProtectionKeys"') == dpk_before)
+    else:
+        print("  -- tablo sayımı atlandı (--psql verilmedi)")
+    if fake:
+        time.sleep(3)
+        check("silinen ailenin bekleyen bildirimi gönderilmedi", len(fake.to("del-anne")) == anne_pushes, len(fake.to("del-anne")))
+        fake.server.shutdown()
+
+    s, o_after = req("GET", f"/days/{day}", token=ot)
+    check("başka ailenin planı aynen duruyor", s == 200 and o_after == o_before, (s, o_after))
+    s, o_subj = req("GET", "/subjects", token=ot)
+    check("başka ailenin ders listesi aynen duruyor", s == 200 and o_subj == o_subj_before, s)
+
+    # Aynı e-postayla yeniden kayıt: yeni, boş hesap
+    before = len(emails_to(email))
+    s, b = req("POST", "/auth/register", {"email": email, "password": "yeniSifre7", "displayName": "Yeni"})
+    check("aynı e-postayla yeniden kayıt 200", s == 200, (s, b))
+    mails = wait_email(email, before + 1)
+    p = link_params(mails[-1], "verify-email") if len(mails) > before else None
+    check("yeniden kayıtta doğrulama e-postası gitti", p is not None and p["userId"] != user_id, p)
+    s, _ = req("POST", "/auth/verify-email", {"userId": p["userId"], "token": p["token"]}) if p else (0, None)
+    check("yeniden kayıt doğrulandı", s == 200, s)
+    s, na = req("POST", "/auth/login", {"email": email, "password": "yeniSifre7"})
+    check("yeni hesapla giriş, ailesi yok", s == 200 and na.get("family") is None and na.get("profile") is None, (s, na))
+    s, b = req("GET", f"/days/{day}", token=na["token"])
+    check("yeni hesap: 403 family_required", s == 403 and code_of(b) == "family_required", (s, b))
+    s, nf = req("POST", "/family", {"name": "Yeni Aile", "profileName": "Yeni", "refreshToken": na["refreshToken"]}, na["token"])
+    s, d = req("GET", f"/days/{day}", token=nf["token"])
+    check("yeni hesap eski planı görmüyor", s == 200 and d["studyEntries"] == [] and d["events"] == [], d)
+    s, b = req("DELETE", f"/days/{day}/entries/{e1['id']}", token=nf["token"])
+    check("eski kayda erişim 404", s == 404, (s, b))
+    s, b = select(nf, kid["id"])
+    check("eski profile erişim 404", s == 404, (s, b))
+
+    # Ailesi olan hesap (profil seçmeden de ailesizken) ve doğrulanmamış hesap da kendini silebilir
+    s, b = req("POST", "/account/delete", {"password": "yeniSifre7", "confirm": "SİL"}, nf["token"])
+    check("PIN'siz tek profilli aile sahibi siler", s == 204, (s, b))
+    solo_email, solo = register_and_verify("Ailesiz")
+    s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, solo["token"])
+    check("ailesi olmayan hesap siler", s == 204, (s, b))
+    u_email = new_email("dogrulanmamis")
+    req("POST", "/auth/register", {"email": u_email, "password": "sifre123", "displayName": "Doğrulanmamış"})
+    s, ua = req("POST", "/auth/login", {"email": u_email, "password": "sifre123"})
+    s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, ua["token"])
+    check("e-postası doğrulanmamış hesap siler", s == 204, (s, b))
+    s, _ = req("POST", "/auth/login", {"email": u_email, "password": "sifre123"})
+    check("silinen doğrulanmamış hesapla giriş 401", s == 401, s)
+
+    # Yanlış şifre denemeleri giriş kilidine sayılır
+    k_email, k = register_and_verify("SilKilit")
+    codes = [req("POST", "/account/delete", {"password": "yanlis", "confirm": "SİL"}, k["token"])[0] for _ in range(5)]
+    check("silmede 5 yanlış şifre: 4×400 + 429", codes == [400, 400, 400, 400, 429], codes)
+    s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, k["token"])
+    check("kilitliyken doğru şifreyle de silinmez (429 locked_out)", s == 429 and code_of(b) == "locked_out", (s, b))
+    s, b = req("POST", "/auth/login", {"email": k_email, "password": "sifre123"})
+    check("kilit girişte de geçerli", s == 429, (s, b))
+
+
 def main():
     global API, EMAILS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--api", default="http://localhost:5102/api")
     ap.add_argument("--emails", required=True, help="API'nin Email:OutputDirectory klasörü")
+    ap.add_argument("--psql", default="", help='isteğe bağlı: test veritabanına psql komutu, örn. "psql -d plantobee_e2e" '
+                    "(hesap silmede tablo bazında satır sayımı)")
     a = ap.parse_args()
     API, EMAILS = a.api.rstrip("/"), a.emails
+    global PSQL
+    PSQL = shlex.split(a.psql)
 
     try:
         urllib.request.urlopen(API.rsplit("/api", 1)[0] + "/health", timeout=10)
@@ -664,7 +867,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_push):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

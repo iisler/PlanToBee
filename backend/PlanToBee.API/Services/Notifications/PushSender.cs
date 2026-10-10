@@ -61,7 +61,13 @@ public class PushSender(AppDbContext db, IHttpClientFactory http, VapidKey vapid
                 logger.LogWarning(ex, "Bildirim gönderilemedi, abonelik {Id}", sub.Id);
             }
         }
-        await db.SaveChangesAsync(ct);
+        // Gönderim sırasında abonelik silinmiş olabilir (profil ya da hesap silindi); güncellenemeyen satır yok sayılır,
+        // dağıtıcının sıradaki alıcılara göndermesi kesilmez.
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            logger.LogInformation("Bildirim aboneliği gönderim sırasında silinmiş; durum güncellenmedi.");
+        }
         return sent;
     }
 }

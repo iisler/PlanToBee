@@ -12,7 +12,7 @@ const ROLES = ['Child', 'Parent'];
 
 // "Ailem": aile adı ve profiller. Profil ekleme, düzenleme ve silme yalnızca ebeveyn profilinden yapılır;
 // çocuk profili yalnızca kendi PIN'ini değiştirebilir. Ebeveyn profillerinde PIN zorunludur.
-export default function FamilyPage({ family, reloadFamily, onProfileChanged }) {
+export default function FamilyPage({ family, reloadFamily, onProfileChanged, onDeleteAccount }) {
   const { user } = useAuth();
   const { notify } = useNotice();
   const [busy, setBusy] = useState(false);
@@ -126,6 +126,21 @@ export default function FamilyPage({ family, reloadFamily, onProfileChanged }) {
         <AddProfileCard busy={busy} needMyPin={!family.profiles.find(p => p.isCurrent)?.hasPin}
           onAdd={(body) => run(() => client.post('/profiles', body), `${body.displayName} eklendi.`)} />
       )}
+
+      {/* Hesap silme yalnızca hesap sahibinin kendi profilinde; diğer ebeveynde kısa not, çocukta hiçbir şey. */}
+      {(() => {
+        const me = family.profiles.find(p => p.isCurrent);
+        const owner = family.profiles.find(p => p.isOwner);
+        if (me?.isOwner) return (
+          <section className="card danger-zone" aria-labelledby="delete-account-title">
+            <div className="card-head"><h2 id="delete-account-title">Hesabı sil</h2></div>
+            <div className="muted">Hesabın, ailedeki tüm profiller ve tüm plan verileri kalıcı olarak silinir. Bu işlem geri alınamaz.</div>
+            <button type="button" id="delete-account-open" className="btn-ghost danger" onClick={onDeleteAccount}>Hesabı ve tüm verileri sil</button>
+          </section>
+        );
+        if (isParent && owner) return <div className="muted small-note owner-note">Hesabı yalnızca hesap sahibi ({owner.displayName}) silebilir.</div>;
+        return null;
+      })()}
 
       {removing && (
         <ConfirmDialog danger title="Profili sil" confirmLabel="Profili sil" busy={busy}

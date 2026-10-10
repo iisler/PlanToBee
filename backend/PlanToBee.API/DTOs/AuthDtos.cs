@@ -50,3 +50,9 @@ public record RefreshTokenDto([Required, StringLength(100)] string RefreshToken)
 
 // Oturum açıksa Email gönderilmesi gerekmez.
 public record ResendVerificationDto([StringLength(256)] string? Email);
+
+// Hesap silme. Confirm tam olarak "SİL" olmalı (Türkçe İ; baştaki/sondaki boşluk kırpılır).
+// Alanlar [Required] değil: eksik alan da anlamlı hata koduyla (confirm_invalid / password_invalid) döner.
+public record DeleteAccountDto(
+    [StringLength(128)] string? Password,
+    [StringLength(20)] string? Confirm);

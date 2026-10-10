@@ -5,13 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 import PinInput from '../components/PinInput';
 import BusyLabel from '../components/BusyLabel';
+import DeleteAccountForm from '../components/DeleteAccountForm';
 
 // E-posta doğrulandıktan sonra ailesi olmayan hesap: aileyi ve hesap sahibinin (ebeveyn) profilini kurar.
 // Diğer aile üyeleri sonra "Ailem" ekranından profil olarak eklenir; e-posta gerekmez.
 // "Daha sonra": tek başına kullanım. Arka planda tek profilli aile kurulur, PIN sorulmaz; ilk profil
 // eklenirken PIN istenir.
 export default function CreateFamilyPage() {
-  const { user, logout, refreshMe, applyAuth } = useAuth();
+  const { user, logout, accountDeleted, refreshMe, applyAuth } = useAuth();
+  // Aile kurmadan da hesap silinebilmeli (mağaza kuralı: giriş yapabilen her hesap uygulama içinden silinebilir).
+  const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState(user.displayName ? `${user.displayName} Ailesi` : '');
   const [profileName, setProfileName] = useState(user.displayName || '');
   const [pin, setPin] = useState('');
@@ -46,12 +49,19 @@ export default function CreateFamilyPage() {
     create({ name: (name.trim() || `${own} Ailesi`).slice(0, 100), profileName: own, pin: null });
   }
 
+  if (deleting) return (
+    <AuthLayout subtitle="Hesabı sil">
+      <DeleteAccountForm short email={user.email} onCancel={() => setDeleting(false)} onDeleted={accountDeleted} />
+    </AuthLayout>
+  );
+
   return (
     <AuthLayout
       subtitle="Aileni oluştur"
       footer={(
         <div className="auth-links">
           <button className="auth-link" onClick={logout}>Çıkış yap</button>
+          <button className="auth-link danger" onClick={() => setDeleting(true)}>Hesabı sil</button>
         </div>
       )}
     >

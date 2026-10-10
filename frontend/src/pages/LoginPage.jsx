@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { ACCOUNT_DELETED_KEY, useAuth } from '../context/AuthContext';
 import client from '../api/client';
 import { errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
@@ -21,13 +21,24 @@ export default function LoginPage() {
   // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
+  // Hesap silindikten sonra gelindiyse kalıcı bilgi; sekme değiştirince ya da yazmaya başlayınca kapanır.
+  const [deletedInfo, setDeletedInfo] = useState(() => {
+    try {
+      const v = sessionStorage.getItem(ACCOUNT_DELETED_KEY);
+      sessionStorage.removeItem(ACCOUNT_DELETED_KEY);
+      return v === '1';
+    } catch {
+      return false;
+    }
+  });
   // Sunucu uyanıyorsa giriş uzun sürer: 2 sn sonra ekranı kaplayan bekleme katmanı gösterilir.
   const slow = useSlow(loading, 2000);
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k) => (e) => { setDeletedInfo(false); setForm((f) => ({ ...f, [k]: e.target.value })); };
 
   function switchMode(m) {
     setMode(m);
+    setDeletedInfo(false);
     setError('');
     setRegistered(null);
     setResendInfo('');
@@ -87,6 +98,7 @@ export default function LoginPage() {
         </div>
       )}
     >
+      {deletedInfo && <div className="auth-info deleted-info" role="status">Hesabın ve tüm verilerin silindi.</div>}
       <div className="auth-tabs">
         <button className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => switchMode('login')}>Giriş</button>
         <button className={mode === 'register' ? 'active' : ''} aria-pressed={mode === 'register'} onClick={() => switchMode('register')}>Kayıt ol</button>

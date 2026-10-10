@@ -3,10 +3,12 @@ import client from '../api/client';
 import { errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
+import DeleteAccountForm from '../components/DeleteAccountForm';
 
 // Giriş yapılmış ama e-posta doğrulanmamış: uygulama kullanılamaz.
 export default function VerifyPendingPage() {
-  const { user, logout, refreshMe } = useAuth();
+  const { user, logout, accountDeleted, refreshMe } = useAuth();
+  const [deleting, setDeleting] = useState(false);
   const [info, setInfo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,8 +39,19 @@ export default function VerifyPendingPage() {
     }
   }
 
+  if (deleting) return (
+    <AuthLayout subtitle="Hesabı sil">
+      <DeleteAccountForm short email={user.email} onCancel={() => setDeleting(false)} onDeleted={accountDeleted} />
+    </AuthLayout>
+  );
+
   return (
-    <AuthLayout subtitle="E-postanı doğrula" footer={<button className="auth-link" onClick={logout}>Çıkış yap</button>}>
+    <AuthLayout subtitle="E-postanı doğrula" footer={(
+      <div className="auth-links">
+        <button className="auth-link" onClick={logout}>Çıkış yap</button>
+        <button className="auth-link danger" onClick={() => setDeleting(true)}>Hesabı sil</button>
+      </div>
+    )}>
       <p className="auth-text">
         <b>{user.email}</b> adresine bir doğrulama bağlantısı gönderdik. Uygulamayı kullanmak için bağlantıya tıklayarak e-postanı doğrula.
       </p>

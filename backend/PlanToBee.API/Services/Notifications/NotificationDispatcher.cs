@@ -97,7 +97,14 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
 
         // Önce kuyruktan sil (aynı bildirim iki kez gitmesin), sonra gönder.
         db.PendingNotifications.RemoveRange(messages.SelectMany(m => m.Rows));
-        await db.SaveChangesAsync(ct);
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Satırların bir kısmı bu arada silindi (ör. hesap silindi, aile ve kuyruğu gitti). Silme işlemi
+            // bütün halinde geri alınır, bu turda hiçbir şey gönderilmez; sonraki tur kalan satırları yeniden okur.
+            logger.LogInformation("Bildirim kuyruğu bu sırada değişti; tur yeniden denenecek.");
+            return;
+        }
         foreach (var (recipient, message, _) in messages)
             await sender.SendToMemberAsync(recipient, message, ct);
     }

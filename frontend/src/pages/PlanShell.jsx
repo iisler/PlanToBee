@@ -10,6 +10,7 @@ import { addDays, dkey, mondayOf } from '../utils/format';
 import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
 import NotificationsCard from '../components/NotificationsCard';
+import DeleteAccountForm from '../components/DeleteAccountForm';
 import { syncPush } from '../utils/push';
 
 // Önceki sürümlerin görünüm tercihleri (Gün / Hafta Planı sekmesi, Tablo / Liste). Artık okunmaz; silinir.
@@ -44,7 +45,7 @@ function weekDaysFrom(data, mondayKey) {
 // Profil seçilmiş aile hesabının ana ekranı. Gün ve hafta planı ailenin ortak planıdır;
 // her profil görür ve ekler, kayıtlarda ekleyen profil görünür.
 export default function PlanShell() {
-  const { user, logout, refreshMe, startSwitch } = useAuth();
+  const { user, logout, accountDeleted, refreshMe, startSwitch } = useAuth();
   const { notify } = useNotice();
   const [family, setFamily] = useState(null);
   const [familyError, setFamilyError] = useState('');
@@ -61,7 +62,7 @@ export default function PlanShell() {
 
   // Ailem ad menüsünden açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
   useEffect(() => {
-    if (view === 'family' || view === 'notifications') familyHeadingRef.current?.focus();
+    if (view === 'family' || view === 'notifications' || view === 'delete-account') familyHeadingRef.current?.focus();
   }, [view]);
 
   const loadFamily = useCallback(async () => {
@@ -188,6 +189,12 @@ export default function PlanShell() {
     if (v === 'family') loadFamily();
   }
 
+  // Hesap silme sayfasından Vazgeç: Ailem'e dönülür ve odak silme düğmesine verilir.
+  function cancelDelete() {
+    changeView('family');
+    setTimeout(() => document.getElementById('delete-account-open')?.focus(), 0);
+  }
+
   return (
     <AuditContext.Provider value={auditSettings}>
       <div className="wrap">
@@ -204,6 +211,12 @@ export default function PlanShell() {
           <div className="pagehead">
             <button className="btn-ghost small" onClick={() => changeView('plan')}>‹ Plana dön</button>
             <h2 ref={familyHeadingRef} tabIndex={-1}>{view === 'family' ? 'Ailem' : 'Bildirimler'}</h2>
+          </div>
+        )}
+        {view === 'delete-account' && (
+          <div className="pagehead">
+            <button className="btn-ghost small" onClick={cancelDelete}>‹ Ailem</button>
+            <h2 ref={familyHeadingRef} tabIndex={-1}>Hesabı sil</h2>
           </div>
         )}
 
@@ -239,7 +252,12 @@ export default function PlanShell() {
             family={family}
             reloadFamily={loadFamily}
             onProfileChanged={() => refreshMe().catch(() => {})}
+            onDeleteAccount={() => changeView('delete-account')}
           />
+        )}
+        {view === 'delete-account' && (
+          <DeleteAccountForm email={user.email} profileCount={family?.profiles.length}
+            onCancel={cancelDelete} onDeleted={accountDeleted} />
         )}
       </div>
     </AuditContext.Provider>
