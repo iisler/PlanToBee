@@ -82,7 +82,7 @@ export default function StudyCard({
         <div className="card-title"><span className="icon-tile study">{STUDY_ICON}</span><h2>Çalışma Planı</h2></div>
         {totalMinutes > 0 && <span className="total">{totalMinutes} dk toplam</span>}
       </div>
-      {entries.some(e => e.canEdit) && <div className="hint">Rozete dokunarak durumu değiştir: Yapılacak → Devam Ediyor → Tamamlandı</div>}
+      {entries.length > 0 && <div className="hint">Rozete dokunarak durumu değiştir: Yapılacak → Devam Ediyor → Tamamlandı</div>}
 
       {entries.length === 0
         ? <div className="empty-note">Bu gün için henüz ders kaydı yok.</div>
@@ -106,9 +106,8 @@ export default function StudyCard({
               <div className={`subj${e.status === 'done' ? ' done' : ''}`}>{e.subject}</div>
               {e.topic && <div className="topic">{e.topic}</div>}
               <div className="meta">
-                {e.canEdit
-                  ? <button className={`status-badge status-${e.status}`} aria-label={`Durum: ${STATUS_SHORT[e.status]}. Değiştirmek için dokun`} onClick={() => cycleStatus(e)}>{STATUS_SHORT[e.status]}</button>
-                  : <span className={`status-badge status-${e.status}`}>{STATUS_SHORT[e.status]}</span>}
+                {/* Durumu ailedeki herkes değiştirebilir (çocuk, ebeveynin eklediği dersi de işaretler) */}
+                <button className={`status-badge status-${e.status}`} aria-label={`Durum: ${STATUS_SHORT[e.status]}. Değiştirmek için dokun`} onClick={() => cycleStatus(e)}>{STATUS_SHORT[e.status]}</button>
                 <AuditTag entry={e} myId={myId} />
               </div>
             </div>

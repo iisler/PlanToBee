@@ -292,9 +292,7 @@ function WeekTable({ weekStart, weekDays, subjects, myId, actions, onGoToDay }) 
                     <div className="cell">
                       {data.studyEntries.map(e => (
                         <span key={e.id} className={`chip study status-${e.status}`}>
-                          {e.canEdit
-                            ? <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(key, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
-                            : <span className="lbl">{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></span>}
+                          <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(key, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
                           <AuditTag entry={e} myId={myId} compact />
                           {del(key, 'entries', e)}
                         </span>
@@ -395,9 +393,7 @@ function WeekDayCard({ dateKey, date, dayIndex, data, isToday, subjects, myId, a
           <div className="chiprow">
             {data.studyEntries.map(e => (
               <span key={e.id} className={`chip study status-${e.status}`}>
-                {e.canEdit
-                  ? <button type="button" className="clicktext" onClick={() => actions.cycle(dateKey, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
-                  : <span className="lbl">{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></span>}
+                <button type="button" className="clicktext" title="Durumu değiştir" onClick={() => actions.cycle(dateKey, e)}>{e.subject} ·{NBSP}{e.minutes}{NBSP}dk<span className="sr-only">, {STATUS_SHORT[e.status]}</span></button>
                 <AuditTag entry={e} myId={myId} compact />
                 {del('entries', e)}
               </span>

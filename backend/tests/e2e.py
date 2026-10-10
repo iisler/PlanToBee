@@ -293,6 +293,10 @@ def test_profiles_and_plan():
     check("çocuk ebeveynin kaydını silemiyor (403)", s == 403 and code_of(b) == "plan_read_only", (s, b))
     s, _ = req("PATCH", f"/days/{day}/entries/{cid}/status", {"status": "done"}, pt)
     check("ebeveyn çocuğun kaydını güncelleyebiliyor", s == 200, s)
+    s, b = req("PATCH", f"/days/{day}/entries/{pid}/status", {"status": "done"}, ct["token"])
+    check("çocuk ebeveynin dersini Tamamlandı işaretleyebiliyor", s == 200 and b["status"] == "done" and b["canEdit"] is False, (s, b))
+    s, b = req("PUT", f"/days/{day}/entries/{pid}", {"subject": "Matematik", "topic": "x", "minutes": 5}, ct["token"])
+    check("çocuk ebeveynin dersini düzenleyemiyor (403)", s == 403 and code_of(b) == "plan_read_only", (s, b))
 
     s, week = req("GET", f"/days/week/{monday(today).isoformat()}/details", token=pt)
     check("hafta ayrıntısı 7 gün", s == 200 and len(week["days"]) == 7, s)

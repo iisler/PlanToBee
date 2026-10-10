@@ -141,11 +141,13 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     {
         if (!ValidStatuses.Contains(dto.Status)) return Err.BadRequest("validation", "Geçersiz durum.");
         var entry = await db.StudyEntries.Include(e => e.Day).FirstOrDefaultAsync(e => e.Id == id);
-        var (me, error) = await AuthorizeEntry(date, entry);
+        // Durumu ailedeki herkes değiştirebilir: ebeveyn planlar, çocuk çalışıp "Tamamlandı" işaretler.
+        // Adı, süreyi değiştirmek ve silmek yine yalnızca ebeveyne ve kaydı ekleyene açıktır (UpdateEntry, DeleteEntry).
+        var (me, error) = await AuthorizeEntry(date, entry, requireEdit: false);
         if (error != null) return error;
 
         var wasDone = entry!.Status == "done";
-        entry.Status = dto.Status; // durum değiştirmek de düzenleme sayılır
+        entry.Status = dto.Status; // izde son güncelleyen olarak durumu değiştiren görünür
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
         await NotifyStudyChange(me!, entry, wasDone, changed: false);
@@ -235,8 +237,9 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     }
 
     // Kayıt yoksa, başka ailedeyse ya da rotadaki tarihte değilse 404 (varlığı belli edilmez);
-    // görülebiliyor ama istek sahibi düzenleyemiyorsa 403.
-    private async Task<(FamilyMember? Me, IActionResult? Error)> AuthorizeEntry(string date, AuditedEntity? entry)
+    // görülebiliyor ama istek sahibi düzenleyemiyorsa 403. requireEdit: false yalnızca ailede herkese açık işlemler için
+    // (ders durumu).
+    private async Task<(FamilyMember? Me, IActionResult? Error)> AuthorizeEntry(string date, AuditedEntity? entry, bool requireEdit = true)
     {
         if (!PlanText.TryParseDate(date, out var d)) return (null, InvalidDate());
         var me = await members.GetCurrentAsync();
@@ -248,7 +251,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
             _ => null
         };
         if (entry == null || day == null || day.FamilyId != me.FamilyId || day.Date != d) return (null, Err.NotFound());
-        if (!MemberContext.CanEdit(me, entry)) return (null, Err.ReadOnly());
+        if (requireEdit && !MemberContext.CanEdit(me, entry)) return (null, Err.ReadOnly());
         return (me, null);
     }
 
