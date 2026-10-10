@@ -176,7 +176,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var kind = dto.Kind ?? EventKind.Event;
         if (!Enum.IsDefined(kind)) return Err.BadRequest("validation", "Geçersiz kayıt türü.");
         var ev = new Event { Kind = kind };
-        var error = ApplyEvent(ev, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes);
+        var error = ApplyEvent(ev, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime ?? "");
         if (error != null) return error;
         var me = await members.GetCurrentAsync();
         if (me == null) return await members.MissingAsync();
@@ -198,7 +198,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var (me, authError) = await AuthorizeEntry(date, ev);
         if (authError != null) return authError;
 
-        var error = ApplyEvent(ev!, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes);
+        var error = ApplyEvent(ev!, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime);
         if (error != null) return error;
         StampUpdated(ev!, me!);
         await db.SaveChangesAsync();
@@ -258,11 +258,29 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     // Türüne göre alanları doğrular ve kayda yazar. Her aktivitenin adı olur; yalnızca eski antrenman kayıtları ad
     // yerine TrainingType ile gelebilir. Süre yalnızca sporda tutulur. Saat boş ya da SS:dd olmalı; eski kayıtlardaki
     // serbest metin saat, değiştirilmeden geri gönderildiyse kabul edilir.
-    private static ObjectResult? ApplyEvent(Event ev, string? title, string? time, string? note, string? trainingType, int? minutes)
+    // endTime: "" bitişi siler, null mevcut bitişi korur (bitişi bilmeyen eski istemci düzenlerken veri kaybolmasın).
+    private static ObjectResult? ApplyEvent(Event ev, string? title, string? time, string? note, string? trainingType, int? minutes,
+        string? endTime)
     {
         var t = time?.Trim() ?? "";
         if (t.Length > 0 && !PlanText.IsTime(t) && t != ev.Time)
             return Err.BadRequest("validation", "Saat SS:dd biçiminde olmalı (örn. 17:30).");
+        string? end;
+        if (endTime == null)
+        {
+            // Korunan bitiş, eski istemcinin değiştirdiği başlangıçla anlamsızlaşırsa (saat silindi ya da bitişe
+            // eşitlendi) düşürülür; bitişi göremeyen istemciye 400 dönmek düzenlemeyi kilitlerdi.
+            end = ev.EndTime != null && PlanText.IsTime(t) && t != ev.EndTime ? ev.EndTime : null;
+        }
+        else
+        {
+            var e = endTime.Trim();
+            if (e.Length == 0) end = null;
+            else if (!PlanText.IsTime(e)) return Err.BadRequest("validation", "Bitiş saati SS:dd biçiminde olmalı (örn. 13:00).");
+            else if (!PlanText.IsTime(t)) return Err.BadRequest("validation", "Bitiş saati için önce başlangıç saatini girin.");
+            else if (e == t) return Err.BadRequest("validation", "Bitiş saati başlangıçla aynı olamaz.");
+            else end = e;
+        }
         var name = title?.Trim() ?? "";
         if (ev.Kind == EventKind.Training)
         {
@@ -282,6 +300,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
             ev.Minutes = null;
         }
         ev.Time = t;
+        ev.EndTime = end;
         ev.Note = note?.Trim() ?? "";
         return null;
     }
@@ -346,7 +365,8 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
     private static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
         new(e.Id, e.Kind.ToString(), e.Title, e.Time, e.Note, e.TrainingType, e.Minutes, MemberContext.CanEdit(me, e),
-            a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+            a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported,
+            PlanText.EndTime(e.Time, e.EndTime), PlanText.DerivedEndTime(e.Time, PlanText.EndTime(e.Time, e.EndTime), e.Minutes));
 
     // Aynı gün için eşzamanlı iki yazma isteği gelirse ikisi de gün oluşturmaya çalışır;
     // (FamilyId, Date) benzersiz indeksine takılan istek, diğerinin oluşturduğu günü kullanır.

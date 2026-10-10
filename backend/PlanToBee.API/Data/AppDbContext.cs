@@ -108,6 +108,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
         {
             b.Property(e => e.Kind).HasConversion<string>().HasMaxLength(20);
             b.Property(e => e.TrainingType).HasMaxLength(50);
+            b.Property(e => e.EndTime).HasMaxLength(5);
         });
         ConfigureAudit<Subject>(builder);
 

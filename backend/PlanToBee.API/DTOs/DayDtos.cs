@@ -10,8 +10,12 @@ public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, s
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 // Aktivite. Kind: "Training" (Spor) | "Music" | "Concert" | "Meeting" | "Exam" | "Event" (Diğer).
 // Title aktivitenin adıdır; eski antrenman kayıtlarında boş olabilir, ad TrainingType'tan türetilir. Minutes yalnızca sporda.
+// EndTime: girilmiş bitiş (SS:dd) ya da null. EndTime < Time ise kayıt ertesi gün biter.
+// DerivedEndTime: EndTime yokken eski süreden (Time + Minutes) hesaplanan bitiş; yalnızca gösterim içindir. İkisi de
+// null ise bitiş bilinmiyor ("süre belirsiz").
 public record EventDto(int Id, string Kind, string Title, string Time, string Note, string? TrainingType, int? Minutes, bool CanEdit,
-    AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
+    AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported,
+    string? EndTime, string? DerivedEndTime);
 public record SubjectDto(int Id, string Name, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 
@@ -50,18 +54,22 @@ public record PatchStatusDto([Required] string Status);
 // Kind: "Event" (Diğer, varsayılan), "Training" (Spor), "Music", "Concert", "Meeting" ya da "Exam".
 // - Title zorunlu. Yalnızca sporda Title yerine TrainingType verilebilir (eski istemciler).
 // - Minutes yalnızca sporda, isteğe bağlı (1-1440); diğer türlerde yok sayılır.
-// Time boş ya da SS:dd. Kaydın türü sonradan değiştirilemez (UpdateEventDto'da Kind yok).
+// Time boş ya da SS:dd. EndTime boş ya da SS:dd; yalnızca SS:dd Time ile ve ondan farklı olarak verilebilir
+// (küçükse gece yarısını aşar). Kaydın türü sonradan değiştirilemez (UpdateEventDto'da Kind yok).
 public record AddEventDto(
     Models.EventKind? Kind,
     [StringLength(150, ErrorMessage = "Aktivite adı en fazla 150 karakter olabilir")] string? Title,
     [StringLength(20, ErrorMessage = "Saat en fazla 20 karakter olabilir")] string? Time,
     [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note,
     [StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string? TrainingType,
-    int? Minutes);
+    int? Minutes,
+    [StringLength(20, ErrorMessage = "Bitiş saati en fazla 20 karakter olabilir")] string? EndTime = null);
 
+// EndTime gönderilmezse (null; bitişi bilmeyen eski istemci) mevcut bitiş korunur, "" gönderilirse silinir.
 public record UpdateEventDto(
     [StringLength(150, ErrorMessage = "Aktivite adı en fazla 150 karakter olabilir")] string? Title,
     [StringLength(20, ErrorMessage = "Saat en fazla 20 karakter olabilir")] string? Time,
     [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir")] string? Note,
     [StringLength(50, ErrorMessage = "Antrenman türü en fazla 50 karakter olabilir")] string? TrainingType,
-    int? Minutes);
+    int? Minutes,
+    [StringLength(20, ErrorMessage = "Bitiş saati en fazla 20 karakter olabilir")] string? EndTime = null);

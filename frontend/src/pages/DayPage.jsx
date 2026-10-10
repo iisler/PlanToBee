@@ -157,7 +157,7 @@ export default function DayPage({
           <StudyCard {...common} dateLabel={dateLabel} entries={shown.studyEntries}
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
             addForm={addForm} setAddForm={setAddForm} />
-          <EventCard {...common} events={shown.events} />
+          <EventCard {...common} events={shown.events} isToday={isToday} />
         </>
       )}
 

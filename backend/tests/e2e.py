@@ -2,7 +2,8 @@
 """PlanToBee uçtan uca API senaryosu (yalnızca Python standart kütüphanesi).
 
 Kayıt, e-posta doğrulama, giriş kilidi, oturum yenileme, şifre sıfırlama, aile kurma, profiller ve PIN, ortak plan
-yetkileri, ders listesi, hafta ayrıntısı, başka aile izolasyonu, bildirimler ve hesap silmeyi kontrol eder.
+yetkileri, ders listesi, aktivite başlangıç-bitiş saati, hafta ayrıntısı, başka aile izolasyonu, bildirimler ve hesap
+silmeyi kontrol eder.
 
 API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmalı (LogEmailSender):
 
@@ -454,6 +455,103 @@ def test_events_and_training():
         check("hafta özeti: yeni türler etkinlik sayısında, spor ayrı", nxt["eventCount"] == 5 and nxt["trainingCount"] == 1, nxt)
 
 
+def test_event_end_time():
+    print("Aktivitede başlangıç-bitiş saati")
+    email, acc = register_and_verify("Saat")
+    s, own = req("POST", "/family", {"name": "Saat Ailesi", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    s, kid = req("POST", "/profiles", {"displayName": "Ela", "role": "Child"}, pt)
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    ct = ct["token"]
+    d = (dt.date.today() + dt.timedelta(days=3)).isoformat()
+    ev = f"/days/{d}/events"
+
+    s, kurs = req("POST", ev, {"kind": "Event", "title": "Kurs", "time": "09:00", "endTime": "13:00"}, pt)
+    check("bitişli aktivite eklendi", s == 200 and kurs["endTime"] == "13:00" and kurs["derivedEndTime"] is None, (s, kurs))
+    s, b = req("POST", ev, {"title": "Konser", "time": "15:00"}, pt)
+    check("bitişsiz kayıt: endTime ve derivedEndTime null", s == 200 and b["endTime"] is None and b["derivedEndTime"] is None, (s, b))
+    s, b = req("POST", ev, {"title": "Boş bitiş", "time": "16:00", "endTime": ""}, pt)
+    check("boş bitiş = bitiş yok", s == 200 and b["endTime"] is None, (s, b))
+    for bad in ("25:00", "9:00", "13.00", "12:60", "öğle"):
+        s, b = req("POST", ev, {"title": "X", "time": "09:00", "endTime": bad}, pt)
+        check(f"geçersiz bitiş biçimi 400 ({bad})", s == 400 and code_of(b) == "validation", (s, b))
+    s, b = req("POST", ev, {"title": "X", "time": "09:00", "endTime": "x" * 21}, pt)
+    check("çok uzun bitiş 400", s == 400, (s, b))
+    s, b = req("POST", ev, {"title": "X", "endTime": "13:00"}, pt)
+    check("başlangıçsız bitiş 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, b = req("POST", ev, {"title": "X", "time": "09:00", "endTime": "09:00"}, pt)
+    check("bitiş = başlangıç 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, gece = req("POST", ev, {"kind": "Concert", "title": "Gece konseri", "time": "21:00", "endTime": "01:00"}, pt)
+    check("gece yarısını aşan kayıt kabul", s == 200 and gece["time"] == "21:00" and gece["endTime"] == "01:00", (s, gece))
+    s, spor = req("POST", ev, {"kind": "Training", "title": "Antrenman", "time": "20:00", "endTime": "21:30"}, ct)
+    check("Spor'da bitiş kabul (çocuk kendi kaydı)", s == 200 and spor["endTime"] == "21:30", (s, spor))
+
+    # Düzenleme: bitiş değişir, eski istemci gövdesi (endTime yok) bitişi korur, "" siler
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "12:30"}, pt)
+    check("bitiş düzenlendi", s == 200 and b["endTime"] == "12:30", (s, b))
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs (eski sekme)", "time": "09:00", "note": "n"}, pt)
+    check("eski istemci gövdesiyle düzenlemede bitiş korunur", s == 200 and b["endTime"] == "12:30" and b["title"] == "Kurs (eski sekme)", (s, b))
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "08:30", "endTime": None}, pt)
+    check("endTime: null da korur; başlangıç değişebilir", s == 200 and b["endTime"] == "12:30" and b["time"] == "08:30", (s, b))
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "09:00"}, pt)
+    check("düzenlemede bitiş = başlangıç 400", s == 400, (s, b))
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "", "endTime": "13:00"}, pt)
+    check("düzenlemede başlangıçsız bitiş 400", s == 400, (s, b))
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": ""}, pt)
+    check("bitiş temizlendi", s == 200 and b["endTime"] is None, (s, b))
+    req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "13:00"}, pt)
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": ""}, pt)
+    check("eski istemci saati silerse bitiş de düşer", s == 200 and b["time"] == "" and b["endTime"] is None, (s, b))
+    req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "13:00"}, pt)
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "13:00"}, pt)
+    check("eski istemci başlangıcı bitişe eşitlerse bitiş düşer", s == 200 and b["time"] == "13:00" and b["endTime"] is None, (s, b))
+    req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "13:00"}, pt)
+
+    # Eski süre (Minutes) türetmesi: yalnızca okumada, gerçek bitişten ayrı alanda
+    s, eski = req("POST", ev, {"kind": "Training", "trainingType": "Top", "time": "17:00", "minutes": 90}, pt)
+    check("Minutes'tan türetilen bitiş derivedEndTime'da", s == 200 and eski["endTime"] is None and eski["derivedEndTime"] == "18:30", (s, eski))
+    s, b = req("POST", ev, {"kind": "Training", "trainingType": "Kamp", "time": "23:30", "minutes": 60}, pt)
+    check("türetme gece yarısını aşar", s == 200 and b["derivedEndTime"] == "00:30", (s, b))
+    s, b = req("POST", ev, {"kind": "Training", "trainingType": "Top", "minutes": 60}, pt)
+    check("saatsiz kayıtta türetme yok", s == 200 and b["derivedEndTime"] is None, (s, b))
+    s, b = req("PUT", f"{ev}/{eski['id']}", {"trainingType": "Top", "time": "17:00", "minutes": 90, "endTime": "18:30"}, pt)
+    check("düzenlenip kaydedilince gerçek bitiş olur", s == 200 and b["endTime"] == "18:30" and b["derivedEndTime"] is None, (s, b))
+
+    # Geri dönüş sonrası eski kodun saatsiz bıraktığı kayıtta kalan bitiş okunurken gönderilmez
+    s, ss = req("POST", ev, {"title": "Saatsiz"}, pt)
+    n = db_count(f"""WITH u AS (UPDATE "Events" SET "EndTime" = '10:00' WHERE "Id" = {ss['id']} RETURNING 1) SELECT count(*) FROM u""")
+    if n is not None:
+        s, b = req("GET", f"/days/{d}", token=pt)
+        x = next(e for e in b["events"] if e["id"] == ss["id"])
+        check("saatsiz kayıtta artakalan bitiş gösterilmez", n == 1 and x["endTime"] is None and x["derivedEndTime"] is None, x)
+
+    # Okuma: gün ve hafta ayrıntısı alanları taşır, sıra başlangıca göre değişmedi
+    s, day = req("GET", f"/days/{d}", token=ct)
+    byid = {e["id"]: e for e in day["events"]}
+    check("gün cevabında endTime", byid[kurs["id"]]["endTime"] == "13:00" and byid[gece["id"]]["endTime"] == "01:00", day["events"])
+    times = [e["time"] for e in day["events"] if e["time"]]
+    check("sıra yalnızca başlangıca göre", times == sorted(times), times)
+    s, wk = req("GET", f"/days/week/{monday(dt.date.fromisoformat(d)).isoformat()}/details", token=pt)
+    wd = next(x for x in wk["days"] if x["date"] == d)
+    check("hafta ayrıntısında endTime", any(e.get("endTime") == "21:30" for e in wd["events"]), wd["events"])
+
+    # Yetki ve izolasyon
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "14:00"}, ct)
+    check("çocuk ebeveynin kaydının bitişini değiştiremez (403)", s == 403, (s, b))
+    s, b = req("PUT", f"{ev}/{spor['id']}", {"title": "Antrenman", "time": "20:00", "endTime": "22:00"}, ct)
+    check("çocuk kendi kaydının bitişini değiştirir", s == 200 and b["endTime"] == "22:00", (s, b))
+    o_email, other = register_and_verify("SaatB")
+    s, oo = req("POST", "/family", {"name": "Başka", "profileName": "Baba", "pin": "2468", "refreshToken": other["refreshToken"]}, other["token"])
+    s, b = req("PUT", f"{ev}/{kurs['id']}", {"title": "Kurs", "time": "09:00", "endTime": "10:00"}, oo["token"])
+    check("başka aile kaydın bitişini değiştiremez (404)", s == 404, (s, b))
+    s, b = req("GET", f"/days/{d}", token=oo["token"])
+    check("başka aile kayıtları görmez", s == 200 and b["events"] == [], (s, b))
+    s, b = req("GET", f"/days/{d}", token=pt)
+    k = next(e for e in b["events"] if e["id"] == kurs["id"])
+    check("başka ailenin denemesi kaydı değiştirmedi", k["endTime"] == "13:00", k)
+
+
 # ---------------------------------------------------------------- bildirimler (Web Push)
 # API'nin WebPush:Key ve WebPush:TestEndpointHosts=localhost ile, kısa toplama süresiyle çalışması gerekir
 # (WebPush__BatchSeconds=2). Ayarlı değilse bu senaryo atlanır.
@@ -608,8 +706,14 @@ def test_push():
     req("PUT", "/push/settings", quiet, pt)
     n = len(fake.to("anne"))
     req("POST", f"/days/{d1}/entries", {"subject": "Tarih", "minutes": 20}, ct)
+    kurs = f"Kurs {uuid.uuid4().hex[:6]}"
+    req("POST", f"/days/{d1}/events", {"title": kurs, "time": "09:00", "endTime": "13:00"}, ct)
     time.sleep(4)
     check("sessiz saatte anında bildirim gitmez", len(fake.to("anne")) == n, len(fake.to("anne")))
+    # Bekleyen bildirim kuyrukta düz metin durur; gövdede saat aralığı ("✦ Kurs 09:00–13:00")
+    held = db_count(f"""SELECT count(*) FROM "PendingNotifications" WHERE "Body" LIKE '✦ {kurs} · 09:00–13:00 —%'""")
+    if held is not None:
+        check("bildirim metninde bitiş aralığı", held == 1, held)
     req("PUT", "/push/settings", off, pt)
 
     s, b = req("PUT", "/push/settings", dict(off, quietStart="25:00"), pt)
@@ -867,7 +971,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_push, test_account_delete):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

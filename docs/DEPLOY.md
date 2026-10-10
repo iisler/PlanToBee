@@ -390,6 +390,30 @@ DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_PushNotification
 Bildirimleri kodu geri almadan **kapatmak** için: Render > Environment'ta `WebPush__Key` silinir. Uygulama bildirim
 kartlarını göstermez, hiçbir bildirim gitmez.
 
+### 6.3 Geri dönüş: "Saat çizelgesi" sürümünden önceki sürüme
+
+Aktivitelere bitiş saati ve saat çizelgesi gelen sürümden önceki hal git'te `rollback-oncesi-saat-cizelgesi`
+etiketiyle saklanır. Yayından önce Neon > **Branches** > **Create branch** ile yedek alınır.
+
+Bu sürüm yalnızca `Events` tablosuna **boş bırakılabilir** `EndTime` sütunu ekler (`EventEndTime` migration'ı);
+mevcut satırlara dokunmaz. Eski sürümün modeli bu sütunu bilmez: okurken seçmez, eklerken yazmaz (NULL kalır),
+düzenlerken değiştirmez. Bu yüzden geri dönüşte veri adımı gerekmez, yalnızca kod geri alınır:
+
+```bash
+git revert --no-edit rollback-oncesi-saat-cizelgesi..main
+git push origin main
+```
+
+- Girilmiş bitiş saatleri sütunda kalır; yeniden ileri geçince geri gelir. Eski sürümde saati silinen ya da bitişe
+  eşitlenen kayıtta kalan bitişi yeni sürüm okurken göstermez.
+- Eski spor sürelerinden (Minutes) türetilen bitiş yalnızca okumada hesaplanır, veritabanına yazılmaz; geri alınacak
+  veri yoktur.
+- Sütunu kaldırmak gerekirse (girilmiş bitişler kaybolur; gerekirse yedekten alınır) Neon > SQL Editor:
+  ```sql
+  ALTER TABLE "Events" DROP COLUMN "EndTime";
+  DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_EventEndTime';
+  ```
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

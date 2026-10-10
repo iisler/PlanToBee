@@ -119,7 +119,8 @@ public static class NotificationText
             _ => ("✦", "Diğer")
         };
         var name = e.Title.Length > 0 ? e.Title : e.Kind == EventKind.Training ? e.TrainingType ?? label : label;
-        return $"{icon} {name}" + (e.Time.Length > 0 ? $" · {e.Time}" : "");
+        var time = e.Time.Length == 0 ? "" : e.EndTime != null ? $" · {e.Time}–{e.EndTime}" : $" · {e.Time}";
+        return $"{icon} {name}{time}";
     }
 
     // "Matematik'i", "Kimya'yı", "Türkçe'yi", "Coğrafya'yı" (belirtme hâli eki, ünlü uyumuyla)

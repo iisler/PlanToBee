@@ -30,16 +30,18 @@ export function eventLabel(ev, short = false) {
   return kindInfo(ev.kind).label;
 }
 
-// Kısa ek bilgi: "17:00 · 1 sa 30 dk", "10:00", "45 dk". Süre yalnızca eski spor kayıtlarında olabilir.
-export function eventMeta(ev) {
-  const parts = [];
-  if (ev.time) parts.push(ev.time);
-  if (isTraining(ev) && ev.minutes > 0) parts.push(formatDuration(ev.minutes));
-  return parts.join(' · ');
+// Kaydın saat metni: "09:00–13:00" (bitiş: gerçek ya da eski süreden türetilmiş), yoksa "09:00", saatsizse "".
+export function eventTimeRange(ev) {
+  if (!ev.time) return '';
+  const end = ev.endTime || ev.derivedEndTime;
+  return end && end !== ev.time ? `${ev.time}–${end}` : ev.time;
 }
 
-export const trainingMinutes = (events) =>
-  events.filter(isTraining).reduce((s, e) => s + (e.minutes || 0), 0);
+// Kısa ek bilgi (⋯ menüsü başlığı): "09:00–13:00", "10:00", eski süreli spor kaydında saat yoksa "45 dk".
+export function eventMeta(ev) {
+  if (ev.time) return eventTimeRange(ev);
+  return isTraining(ev) && ev.minutes > 0 ? formatDuration(ev.minutes) : '';
+}
 
 // "Geri al" bildirimi metni
 export const deletedText = (ev) => `${eventLabel(ev)} silindi`;
@@ -70,5 +72,5 @@ export function weekTotals(days) {
   return { minutes, sportDays, events, empty: entries === 0 && events === 0 };
 }
 
-// Ekran okuyucu ve panel için "Yüzme 10:00" (saat yoksa yalnızca ad)
-export const eventWithTime = (ev) => (ev.time ? `${eventLabel(ev)} ${ev.time}` : eventLabel(ev));
+// Ekran okuyucu ve hafta şeridi için "Kurs 09:00–13:00" / "Yüzme 10:00" (saat yoksa yalnızca ad)
+export const eventWithTime = (ev) => (ev.time ? `${eventLabel(ev)} ${eventTimeRange(ev)}` : eventLabel(ev));
