@@ -43,3 +43,32 @@ export const trainingMinutes = (events) =>
 
 // "Geri al" bildirimi metni
 export const deletedText = (ev) => `${eventLabel(ev)} silindi`;
+
+// Bir günün şerit ve Hafta paneli özeti (GET /days/week/{pzt}/details cevabındaki DayDto'dan):
+// done: tamamlanan ders sayısı, total: ders sayısı, minutes: planlanan ders dakikaları, events: sunucu sırasıyla aktiviteler.
+export function daySummary(day) {
+  const entries = day?.studyEntries ?? [];
+  return {
+    done: entries.filter((e) => e.status === 'done').length,
+    total: entries.length,
+    minutes: entries.reduce((s, e) => s + e.minutes, 0),
+    events: day?.events ?? [],
+  };
+}
+
+// Haftalık toplam (Hafta paneli alt bilgisi): planlanan ders dakikası (durumdan bağımsız),
+// en az bir Spor aktivitesi olan gün sayısı ve bütün aktivitelerin sayısı (Spor dahil).
+export function weekTotals(days) {
+  let minutes = 0, sportDays = 0, events = 0, entries = 0;
+  for (const d of days) {
+    const s = daySummary(d);
+    minutes += s.minutes;
+    entries += s.total;
+    events += s.events.length;
+    if (s.events.some(isTraining)) sportDays++;
+  }
+  return { minutes, sportDays, events, empty: entries === 0 && events === 0 };
+}
+
+// Ekran okuyucu ve panel için "Yüzme 10:00" (saat yoksa yalnızca ad)
+export const eventWithTime = (ev) => (ev.time ? `${eventLabel(ev)} ${ev.time}` : eventLabel(ev));

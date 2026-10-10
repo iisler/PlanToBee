@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
-// Kayıt izlerinin gösterim ayarı. showOwn: ailede birden fazla hesap varsa (plan gerçekten paylaşılıyorsa)
-// kişinin kendi eklediği kayıtlarda da "Sen ekledin" yazılır; tek kişilik ailede gereksiz kalabalık olmasın.
-export const AuditContext = createContext({ showOwn: false });
+// Kayıt izlerinin gösterim ayarı. hideInitials: çocuk profilinde satırlarda "kim ekledi" baş harfi gösterilmez
+// (plan çoğunlukla ebeveynin; ayrıntı ⋯ menüsünde).
+export const AuditContext = createContext({ hideInitials: false });
 
 export const useAuditSettings = () => useContext(AuditContext);

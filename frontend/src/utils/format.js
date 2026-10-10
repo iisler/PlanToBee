@@ -18,6 +18,42 @@ export function addDays(d, n) {
   nd.setDate(nd.getDate() + n);
   return nd;
 }
+const NBSP = '\u00a0';
+// Hafta aralığı: aynı ay "5 – 11 Ekim", iki ay "28 Eyl – 4 Eki".
+// - Şerit başlığında (withYear=false) yıl hiç yazılmaz: "28 Ara – 3 Oca".
+// - Hafta paneli başlığında (withYear=true) yıl, içinde bulunulan yıldan farklıysa (ya da hafta iki yıla yayılıyorsa) yazılır:
+//   "29 Ara 2026 – 4 Oca 2027". Tarihlerin içi bölünmez (NBSP); satır yalnızca "–" sonrasında kırılabilir.
+export function weekRangeLabel(monday, { withYear = false, today = new Date() } = {}) {
+  const sun = addDays(monday, 6);
+  const short = (d) => MONTHS[d.getMonth()].slice(0, 3);
+  const nb = (...p) => p.join(NBSP);
+  const left = (...p) => `${nb(...p)}${NBSP}– `;
+  if (withYear && monday.getFullYear() !== sun.getFullYear()) {
+    return left(monday.getDate(), short(monday), monday.getFullYear()) + nb(sun.getDate(), short(sun), sun.getFullYear());
+  }
+  const year = withYear && sun.getFullYear() !== today.getFullYear() ? [sun.getFullYear()] : [];
+  if (monday.getMonth() === sun.getMonth()) return left(monday.getDate()) + nb(sun.getDate(), MONTHS[sun.getMonth()], ...year);
+  return left(monday.getDate(), short(monday)) + nb(sun.getDate(), short(sun), ...year);
+}
+
+// Gün başlığı: "Cumartesi, 10 Ekim" (yıl farklıysa "…, 10 Ekim 2027")
+export function dayTitle(d, today = new Date()) {
+  const year = d.getFullYear() !== today.getFullYear() ? ` ${d.getFullYear()}` : '';
+  return `${WEEKDAYS_FULL[(d.getDay() + 6) % 7]}, ${d.getDate()} ${MONTHS[d.getMonth()]}${year}`;
+}
+
+// Sayıya iyelik eki: 1'i, 2'si, 3'ü, 6'sı, 10'u, 40'ı ("3 dersten 1'i tamam")
+const UNIT_SUFFIX = ['ı', 'i', 'si', 'ü', 'ü', 'i', 'sı', 'si', 'i', 'u'];
+const TEN_SUFFIX = ['', 'u', 'si', 'u', 'ı', 'si', 'ı', 'i', 'i', 'ı'];
+export function withPossessive(n) {
+  let suffix;
+  if (n % 10 !== 0 || n === 0) suffix = UNIT_SUFFIX[n % 10];
+  else if (n % 100 !== 0) suffix = TEN_SUFFIX[(n % 100) / 10];
+  else if (n % 1000 !== 0) suffix = 'ü';
+  else suffix = 'i';
+  return `${n}'${suffix}`;
+}
+
 export function formatDuration(mins) {
   const h = Math.floor(mins / 60), m = mins % 60;
   if (h === 0) return `${m} dk`;
@@ -47,27 +83,34 @@ function auditName(m) {
   return m.isFormerMember ? `Eski üye: ${m.displayName}` : m.displayName;
 }
 
-// Kayıt izi: { text, who }. text örn. "Annem ekledi", "Babam düzenledi · 18:40", "Eski üye: Ayşe ekledi",
-// "Sen ekledin". who: izdeki başka kişinin adı (kısa gösterimde baş harfi yazılır); kendi kaydında null.
-// showOwn: planı başkalarıyla paylaşıyorsan kendi eklediklerinde de "Sen ekledin" yazılır.
-// Gösterilecek iz yoksa null.
-export function auditInfo(entry, myMemberId, showOwn = false) {
-  if (!entry) return null;
-  const foreign = (m) => m && (m.isFormerMember || m.memberId !== myMemberId);
-  if (foreign(entry.updatedBy)) {
-    const when = formatStamp(entry.updatedAt);
-    return { text: `${auditName(entry.updatedBy)} düzenledi${when ? ` · ${when}` : ''}`, who: entry.updatedBy.displayName };
-  }
-  if (foreign(entry.createdBy)) {
-    return { text: `${auditName(entry.createdBy)} ekledi${entry.isImported ? ' (aktarıldı)' : ''}`, who: entry.createdBy.displayName };
-  }
-  if (showOwn && entry.createdBy) return { text: `Sen ekledin${entry.isImported ? ' (aktarıldı)' : ''}`, who: null };
-  if (entry.isImported) return { text: 'Aktarıldı', who: null };
-  return null;
+const isForeign = (m, myMemberId) => !!m && (m.isFormerMember || m.memberId !== myMemberId);
+const sameMember = (a, b) => !!a && !!b && a.memberId === b.memberId && a.isFormerMember === b.isFormerMember;
+
+// Satırdaki "kim ekledi" işareti yalnızca ekleyene göre: kaydı başkası eklediyse { name, text }, aksi halde null.
+// Durum değişikliği ya da düzenleme işaret göstermez (ayrıntısı ⋯ menüsünde).
+export function creatorMark(entry, myMemberId) {
+  const c = entry?.createdBy;
+  if (!isForeign(c, myMemberId)) return null;
+  return { name: c.displayName, text: `${auditName(c)} ekledi` };
 }
 
-export function auditTrail(entry, myMemberId, showOwn = false) {
-  return auditInfo(entry, myMemberId, showOwn)?.text ?? '';
+// ⋯ menüsündeki kayıt izi: ekleyen her zaman, başkası değiştirdiyse değiştiren de.
+// "Ayşe ekledi · 9 Eki 20:14 · Deniz değiştirdi · 12:22", "Sen ekledin · 9 Eki 20:14", "Ayşe ekledi · … · Sen değiştirdin · 12:22".
+export function auditLine(entry, myMemberId) {
+  if (!entry) return '';
+  const parts = [];
+  const c = entry.createdBy;
+  const created = formatStamp(entry.createdAt);
+  if (c) parts.push(`${isForeign(c, myMemberId) ? `${auditName(c)} ekledi` : 'Sen ekledin'}${entry.isImported ? ' (aktarıldı)' : ''}`);
+  else if (entry.isImported) parts.push('Aktarıldı');
+  if (parts.length && created) parts.push(created);
+  const u = entry.updatedBy;
+  if (u && entry.updatedAt && !sameMember(u, c)) {
+    parts.push(isForeign(u, myMemberId) ? `${auditName(u)} değiştirdi` : 'Sen değiştirdin');
+    const when = formatStamp(entry.updatedAt);
+    if (when) parts.push(when);
+  }
+  return parts.join(' · ');
 }
 
 export const STATUS_ORDER = ['todo', 'inprogress', 'done'];

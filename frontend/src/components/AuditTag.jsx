@@ -1,22 +1,16 @@
-import { auditInfo, initial } from '../utils/format';
+import { creatorMark, initial } from '../utils/format';
 import { useAuditSettings } from '../context/AuditContext';
 
-// Kaydın "ekleyen / son düzenleyen" izi.
-// - Gün kartlarında tam metin: "Aslı ekledi", "Sen ekledin".
-// - Hafta görünümünde (compact) yer kazanmak için yalnızca başka kişinin baş harfi; tam metin
-//   dokunma/üzerine gelme ipucunda ve ekran okuyucuda. Kendi kaydında kısa gösterimde iz yazılmaz.
-export default function AuditTag({ entry, myId, compact = false }) {
-  const { showOwn } = useAuditSettings();
-  const info = auditInfo(entry, myId, showOwn);
-  if (!info) return null;
-  if (!compact) return <span className="audit">{info.text}</span>;
-  if (info.who) {
-    return (
-      <span className="audit-initial" title={info.text} role="img" aria-label={info.text}>
-        {initial(info.who)}
-      </span>
-    );
-  }
-  if (!entry.isImported) return null;
-  return <span className="audit compact">{info.text}</span>;
+// Satırdaki "kim ekledi" işareti: kaydı başka biri eklediyse o kişinin baş harfi (tam metin dokunma/üzerine gelme
+// ipucunda ve ekran okuyucuda). Yalnızca ekleyene bakılır; durum değişikliği ya da düzenleme işaret göstermez.
+// Çocuk profilinde hiç gösterilmez. Ayrıntılı iz (ekleyen + değiştiren) ⋯ menüsündedir (utils/format auditLine).
+export default function AuditTag({ entry, myId }) {
+  const { hideInitials } = useAuditSettings();
+  const mark = creatorMark(entry, myId);
+  if (!mark || hideInitials) return null;
+  return (
+    <span className="audit-initial" title={mark.text} role="img" aria-label={mark.text}>
+      {initial(mark.name)}
+    </span>
+  );
 }

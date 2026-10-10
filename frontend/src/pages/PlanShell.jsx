@@ -4,34 +4,41 @@ import { errorCode, errorText } from '../api/errors';
 import { useAuth } from '../context/AuthContext';
 import { useNotice } from '../context/NoticeContext';
 import DayPage from './DayPage';
-import WeekPage from './WeekPage';
 import FamilyPage from './FamilyPage';
 import UserMenu from '../components/UserMenu';
-import { dkey, mondayOf } from '../utils/format';
+import { addDays, dkey, mondayOf } from '../utils/format';
 import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
 import NotificationsCard from '../components/NotificationsCard';
 import { syncPush } from '../utils/push';
 
-const VIEW_KEY = 'plantobee:view';
-function readPlanView() {
+// Önceki sürümlerin görünüm tercihleri (Gün / Hafta Planı sekmesi, Tablo / Liste). Artık okunmaz; silinir.
+function dropLegacyPrefs() {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'week' ? 'week' : 'day';
-  } catch {
-    return 'day';
-  }
+    localStorage.removeItem('plantobee:view');
+    localStorage.removeItem('weekMode');
+  } catch { /* depolama kapalı */ }
 }
-// Bildirime dokununca uygulama "?date=YYYY-MM-DD" ile açılır: o günün Gün ekranı gösterilir.
+// Bildirime dokununca uygulama "?date=YYYY-MM-DD" ile açılır: o gün seçilir. Geçersiz tarih (2026-13-40) yok sayılır.
 function dateFromUrl(url) {
   try {
     const m = new URL(url, window.location.href).searchParams.get('date')?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;
   } catch {
     return null;
   }
 }
-function writePlanView(v) {
-  try { localStorage.setItem(VIEW_KEY, v); } catch { /* depolama kapalı: yalnızca bu oturumda hatırlanır */ }
+// GET /days/week/{pzt}/details cevabı tarihe göre 7 güne eşlenir (eksik gün boş listelerle)
+function weekDaysFrom(data, mondayKey) {
+  const [y, mo, d] = mondayKey.split('-').map(Number);
+  const mon = new Date(y, mo - 1, d);
+  const byDate = new Map((data?.days ?? []).map(x => [x.date, x]));
+  return Array.from({ length: 7 }, (_, i) => {
+    const k = dkey(addDays(mon, i));
+    return byDate.get(k) ?? { date: k, studyEntries: [], events: [] };
+  });
 }
 
 // Profil seçilmiş aile hesabının ana ekranı. Gün ve hafta planı ailenin ortak planıdır;
@@ -43,10 +50,12 @@ export default function PlanShell() {
   const [familyError, setFamilyError] = useState('');
   const [linkDate] = useState(() => dateFromUrl(window.location.href));
   const [currentDate, setCurrentDate] = useState(() => linkDate ?? new Date());
-  // Son açık plan sekmesi (Gün / Hafta Planı) hatırlanır: uygulama yeniden açılınca ve Ailem'den dönünce.
-  const [view, setView] = useState(() => (linkDate ? 'day' : readPlanView()));
-  const lastPlanView = useRef(view === 'family' || view === 'notifications' ? 'day' : view);
-  const [weekSummaries, setWeekSummaries] = useState([]);
+  // Görünüm: 'plan' (tek ekran plan) | 'family' (Ailem) | 'notifications' (Bildirimler)
+  const [view, setView] = useState('plan');
+  // Seçili haftanın ayrıntısı: { key: pazartesi, days: 7 DayDto | null, error }
+  const [week, setWeek] = useState({ key: '', days: null, error: '' });
+  // Bildirimden gün açılınca artar: açık Hafta paneli ve ⋯ menüleri kapanır
+  const [layerReset, setLayerReset] = useState(0);
   const [subjects, setSubjects] = useState([]);
   const familyHeadingRef = useRef(null);
 
@@ -68,6 +77,7 @@ export default function PlanShell() {
   }, []);
 
   useEffect(() => { loadFamily(); }, [loadFamily]);
+  useEffect(() => { dropLegacyPrefs(); }, []);
 
   // Bildirim aboneliği seçili profile bağlanır (uygulama açılınca ve profil değişince).
   const profileId = user.profile.id;
@@ -76,8 +86,9 @@ export default function PlanShell() {
   // Bildirimden gelen tarih adresten silinir (yenileyince yeniden o güne atlamasın); uygulama açıkken
   // dokunulan bildirim service worker'dan mesajla gelir.
   useEffect(() => {
-    if (linkDate) {
-      const u = new URL(window.location.href);
+    const u = new URL(window.location.href);
+    if (u.searchParams.has('date')) {
+      // Geçersiz tarih de silinir (bugün açılır, adreste kalmaz)
       u.searchParams.delete('date');
       window.history.replaceState(window.history.state, '', u.pathname + u.search + u.hash);
     }
@@ -85,32 +96,50 @@ export default function PlanShell() {
     const onMessage = (e) => {
       if (e.data?.type !== 'plantobee:open') return;
       const d = dateFromUrl(e.data.url);
-      if (d) { setCurrentDate(d); setView('day'); }
+      if (!d) return;
+      // Önce açık katman kapanır, sonra plan görünümünde o gün seçilir (şerit o günün haftasını gösterir)
+      setLayerReset(n => n + 1);
+      setView('plan');
+      setCurrentDate(d);
+      window.scrollTo(0, 0);
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
-  }, [linkDate]);
+  }, []);
 
   const myId = family?.myProfileId ?? user.profile.id;
-  // Ailede başka profil de varsa plan paylaşılıyordur: kendi kayıtlarında da "Sen ekledin" yazılır.
-  const showOwn = (family?.profiles ?? []).length > 1;
   // Bildirimler yalnızca ailede başka profil varsa anlamlı (tek başına kullanımda bildirim gönderecek kimse yok).
-  const hasOthers = showOwn;
-  const auditSettings = useMemo(() => ({ showOwn }), [showOwn]);
+  const hasOthers = (family?.profiles ?? []).length > 1;
+  // Çocuk profilinde satırlarda "kim ekledi" baş harfi gösterilmez
+  const hideInitials = user.profile.role === 'Child';
+  const auditSettings = useMemo(() => ({ hideInitials }), [hideInitials]);
 
-  // Haftalık özet (gün şeridi ve istatistikler). Hata gün sayfasında ayrıca gösterilir.
+  // Seçili haftanın ayrıntısı (şerit ve Hafta paneli), tek istek. Her ekleme, değiştirme, silme ve durum
+  // değişikliğinden sonra yeniden çekilir. Yalnızca en son isteğin yanıtı yazılır: ‹ › hızlıca basılınca önceki
+  // haftanın geç gelen yanıtı ekrandaki haftanın üzerine yazılmaz; gösterilen veri her zaman seçili haftanındır.
   const weekReq = useRef(0);
   const weekKey = dkey(mondayOf(currentDate));
+  const weekKeyRef = useRef(weekKey);
   const loadWeek = useCallback(async () => {
+    const key = weekKeyRef.current;
     const id = ++weekReq.current;
     try {
-      const res = await client.get(`/days/week/${weekKey}`);
-      if (id === weekReq.current) setWeekSummaries(res.data.days);
-    } catch {
-      if (id === weekReq.current) setWeekSummaries([]);
+      const res = await client.get(`/days/week/${key}/details`);
+      if (id === weekReq.current) setWeek({ key, days: weekDaysFrom(res.data, key), error: '' });
+    } catch (err) {
+      // Aynı haftanın önceki verisi varsa korunur; yoksa şerit boş sayaçlarla kalır, panel "Tekrar dene" gösterir
+      if (id === weekReq.current) setWeek(w => ({ key, days: w.key === key ? w.days : null, error: errorText(err) }));
     }
-  }, [weekKey]);
-  useEffect(() => { loadWeek(); }, [loadWeek]);
+  }, []);
+  useEffect(() => { weekKeyRef.current = weekKey; loadWeek(); }, [weekKey, loadWeek]);
+  // Gün kartındaki iyimser değişiklik (silme, durum) haftalık veriye de uygulanır: şerit ve panel beklemeden güncellenir,
+  // "Geri al" ya da hata olursa aynı yoldan eski haline döner. Sonraki yenileme sunucudaki veriyle değiştirir.
+  const replaceWeekDay = useCallback((day) => {
+    setWeek(w => (w.days && w.days.some(d => d.date === day.date)
+      ? { ...w, days: w.days.map(d => (d.date === day.date ? day : d)) } : w));
+  }, []);
+  const weekDays = week.key === weekKey ? week.days : null;
+  const weekError = week.key === weekKey ? week.error : '';
 
   const loadSubjects = useCallback(async () => {
     try {
@@ -157,11 +186,6 @@ export default function PlanShell() {
   function changeView(v) {
     setView(v);
     if (v === 'family') loadFamily();
-    else if (v === 'notifications') { /* plan sekmesi değişmez */ }
-    else {
-      lastPlanView.current = v;
-      writePlanView(v);
-    }
   }
 
   return (
@@ -175,20 +199,15 @@ export default function PlanShell() {
           </div>
         </header>
 
-        <div className="viewtabs">
-          <button className={view === 'day' ? 'active' : ''} aria-pressed={view === 'day'} onClick={() => changeView('day')}>Gün</button>
-          <button className={view === 'week' ? 'active' : ''} aria-pressed={view === 'week'} onClick={() => changeView('week')}>Hafta Planı</button>
-        </div>
-
-        {/* Ailem ad menüsünden açılır; sekmelerde karşılığı olmadığı için nerede olunduğu başlıkla belirtilir */}
+        {/* Ailem ve Bildirimler ad menüsünden açılır; nerede olunduğu başlıkla belirtilir */}
         {(view === 'family' || view === 'notifications') && (
           <div className="pagehead">
-            <button className="btn-ghost small" onClick={() => changeView(lastPlanView.current)}>‹ Plana dön</button>
+            <button className="btn-ghost small" onClick={() => changeView('plan')}>‹ Plana dön</button>
             <h2 ref={familyHeadingRef} tabIndex={-1}>{view === 'family' ? 'Ailem' : 'Bildirimler'}</h2>
           </div>
         )}
 
-        {view === 'day' && hasOthers && <PushPrompt />}
+        {view === 'plan' && hasOthers && <PushPrompt />}
 
         {familyError && !family && (
           <div className="load-error" role="alert">
@@ -197,25 +216,19 @@ export default function PlanShell() {
           </div>
         )}
 
-        {view === 'day' && (
+        {view === 'plan' && (
           <DayPage
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
-            weekSummaries={weekSummaries}
+            weekDays={weekDays}
+            weekError={weekError}
+            onRetryWeek={loadWeek}
+            onDayChanged={replaceWeekDay}
+            layerReset={layerReset}
             myId={myId}
             subjects={subjects}
             onAddSubject={addSubject}
             onDeleteSubject={deleteSubject}
-            onDataChanged={loadWeek}
-            onAccessChanged={onAccessChanged}
-          />
-        )}
-        {view === 'week' && (
-          <WeekPage
-            currentDate={currentDate}
-            setCurrentDate={(d) => { setCurrentDate(d); changeView('day'); }}
-            subjects={subjects}
-            myId={myId}
             onDataChanged={loadWeek}
             onAccessChanged={onAccessChanged}
           />
