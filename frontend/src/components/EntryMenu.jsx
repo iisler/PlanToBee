@@ -14,7 +14,7 @@ export default function EntryMenu({ kind, entry, myId, onEdit, onDelete, onClose
   const study = kind === 'study';
 
   const title = study
-    ? `${entry.subject} · ${entry.minutes} dk`
+    ? [entry.subject, entry.startTime && `${entry.startTime}–${entry.endTime ?? ''}`.replace(/–$/, ''), `${entry.minutes} dk`].filter(Boolean).join(' · ')
     : [eventLabel(entry), eventMeta(entry)].filter(Boolean).join(' · ');
   const sub = [
     study ? entry.topic : entry.note,

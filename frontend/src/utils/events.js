@@ -25,6 +25,7 @@ function legacyTrainingLabel(ev, short) {
 
 // Görünen ad. short: hafta çiplerinde eski antrenmanlar için yalnızca tür ("Top").
 export function eventLabel(ev, short = false) {
+  if (ev.isStudy) return ev.subject; // çizelgedeki ders öğesi (utils/timeline studyItem)
   if (ev.title) return ev.title;
   if (isTraining(ev)) return legacyTrainingLabel(ev, short);
   return kindInfo(ev.kind).label;

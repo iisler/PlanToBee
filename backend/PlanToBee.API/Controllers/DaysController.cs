@@ -103,11 +103,12 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     {
         if (!PlanText.TryParseDate(date, out var d)) return InvalidDate();
         if (string.IsNullOrWhiteSpace(dto.Subject)) return Err.BadRequest("validation", "Ders seçin.");
+        if (!TryParseStartTime(dto.StartTime ?? "", null, out var start)) return InvalidStartTime();
         var me = await members.GetCurrentAsync();
         if (me == null) return await members.MissingAsync();
 
         var dayId = await GetOrCreateDayId(me.FamilyId, d);
-        var entry = new StudyEntry { DayId = dayId, Subject = dto.Subject.Trim(), Topic = dto.Topic?.Trim() ?? "", Minutes = dto.Minutes, Status = "todo" };
+        var entry = new StudyEntry { DayId = dayId, Subject = dto.Subject.Trim(), Topic = dto.Topic?.Trim() ?? "", Minutes = dto.Minutes, Status = "todo", StartTime = start };
         StampCreated(entry, me);
         db.StudyEntries.Add(entry);
         await db.SaveChangesAsync();
@@ -125,10 +126,13 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var (me, error) = await AuthorizeEntry(date, entry);
         if (error != null) return error;
 
-        var wasDone = entry!.Status == "done";
+        if (!TryParseStartTime(dto.StartTime, entry!.StartTime, out var start)) return InvalidStartTime();
+
+        var wasDone = entry.Status == "done";
         entry.Subject = dto.Subject.Trim();
         entry.Topic = dto.Topic?.Trim() ?? "";
         entry.Minutes = dto.Minutes;
+        entry.StartTime = start;
         if (dto.Status != null) entry.Status = dto.Status;
         StampUpdated(entry, me!);
         await db.SaveChangesAsync();
@@ -305,6 +309,20 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         return null;
     }
 
+    // Dersin başlangıcı. null mevcut değeri korur (başlangıcı bilmeyen eski istemci düzenlerken saat kaybolmasın),
+    // "" siler, SS:dd yazar. Aktivitedeki gibi serbest metin istisnası yok: ders saati hiçbir zaman serbest metin olmadı.
+    private static bool TryParseStartTime(string? value, string? current, out string? start)
+    {
+        start = current;
+        if (value == null) return true;
+        var t = value.Trim();
+        start = t.Length == 0 ? null : t;
+        return t.Length == 0 || PlanText.IsTime(t);
+    }
+
+    private static ObjectResult InvalidStartTime() =>
+        Err.BadRequest("validation", "Başlangıç saati SS:dd biçiminde olmalı (örn. 15:00).");
+
     // Günün etkinlik listesi: önce saati olanlar saat sırasıyla, sonra saatsizler (ve eski serbest metin saatliler)
     // eklenme sırasıyla.
     private static IEnumerable<Event> InDayOrder(IEnumerable<Event> events) =>
@@ -362,7 +380,8 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     }
 
     private static StudyEntryDto Map(StudyEntry e, FamilyMember me, AuditLookup a) =>
-        new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported);
+        new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported,
+            e.StartTime, PlanText.StudyEndTime(e.StartTime, e.Minutes));
     private static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
         new(e.Id, e.Kind.ToString(), e.Title, e.Time, e.Note, e.TrainingType, e.Minutes, MemberContext.CanEdit(me, e),
             a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported,

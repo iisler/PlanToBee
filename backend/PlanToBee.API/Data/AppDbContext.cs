@@ -101,6 +101,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
         });
 
         ConfigureAudit<StudyEntry>(builder);
+        builder.Entity<StudyEntry>().Property(e => e.StartTime).HasMaxLength(5);
         ConfigureAudit<TrainingEntry>(builder);
         builder.Entity<TrainingEntry>().HasOne(t => t.Day).WithMany().HasForeignKey(t => t.DayId).OnDelete(DeleteBehavior.Cascade);
         ConfigureAudit<Event>(builder);

@@ -108,13 +108,8 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 /* Cards */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.card-title { display: flex; align-items: center; gap: 10px; }
 .card-head h2 { font-size: 18px; font-weight: 700; }
-.card-head .card-sum { font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
 .card-head .total { font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
-.icon-tile { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
-.icon-tile.study { background: var(--study-soft); color: var(--study); }
-.icon-tile.evt { background: var(--event-soft); color: var(--event); }
 .icon { width: 19px; height: 19px; flex-shrink: 0; }
 
 /* Kart satırı (ders ve aktivite): solda durum dairesi ya da ikon, ortada ad ve konu/not, sağda süre/saat ve ⋯ */
@@ -138,31 +133,18 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .entry .st:hover, .entry .more:hover { background: var(--surface-2); }
 .entry .more:hover { color: var(--ink); }
 
-.edit-form input, .addform input, .addform select, .subject-addrow input, .auth-card input {
+.subject-addrow input, .auth-card input {
   border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; background: var(--surface-2); min-width: 0; min-height: 42px;
 }
-.edit-form input:focus, .addform input:focus, .addform select:focus, .subject-addrow input:focus, .auth-card input:focus {
+.subject-addrow input:focus, .auth-card input:focus {
   outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px var(--honey-soft);
 }
 
-.edit-form { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.edit-form input { flex: 1 1 120px; }
-.btn, .edit-form .save, .addform .go, .subject-addrow button, .auth-submit { background: var(--ink); color: var(--bg); border: none; border-radius: var(--radius-sm); padding: 9px 16px; min-height: 42px; font-size: 13.5px; font-weight: 700; }
-.edit-form .save { background: var(--study); color: var(--on-accent); }
-.edit-form .cancel { background: none; border: 1px solid var(--line-strong); color: var(--ink-soft); border-radius: var(--radius-sm); padding: 8px 14px; min-height: 42px; font-size: 13px; font-weight: 600; }
+.btn, .subject-addrow button, .auth-submit { background: var(--ink); color: var(--bg); border: none; border-radius: var(--radius-sm); padding: 9px 16px; min-height: 42px; font-size: 13.5px; font-weight: 700; }
 .empty-note { color: var(--ink-faint); font-size: 13px; padding: 12px; margin-bottom: 4px; text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
 
-/* "+ Ders ekle" ve yerinde açılan form: ders seçimi tam satır; konu + dk; Ekle · İptal · Dersleri düzenle */
+/* "+ Ders ekle" (form: .sform, Görev 10) */
 .add-study { display: inline-flex; align-items: center; min-height: 44px; margin-top: 10px; padding: 0 16px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; }
-.addform { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
-.entry + .addform { border-top: none; margin-top: 0; }  /* son satırın alt çizgisi yeterli */
-.addform .full { grid-column: 1 / -1; }
-.addform input, .addform select { width: 100%; min-height: 44px; font-size: 16px; }
-.addform .inline-error { margin-top: 0; }
-.addform-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.addform-actions .go { min-height: 44px; padding: 0 18px; font-size: 14px; }
-.addform-actions .btn-ghost { min-height: 44px; }
-.addform-actions .manage-toggle { margin: 0 0 0 auto; }
 
 .manage-toggle { background: none; border: none; color: var(--ink-soft); font-size: 13px; font-weight: 600; padding: 10px 4px; margin-top: 4px; min-height: 44px; display: inline-flex; gap: 6px; align-items: center; }
 .manage-toggle:hover { color: var(--ink); }
@@ -236,7 +218,7 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 .inline-error { font-size: 12.5px; color: var(--danger); margin-top: 6px; }
 
 /* ---------- Aile hesabı ---------- */
-.btn:disabled, .btn-danger:disabled, .btn-ghost:disabled, .addform .go:disabled { opacity: .6; cursor: not-allowed; }
+.btn:disabled, .btn-danger:disabled, .btn-ghost:disabled, .frm-act .go:disabled { opacity: .6; cursor: not-allowed; }
 .btn-ghost { background: none; border: 1px solid var(--line-strong); color: var(--ink); border-radius: var(--radius-sm); padding: 8px 14px; min-height: 42px; font-size: 13px; font-weight: 600; }
 .btn-ghost:hover { color: var(--ink); border-color: var(--ink-soft); }
 .btn-ghost.small { padding: 6px 12px; min-height: 40px; font-size: 12.5px; }
@@ -257,8 +239,6 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 
 /* Kayıt izi */
 .audit-initial { display: inline-grid; place-items: center; flex-shrink: 0; width: 18px; height: 18px; margin: 0 0 0 4px; border-radius: 50%; background: var(--honey-soft); color: var(--ink); font-family: var(--f-body); font-size: 10px; font-weight: 700; line-height: 1; vertical-align: 1px; cursor: default; }
-.edit-form select { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; min-height: 42px; font-size: 14px; background: var(--surface-2); flex: 1 1 120px; min-width: 0; }
-.edit-form input.num { flex: 0 0 72px; }
 
 /* Onay penceresi */
 .dialog-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(30, 26, 20, .5); display: grid; place-items: center; padding: 16px; }
@@ -344,8 +324,6 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .evsubmit.event { background: var(--event); }
 .evform .evsubmit.sport { background: var(--sport); }
 .evform .inline-error { margin: 0; }
-.evadd { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 12px; }
-.entry + .evadd { border-top: none; margin-top: 0; }  /* son satırın alt çizgisi yeterli */
 .entry-edit { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .card-head .total.sport { color: var(--sport-deep); background: var(--sport-soft); border-color: transparent; }
 /* Dar kapsayıcıda (ör. çok dar ekranda gün kartı) altı tür tek sırada etiketleri kırpıyordu: sıra korunarak 3 x 2 */
@@ -355,10 +333,10 @@ input[type="time"].time-input { min-width: 104px; }
 }
 
 /* "Ekle" düğmeleri: marka sarısı, koyu yazı (sarı üstünde beyaz yazı okunmaz) */
-.add-study, .addform .go, .subject-addrow button, .evform .evsubmit.add {
+.add-study, .frm-act .go, .subject-addrow button, .evform .evsubmit.add {
   background: var(--honey); color: var(--ink);
 }
-.add-study:hover, .addform .go:hover, .subject-addrow button:hover, .evform .evsubmit.add:hover { filter: brightness(.96); }
+.add-study:hover, .frm-act .go:hover, .subject-addrow button:hover, .evform .evsubmit.add:hover { filter: brightness(.96); }
 /* Düğme içinde bekleme: küçük dönen petek + metin (components/BusyLabel.jsx) */
 .btn-busy { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: -6px 0; }
 .honeycomb.on-dark .hc-core { fill: var(--bg); }
@@ -596,3 +574,82 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .tl-many .tl-row.two .t1 { line-height: 18px; }
 .tl-many .tl-row.two .t2 { line-height: 16px; }
 .wg-foot .nw { white-space: nowrap; }
+
+/* ===== Bee · To-do · Plan (Görev 10) ===== */
+/* Bölüm seçici */
+.sect { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin: 12px 0 14px; }
+.sect button { min-height: 52px; border: none; background: none; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--ink-soft); padding: 0 4px; min-width: 0; }
+.sect button:hover { background: var(--surface-2); }
+.sect b { font-family: var(--f-display); font-size: 16.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 5px; line-height: 1.15; }
+.sect b svg { width: 15px; height: 15px; }
+.sect span { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.sect button[aria-selected="true"] { background: var(--honey); color: var(--ink); }
+[role="tabpanel"]:focus { outline: none; }
+/* Kart üst satırı: yalnız özet */
+.card-head .sumh { font-family: var(--f-mono); font-size: 13px; font-weight: 600; color: var(--ink); }
+.card-head .sumh:focus { outline: none; }
+.card-head .sumh:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Bee: ders bloğu (iki düğme: daire + seçenekler) */
+.tl-blk.study { display: flex; align-items: stretch; padding: 0; background-color: var(--study-soft); box-shadow: inset 4px 0 0 var(--study); }
+.tl-st { width: 40px; flex-shrink: 0; border: none; background: none; padding: 0 0 0 4px; display: grid; place-items: center; align-self: stretch; }
+.tl-st i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--study); background: var(--surface); display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700; color: var(--on-accent); line-height: 1; }
+.tl-st.st-done i { background: var(--study); }
+.tl-st.st-inprogress i { border-color: var(--warn); background: linear-gradient(90deg, var(--warn) 50%, var(--surface) 50%); }
+.tl-op { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 4px; border: none; background: none; padding: 5px 0 0 2px; text-align: left; color: var(--ink); }
+.tl-blk.study.done { background-color: var(--surface-2); }
+.tl-blk.study.done .nm { text-decoration: line-through; color: var(--ink-soft); }
+.tl-blk .tm .ok { color: var(--study); font-weight: 600; }
+.tl-st:focus-visible, .tl-op:focus-visible { outline-offset: -2px; }
+/* Blok kenarındaki 2 px saydam boşluk da dokunma alanı olsun: iki düğme bloğun tüm yüksekliğini (en az 44 px) kaplar */
+.tl-blk.study { overflow: visible; }
+.tl-blk.study > .tl-st, .tl-blk.study > .tl-op { margin: -2px 0; }
+.tl-blk.study > .tl-op { padding-top: 7px; }
+.tl-blk.n3 .tl-st { width: 34px; padding-left: 4px; }
+/* Liste satırındaki ders (Saati yok şeridi, 4+ küme, pencere dışı) */
+.tl-row.srow { gap: 4px; }
+.srow .tl-st { width: 36px; height: 44px; padding: 0; margin-left: -6px; align-self: center; }
+.srow .tl-op { align-items: center; padding: 0; min-height: 44px; gap: 8px; font-size: 14px; font-weight: 600; }
+.srow .tl-op > .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow .nm.done, .srow .t1.done { text-decoration: line-through; color: var(--ink-soft); }
+.srow .mn { font-family: var(--f-mono); font-size: 12.5px; color: var(--study); font-weight: 500; white-space: nowrap; }
+.srow.two .tl-op > .nm { display: flex; flex-direction: column; white-space: normal; }
+.tl-empty + .add-study { margin: 0 0 4px; }
+/* To-do */
+.prog { height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: -6px 0 4px; }
+.prog i { display: block; height: 100%; background: var(--study); border-radius: 6px; }
+.entry .mins b { color: var(--ink); font-weight: 600; }
+/* Plan */
+.sub-lb { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); margin: 14px 2px 2px; }
+.entry .when { color: var(--ink); }
+.entry .when.none { font-family: var(--f-body); color: var(--ink-soft); font-weight: 500; }
+.entry .ico { width: 34px; height: 34px; border-radius: 10px; font-size: 17px; }
+/* Ders formu */
+.sform { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.entry + .sform, .entry-edit .sform, .addsheet .sform { border-top: 0; padding-top: 0; margin-top: 0; }
+.entry + .sform { margin-top: 12px; }
+.sform select, .sform input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 9px 11px; background: var(--surface-2); color: var(--ink); font-family: var(--f-body); }
+.sform select:focus, .sform input:focus { outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px var(--honey-soft); }
+.sform .fl { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); min-width: 0; }
+.sform .opt { font-weight: 400; }
+.sform .evsum, .sform .inline-error { margin: 0; }
+.durrow { display: flex; gap: 8px; align-items: center; }
+.durrow .evchips { flex: 1; min-width: 0; flex-wrap: nowrap; gap: 6px; }
+.durrow .evchips button { padding: 0 10px; white-space: nowrap; }
+.durrow input { width: 76px; flex: none; font-family: var(--f-mono); text-align: center; }
+.sform .evtimes.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.sform .evtimes input { font-family: var(--f-mono); background: var(--surface); }
+.endout { display: flex; align-items: center; min-height: 44px; padding: 0 11px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); font-family: var(--f-mono); font-size: 16px; color: var(--ink); background: var(--bg); }
+.endout.empty { color: var(--ink-faint); }
+.frm-act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.frm-act .go { min-height: 44px; padding: 0 22px; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: 14px; }
+.frm-act .btn-ghost { min-height: 44px; padding: 0 16px; }
+.frm-act .manage-toggle { margin: 0 0 0 auto; }
+/* Boşluktan ekleme sayfası */
+.addsheet { top: auto; max-height: 92vh; }
+.addsheet .seg { margin-bottom: 10px; background: var(--surface); }
+.addsheet .seg button { min-height: 44px; }
+.addsheet .seg button.active { background: var(--honey); color: var(--ink); }
+.addsheet .evsum { margin: 0 0 8px; }
+/* Hafta */
+.wg-b.study { background: var(--study); }
+.wg-leg .lg-study { background: var(--study); }

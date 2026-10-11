@@ -414,6 +414,33 @@ git push origin main
   DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_EventEndTime';
   ```
 
+### 6.4 Geri dönüş: "Bee · To-do · Plan" sürümünden önceki sürüme
+
+Ana ekranda üç bölüm (Ajanda, Dersler, Aktiviteler) ve derse başlangıç saati gelen sürümden önceki hal git'te
+`rollback-oncesi-bee-todo-plan` etiketiyle saklanır. Yayından önce Neon > **Branches** > **Create branch** ile yedek
+alınır.
+
+Bu sürüm yalnızca `StudyEntries` tablosuna **boş bırakılabilir** `StartTime` sütunu ekler (`StudyEntryStartTime`
+migration'ı, `character varying(5)`); mevcut satırlara dokunmaz. Dersin bitişi saklanmaz (okumada başlangıç + dakikadan
+hesaplanır). Eski sürümün modeli bu sütunu bilmez: okurken seçmez, eklerken yazmaz (NULL kalır), düzenlerken ve
+durum değiştirirken değiştirmez, hesap silmede satırla birlikte silinir. Bu yüzden geri dönüşte veri adımı gerekmez,
+yalnızca kod geri alınır:
+
+```bash
+git revert --no-edit rollback-oncesi-bee-todo-plan..main
+git push origin main
+```
+
+- Girilmiş ders saatleri sütunda kalır; yeniden ileri geçince geri gelir. Eski sürümde süresi değiştirilen saatli
+  dersin bitişi yeni sürümde yeni süreyle hesaplanır (bitiş saklanmadığı için tutarsızlık oluşmaz).
+- Site Render'dan önce yayına çıkarsa yeni istemcinin gönderdiği `startTime` eski API'de yok sayılır (ders saatsiz
+  kaydedilir); API yayına çıkınca saat yeniden girilebilir.
+- Sütunu kaldırmak gerekirse (girilmiş ders saatleri kaybolur; gerekirse yedekten alınır) Neon > SQL Editor:
+  ```sql
+  ALTER TABLE "StudyEntries" DROP COLUMN "StartTime";
+  DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_StudyEntryStartTime';
+  ```
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

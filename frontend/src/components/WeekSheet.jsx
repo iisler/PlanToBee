@@ -3,7 +3,7 @@ import Sheet from './Sheet';
 import HoneycombSpinner from './HoneycombSpinner';
 import { addDays, dkey, mondayOf, MONTHS, WEEKDAYS, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { daySummary, weekTotals } from '../utils/events';
-import { iconOf, kindClass, longestGaps, weekColumn, weekColumnLabel, WE, WG_HEIGHT, WG_PX, WS } from '../utils/timeline';
+import { agendaItems, iconOf, itemKey, kindClass, longestGaps, toMin, weekColumn, weekColumnLabel, WE, WG_HEIGHT, WG_PX, WS } from '../utils/timeline';
 
 const AXIS = [7, 10, 13, 16, 19, 22];
 const GRID_LINES = [10, 13, 16, 19];
@@ -11,6 +11,8 @@ const GRID_LINES = [10, 13, 16, 19];
 // "📅 Hafta" alt sayfası (Görev 09): 7 sütunlu zaman ızgarası (07–22, 20 px/saat, sıkıştırma yok; günler karşılaştırılabilir).
 // Her gün tek düğme; dokununca o gün seçilir (onPick) ve panel kapanır. Bloklar yalnızca bilgi; ayrıntı Gün ekranında.
 // Altında en uzun boşluklar metinle, renk açıklaması ve haftalık toplam.
+// Görev 10: saatli dersler ince mavi blok (ikon/saat yok), boşluk ve erişilebilir ad dersleri de sayar; saatsiz dersler
+// ızgarada yer almaz, toplamda "N ders saatsiz" olarak yazılır.
 // days: 7 DayDto ya da null (yükleniyor); error: yükleme hatası metni.
 export default function WeekSheet({ monday, days, error, onRetry, onPick, onClose, returnFocusRef }) {
   const titleId = useId();
@@ -37,7 +39,13 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
     const totals = weekTotals(days);
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const cols = WEEKDAYS.map((_, i) => weekColumn(daySummary(days.find(d => d.date === dkey(addDays(monday, i)))).events));
+    const dayOf = (i) => days.find(d => d.date === dkey(addDays(monday, i)));
+    const cols = WEEKDAYS.map((_, i) => {
+      const day = dayOf(i);
+      const timed = (day?.studyEntries ?? []).filter(e => toMin(e.startTime) != null);
+      return weekColumn(agendaItems(timed, daySummary(day).events));
+    });
+    const untimedStudies = days.reduce((n, d) => n + (d.studyEntries ?? []).filter(e => toMin(e.startTime) == null).length, 0);
     const longest = longestGaps(cols, WEEKDAYS);
     body = (
       <>
@@ -62,10 +70,10 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
                 <span className="wg-tr" style={{ height: WG_HEIGHT }} aria-hidden="true">
                   {GRID_LINES.map(h => <span key={h} className="wg-gl" style={{ top: (h * 60 - WS) * WG_PX }} />)}
                   {col.blocks.map(({ r, lane, n, top, height }) => (
-                    <i key={r.ev.id} className={`wg-b ${kindClass(r.ev)}${r.noEnd ? ' noend' : ''}${r.cutBot ? ' cut-bot' : ''}${r.cutTop ? ' cut-top' : ''}`}
+                    <i key={itemKey(r.ev)} className={`wg-b ${kindClass(r.ev)}${r.noEnd ? ' noend' : ''}${r.cutBot ? ' cut-bot' : ''}${r.cutTop ? ' cut-top' : ''}`}
                       style={{ top: Math.round(top) + 1, height: Math.round(height) - 2, left: `calc(2px + ${lane} * (100% - 4px) / ${n})`, width: `calc((100% - 4px) / ${n} - ${n > 1 ? 1 : 0}px)` }}>
-                      {n === 1 && height >= 20 && <span className="ic">{iconOf(r.ev)}</span>}
-                      {n === 1 && height >= 40 && <span className="t">{r.start.endsWith(':00') ? r.start.slice(0, 2) : r.start}</span>}
+                      {!r.ev.isStudy && n === 1 && height >= 20 && <span className="ic">{iconOf(r.ev)}</span>}
+                      {!r.ev.isStudy && n === 1 && height >= 40 && <span className="t">{r.start.endsWith(':00') ? r.start.slice(0, 2) : r.start}</span>}
                     </i>
                   ))}
                   {today && nowMin >= WS && nowMin < WE && <span className="wg-now" style={{ top: Math.round((nowMin - WS) * WG_PX) }} />}
@@ -82,9 +90,10 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
           Bir güne dokun: o gün açılır.<br />
           {longest
             ? <><b>En uzun boşluk:</b> <span className="mono">{longest.map((t, i) => <span key={t} className="nw">{i > 0 && ' · '}{t}</span>)}</span></>
-            : <>Bu hafta saatli aktivite yok · <b>tüm hafta boş</b></>}
+            : <>Bu hafta saatli ders ya da aktivite yok · <b>tüm hafta boş</b></>}
         </p>
         <div className="wg-leg">
+          <span><i className="lg-study" aria-hidden="true" />Ders (saatli)</span>
           <span><i className="lg-sport" aria-hidden="true" />Spor</span>
           <span><i className="lg-evt" aria-hidden="true" />Aktivite</span>
           <span><i className="lg-free" aria-hidden="true" />Boş</span>
@@ -94,7 +103,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
         </div>
         <p className="wsfoot">
           {totals.empty ? (isThisWeek ? 'Bu hafta henüz plan yok.' : 'Plan yok.')
-            : `${isThisWeek ? 'Bu hafta' : 'Toplam'} ${totals.minutes} dk ders · ${totals.sportDays} gün spor · ${totals.events} aktivite`}
+            : `${isThisWeek ? 'Bu hafta' : 'Toplam'} ${totals.minutes} dk ders${untimedStudies ? ` · ${untimedStudies} ders saatsiz` : ''} · ${totals.sportDays} gün spor · ${totals.events} aktivite`}
         </p>
       </>
     );

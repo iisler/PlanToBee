@@ -2,7 +2,7 @@ import { useState } from 'react';
 import TimeInput from './TimeInput';
 import { ACTIVITY_KINDS, eventLabel, isTraining, kindInfo } from '../utils/events';
 import { formatDuration } from '../utils/format';
-import { addMinutes, endOf, hm, overlapText, overlapping, toMin } from '../utils/timeline';
+import { addMinutes, endOf, hm, itemKey, overlapText, overlapping, toMin } from '../utils/timeline';
 
 const CHIPS = [
   { mins: 30, label: '30 dk' },
@@ -28,8 +28,12 @@ function initialState(initial) {
 // - mode 'edit': tür sabittir. Eski antrenmanların adı türden türetilip kutuya yazılır; eski süre olduğu gibi korunur.
 //   endTime her zaman gönderilir (bitiş yoksa ""), böylece silinen bitiş sunucuda da silinir.
 // Ad boş bırakılırsa türün adı kullanılır; Diğer'de ad zorunludur. Bitiş isteğe bağlı; başlangıç yokken girilemez.
-// events: günün kayıtları (çakışma uyarısı için; engellemez). onSubmit(body) true dönerse ekleme formu kapanır.
-export default function EventForm({ mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill }) {
+// events: günün kayıtları, dersler dahil (çakışma uyarısı için; engellemez). onSubmit(body) true dönerse ekleme formu kapanır.
+// Bee'deki boşluk sayfasında (Görev 10): hidePre üstteki 'aralığına ekliyorsun' satırını gizler (sayfa kendi bilgi satırını
+// gösterir), onTimeChange(başlangıç) girilen başlangıcı sayfaya bildirir (Ders <-> Aktivite geçişinde korunur).
+export default function EventForm({
+  mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill, hidePre = false, onTimeChange,
+}) {
   const [kind, setKind] = useState(mode === 'edit' ? initial?.kind : null);
   const [f, setF] = useState(() => initialState(mode === 'edit' ? initial : null));
   const [error, setError] = useState('');
@@ -53,6 +57,7 @@ export default function EventForm({ mode = 'add', initial, onSubmit, onCancel, b
     // Başlangıç silinirse (ya da geçersizse) bitiş de temizlenir
     setF((s) => ({ ...s, time: v, endTime: toMin(v) == null ? '' : s.endTime }));
     setError('');
+    onTimeChange?.(v);
   }
   const setEnd = (v) => { setF((s) => ({ ...s, endTime: v })); setError(''); };
   const chip = (mins) => setEnd(addMinutes(f.time, mins));
@@ -86,7 +91,8 @@ export default function EventForm({ mode = 'add', initial, onSubmit, onCancel, b
   }
 
   const cancel = mode === 'add' ? close : onCancel;
-  const clash = hasStart && !same ? overlapping(events, f.time, endMin != null ? f.endTime : '', initial?.id) : [];
+  const clash = hasStart && !same
+    ? overlapping(events, { time: f.time, endTime: endMin != null ? f.endTime : '' }, initial ? itemKey(initial) : null) : [];
 
   let summary;
   if (!hasStart) summary = <>Saat girmezsen “Saati yok” bölümünde görünür. Bitiş için önce başlangıcı seç.</>;
@@ -96,7 +102,7 @@ export default function EventForm({ mode = 'add', initial, onSubmit, onCancel, b
 
   return (
     <div className="evform">
-      {mode === 'add' && prefill && (!kind || (f.time === prefill.start && f.endTime === prefill.end)) && (
+      {mode === 'add' && prefill && !hidePre && (!kind || (f.time === prefill.start && f.endTime === prefill.end)) && (
         <div className="tl-pre">
           <span><b>{prefill.start}–{prefill.end}</b> aralığına ekliyorsun. Tür seç.</span>
           <button type="button" onClick={close}>Vazgeç</button>

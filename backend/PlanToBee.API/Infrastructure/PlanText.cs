@@ -45,4 +45,9 @@ public static class PlanText
         var end = (start + minutes.Value) % 1440;
         return $"{end / 60:00}:{end % 60:00}";
     }
+
+    // Dersin bitişi: başlangıç + süre (gece yarısını aşarsa ertesi günün saati). Saklanmaz; okumada ve bildirimde
+    // buradan türetilir ki iki yerde farklı hesaplanmasın. Başlangıç yoksa ya da süre tam gün katıysa null.
+    public static string? StudyEndTime(string? startTime, int minutes) =>
+        startTime == null ? null : DerivedEndTime(startTime, null, minutes);
 }

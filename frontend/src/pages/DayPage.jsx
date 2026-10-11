@@ -1,23 +1,28 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
 import { errorText } from '../api/errors';
-import useMutation from '../hooks/useMutation';
+import useMutation, { patchEntry, removeEntry } from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import WeekSheet from '../components/WeekSheet';
 import StudyCard from '../components/StudyCard';
 import EventCard from '../components/EventCard';
-import { addDays, dayTitle, dkey, mondayOf, MONTHS, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
+import AgendaCard from '../components/AgendaCard';
+import SectionTabs, { panelId, tabId } from '../components/SectionTabs';
+import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
+import { deletedText } from '../utils/events';
+import { addMinutes, agendaItems } from '../utils/timeline';
 import Loading from '../components/Loading';
 
-const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', subjectsOpen: false };
+const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
 
-// Tek ekran plan: üstte siyah hafta alanı (aralık, ‹ › hafta okları, "📅 Hafta" paneli, şerit), altında seçili günün
-// Çalışma Planı ve Aktiviteleri. Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
+// Tek ekran plan: üstte siyah hafta alanı (aralık, ‹ › hafta okları, "📅 Hafta" paneli, şerit), altında bölüm seçici
+// (Plan · To-do · Bee, Görev 10), gün başlığı ve seçili bölümün tek kartı: Bee = saat çizelgesi (dersler + aktiviteler),
+// To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm (PlanShell'de; açılışta Bee). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
 // weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null), weekError: hafta ayrıntısı hata metni.
 // layerReset değişince (bildirimden gün açıldı) açık Hafta paneli ve ⋯ menüleri kapanır.
 export default function DayPage({
   currentDate, setCurrentDate, weekDays, weekError, onRetryWeek, onDayChanged, myId,
-  subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged, layerReset,
+  subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged, layerReset, section, setSection,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -67,6 +72,47 @@ export default function DayPage({
     if (d) onDayChanged(d);
   }, [onDayChanged]);
   const mutate = useMutation({ state: shown, setState: setShown, reload, onAccessChanged });
+
+  // Ders ve aktivite işlemleri tek yerde: Bee ve To-do aynı gün verisini (shown) değiştirir; durum iki bölümde senkron.
+  // add() başarılıysa sunucunun döndürdüğü kaydı (odak için), aksi halde null döner.
+  const [announce, setAnnounce] = useState('');
+  const study = useMemo(() => ({
+    cycle(entry) {
+      const status = nextStatus(entry.status);
+      setAnnounce(`${entry.subject}: ${STATUS_SHORT[status]}`);
+      return mutate(d => patchEntry(d, 'studyEntries', entry.id, { status }),
+        () => client.patch(`/days/${date}/entries/${entry.id}/status`, { status }));
+    },
+    async add(body) {
+      let created = null;
+      const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/entries`, body)).data; });
+      return ok ? created ?? {} : null;
+    },
+    save(entry, body) {
+      const st = body.startTime || null;
+      const patch = { ...body, startTime: st, endTime: st ? addMinutes(st, body.minutes) : null };
+      return mutate(d => patchEntry(d, 'studyEntries', entry.id, patch), () => client.put(`/days/${date}/entries/${entry.id}`, body));
+    },
+    remove(entry) {
+      return mutate(d => removeEntry(d, 'studyEntries', entry.id), (cfg) => client.delete(`/days/${date}/entries/${entry.id}`, cfg),
+        { undo: `${entry.subject} kaydı silindi` });
+    },
+  }), [date, mutate]);
+  const events = useMemo(() => ({
+    async add(body) {
+      let created = null;
+      const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/events`, body)).data; });
+      return ok ? created ?? {} : null;
+    },
+    save(ev, body) {
+      return mutate(d => patchEntry(d, 'events', ev.id, body), () => client.put(`/days/${date}/events/${ev.id}`, body));
+    },
+    remove(ev) {
+      return mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
+        { undo: deletedText(ev) });
+    },
+  }), [date, mutate]);
+  const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
   // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
@@ -122,8 +168,10 @@ export default function DayPage({
     window.addEventListener('resize', fit);
     return () => { alive = false; window.removeEventListener('resize', fit); };
   }, [range]);
-  const dateLabel = `${WEEKDAYS_FULL[(currentDate.getDay() + 6) % 7]} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]}`;
-  const common = { date, myId, mutate, menuReset: layerReset };
+  const dayName = WEEKDAYS_FULL[(currentDate.getDay() + 6) % 7];
+  const dateLabel = `${dayName} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]}`;
+  const common = { date, myId, menuReset: layerReset };
+  const panel = { role: 'tabpanel', id: panelId(section), 'aria-labelledby': tabId(section), tabIndex: -1 };
 
   return (
     <>
@@ -140,6 +188,8 @@ export default function DayPage({
         {!isThisWeek && <button type="button" className="today-btn" onClick={goToday}>Bugüne dön</button>}
       </section>
 
+      <SectionTabs value={section} onChange={setSection} />
+
       <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
         {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
       </h2>
@@ -153,13 +203,18 @@ export default function DayPage({
         // Hafta paneli açıkken tam ekran yükleniyor katmanı panelin üstünü kapatmasın
         weekOpen ? <div className="loading-placeholder" aria-hidden="true" /> : <Loading />
       ) : (
-        <>
-          <StudyCard {...common} dateLabel={dateLabel} entries={shown.studyEntries}
+        section === 'todo' ? (
+          <StudyCard {...common} panel={panel} dateLabel={dateLabel} entries={shown.studyEntries} items={items} actions={study}
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
             addForm={addForm} setAddForm={setAddForm} />
-          <EventCard {...common} events={shown.events} isToday={isToday} />
-        </>
+        ) : section === 'plan' ? (
+          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} isToday={isToday} dayName={dayName} />
+        ) : (
+          <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
+            subjects={subjects} study={study} events={events} />
+        )
       )}
+      <span className="sr-only" aria-live="polite">{announce}</span>
 
       {weekOpen && (
         <WeekSheet monday={monday} days={weekDays} error={weekError} onRetry={onRetryWeek}

@@ -552,6 +552,83 @@ def test_event_end_time():
     check("başka ailenin denemesi kaydı değiştirmedi", k["endTime"] == "13:00", k)
 
 
+def test_study_start_time():
+    print("Derste başlangıç saati (bitiş = başlangıç + dakika)")
+    email, acc = register_and_verify("DersSaat")
+    s, own = req("POST", "/family", {"name": "Ders Saat", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    s, kid = req("POST", "/profiles", {"displayName": "Can", "role": "Child"}, pt)
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    ct = ct["token"]
+    d = (dt.date.today() + dt.timedelta(days=2)).isoformat()
+    en = f"/days/{d}/entries"
+
+    s, mat = req("POST", en, {"subject": "Matematik", "topic": "Türev", "minutes": 40, "startTime": "15:00"}, pt)
+    check("saatli ders eklendi, bitiş türetildi", s == 200 and mat["startTime"] == "15:00" and mat["endTime"] == "15:40", (s, mat))
+    s, b = req("POST", en, {"subject": "Fizik", "minutes": 30}, pt)
+    check("eski istemci gövdesi: saatsiz ders (startTime ve endTime null)", s == 200 and b["startTime"] is None and b["endTime"] is None, (s, b))
+    s, b = req("POST", en, {"subject": "Kimya", "minutes": 30, "startTime": ""}, pt)
+    check("boş başlangıç = saatsiz", s == 200 and b["startTime"] is None, (s, b))
+    s, b = req("POST", en, {"subject": "Gece", "minutes": 90, "startTime": "23:30"}, pt)
+    check("gece yarısını aşan ders: bitiş ertesi günün saati", s == 200 and b["endTime"] == "01:00", (s, b))
+    s, b = req("POST", en, {"subject": "Tam gün", "minutes": 1440, "startTime": "08:00"}, pt)
+    check("tam gün süren derste bitiş türetilmez", s == 200 and b["startTime"] == "08:00" and b["endTime"] is None, (s, b))
+    for bad in ["24:00", "9:00", "12:60", "ab:cd", "15.00", "15:00:00"]:
+        s, b = req("POST", en, {"subject": "X", "minutes": 30, "startTime": bad}, pt)
+        check(f"geçersiz başlangıç {bad!r} 400 validation", s == 400 and code_of(b) == "validation", (s, b))
+    s, b = req("POST", en, {"subject": "X", "minutes": 30, "startTime": "x" * 21}, pt)
+    check("çok uzun başlangıç 400", s == 400, (s, b))
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 40, "startTime": "25:00"}, pt)
+    check("düzenlemede geçersiz başlangıç 400", s == 400 and code_of(b) == "validation", (s, b))
+
+    # Düzenleme: değişir; eski istemci gövdesi (alan yok / null) korur; "" siler
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "topic": "Türev", "minutes": 45, "startTime": "16:00"}, pt)
+    check("başlangıç ve süre düzenlendi", s == 200 and b["startTime"] == "16:00" and b["endTime"] == "16:45", (s, b))
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "topic": "İntegral", "minutes": 50, "status": "inprogress"}, pt)
+    check("eski istemci gövdesiyle düzenlemede başlangıç korunur", s == 200 and b["startTime"] == "16:00" and b["endTime"] == "16:50" and b["topic"] == "İntegral", (s, b))
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 50, "startTime": None}, pt)
+    check("startTime: null da korur", s == 200 and b["startTime"] == "16:00", (s, b))
+    s, b = req("PATCH", f"{en}/{mat['id']}/status", {"status": "done"}, ct)
+    check("durum değiştirme başlangıca dokunmaz", s == 200 and b["status"] == "done" and b["startTime"] == "16:00" and b["endTime"] == "16:50", (s, b))
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 50, "startTime": ""}, pt)
+    check("başlangıç temizlendi", s == 200 and b["startTime"] is None and b["endTime"] is None and b["status"] == "done", (s, b))
+    req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 40, "startTime": "15:00"}, pt)
+
+    # Okuma: gün ve hafta ayrıntısı; hafta özetinin toplam dakikası değişmez
+    s, day = req("GET", f"/days/{d}", token=ct)
+    byid = {e["id"]: e for e in day["studyEntries"]}
+    check("gün cevabında startTime/endTime", byid[mat["id"]]["startTime"] == "15:00" and byid[mat["id"]]["endTime"] == "15:40", byid.get(mat["id"]))
+    mon = monday(dt.date.fromisoformat(d)).isoformat()
+    s, wk = req("GET", f"/days/week/{mon}/details", token=pt)
+    wd = next(x for x in wk["days"] if x["date"] == d)
+    check("hafta ayrıntısında startTime/endTime", any(e.get("startTime") == "15:00" and e.get("endTime") == "15:40" for e in wd["studyEntries"]), wd["studyEntries"])
+    check("hafta ayrıntısında saatsiz ders sayılabilir", sum(1 for e in wd["studyEntries"] if e["startTime"] is None) == 2, wd["studyEntries"])
+    s, ws = req("GET", f"/days/week/{mon}", token=pt)
+    sm = next(x for x in ws["days"] if x["date"] == d)
+    check("hafta özeti toplam dakika değişmedi", sm["studyMinutes"] == 40 + 30 + 30 + 90 + 1440 and sm["entryCount"] == 5, sm)
+
+    # Yetki ve izolasyon
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 40, "startTime": "10:00"}, ct)
+    check("çocuk ebeveynin dersinin saatini değiştiremez (403)", s == 403 and code_of(b) == "plan_read_only", (s, b))
+    s, mine = req("POST", en, {"subject": "Resim", "minutes": 20, "startTime": "18:00"}, ct)
+    s, b = req("PUT", f"{en}/{mine['id']}", {"subject": "Resim", "minutes": 20, "startTime": "18:30"}, ct)
+    check("çocuk kendi dersinin saatini değiştirir", s == 200 and b["startTime"] == "18:30" and b["endTime"] == "18:50", (s, b))
+    o_email, other = register_and_verify("DersSaatB")
+    s, oo = req("POST", "/family", {"name": "Başka", "profileName": "Baba", "pin": "2468", "refreshToken": other["refreshToken"]}, other["token"])
+    s, b = req("PUT", f"{en}/{mat['id']}", {"subject": "Matematik", "minutes": 40, "startTime": "10:00"}, oo["token"])
+    check("başka aile dersin saatini değiştiremez (404)", s == 404 and code_of(b) == "not_found", (s, b))
+    s, b = req("PATCH", f"{en}/{mat['id']}/status", {"status": "todo"}, oo["token"])
+    check("başka aile durum değiştiremez (404)", s == 404, (s, b))
+    s, b = req("GET", f"/days/{d}", token=oo["token"])
+    check("başka aile dersleri görmez", s == 200 and b["studyEntries"] == [], (s, b))
+    s, b = req("GET", f"/days/week/{mon}/details", token=oo["token"])
+    check("başka aile hafta ayrıntısında dersleri görmez", s == 200 and all(x["studyEntries"] == [] for x in b["days"]), s)
+    s, b = req("GET", f"/days/{d}", token=pt)
+    m = next(e for e in b["studyEntries"] if e["id"] == mat["id"])
+    check("başka ailenin denemesi dersi değiştirmedi", m["startTime"] == "15:00" and m["status"] == "done", m)
+
+
 # ---------------------------------------------------------------- bildirimler (Web Push)
 # API'nin WebPush:Key ve WebPush:TestEndpointHosts=localhost ile, kısa toplama süresiyle çalışması gerekir
 # (WebPush__BatchSeconds=2). Ayarlı değilse bu senaryo atlanır.
@@ -714,6 +791,17 @@ def test_push():
     held = db_count(f"""SELECT count(*) FROM "PendingNotifications" WHERE "Body" LIKE '✦ {kurs} · 09:00–13:00 —%'""")
     if held is not None:
         check("bildirim metninde bitiş aralığı", held == 1, held)
+    # Saatli ders: "📚 Ad · 15:00–15:40 — Gün"; saatsiz ders bugünkü metin ("📚 Tarih · 20 dk — Gün")
+    ders = f"Ders {uuid.uuid4().hex[:6]}"
+    req("POST", f"/days/{d1}/entries", {"subject": ders, "minutes": 40, "startTime": "15:00"}, ct)
+    time.sleep(1)
+    held = db_count(f"""SELECT count(*) FROM "PendingNotifications" WHERE "Body" LIKE '📚 {ders} · 15:00–15:40 —%'""")
+    if held is not None:
+        check("saatli ders bildiriminde saat aralığı", held == 1, held)
+    held = db_count(f"""SELECT count(*) FROM "PendingNotifications"
+        WHERE "RecipientMemberId" = {own['profile']['id']} AND "Body" LIKE '📚 Tarih · 20 dk —%'""")
+    if held is not None:
+        check("saatsiz ders bildirim metni değişmedi", held == 1, held)
     req("PUT", "/push/settings", off, pt)
 
     s, b = req("PUT", "/push/settings", dict(off, quietStart="25:00"), pt)
@@ -971,7 +1059,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_push, test_account_delete):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

@@ -53,6 +53,9 @@ export default function PlanShell() {
   const [currentDate, setCurrentDate] = useState(() => linkDate ?? new Date());
   // Görünüm: 'plan' (tek ekran plan) | 'family' (Ailem) | 'notifications' (Bildirimler)
   const [view, setView] = useState('plan');
+  // Gün ekranının bölümü (Görev 10): 'bee' (Ajanda) | 'todo' (Dersler) | 'plan' (Aktiviteler). Açılışta ve bildirimden
+  // gelince herkes için Bee; oturum içinde (gün değişince, Ailem'e gidip dönünce) korunur, kalıcı saklanmaz.
+  const [section, setSection] = useState('bee');
   // Seçili haftanın ayrıntısı: { key: pazartesi, days: 7 DayDto | null, error }
   const [week, setWeek] = useState({ key: '', days: null, error: '' });
   // Bildirimden gün açılınca artar: açık Hafta paneli ve ⋯ menüleri kapanır
@@ -101,6 +104,7 @@ export default function PlanShell() {
       // Önce açık katman kapanır, sonra plan görünümünde o gün seçilir (şerit o günün haftasını gösterir)
       setLayerReset(n => n + 1);
       setView('plan');
+      setSection('bee');
       setCurrentDate(d);
       window.scrollTo(0, 0);
     };
@@ -238,6 +242,8 @@ export default function PlanShell() {
             onRetryWeek={loadWeek}
             onDayChanged={replaceWeekDay}
             layerReset={layerReset}
+            section={section}
+            setSection={setSection}
             myId={myId}
             subjects={subjects}
             onAddSubject={addSubject}

@@ -566,6 +566,10 @@ namespace PlanToBee.API.Migrations
                     b.Property<int>("Minutes")
                         .HasColumnType("integer");
 
+                    b.Property<string>("StartTime")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");

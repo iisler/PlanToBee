@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlanToBee.API.Data;
+using PlanToBee.API.Infrastructure;
 using PlanToBee.API.Models;
 
 namespace PlanToBee.API.Services.Notifications;
@@ -104,8 +105,15 @@ public static class NotificationText
 
     public static string Date(DateOnly d) => $"{Days[(int)d.DayOfWeek]} {d.Day} {Months[d.Month - 1]}";
 
-    public static string Study(StudyEntry e) =>
-        "📚 " + string.Join(" · ", new[] { e.Subject, e.Topic, e.Minutes > 0 ? $"{e.Minutes} dk" : "" }.Where(x => x.Length > 0));
+    // Saatli ders: "📚 Matematik · 15:00–15:40 · Konu" (aralık süreyi zaten anlatır). Saatsiz: "📚 Matematik · Konu · 40 dk".
+    public static string Study(StudyEntry e)
+    {
+        var end = PlanText.StudyEndTime(e.StartTime, e.Minutes);
+        var parts = e.StartTime != null
+            ? new[] { e.Subject, end != null ? $"{e.StartTime}–{end}" : e.StartTime, e.Topic }
+            : new[] { e.Subject, e.Topic, e.Minutes > 0 ? $"{e.Minutes} dk" : "" };
+        return "📚 " + string.Join(" · ", parts.Where(x => x.Length > 0));
+    }
 
     public static string Activity(Event e)
     {

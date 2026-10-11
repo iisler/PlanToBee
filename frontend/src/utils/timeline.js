@@ -36,10 +36,25 @@ export function durationLong(mins) {
 // Kaydın görünen bitişi (gerçek ya da eski süreden türetilmiş); yoksa null
 export const endOf = (ev) => ev.endTime || ev.derivedEndTime || null;
 
+// ---------- Dersler çizelgede (Görev 10) ----------
+// Ders (StudyEntryDto) çizelgeye aktiviteyle aynı biçimde girer: { ...ders, isStudy: true, time: startTime, endTime }.
+// Dersin süresi her zaman vardır (bitiş = başlangıç + dakika; "süre belirsiz" ders olmaz).
+export const studyItem = (e) => ({ ...e, isStudy: true, time: e.startTime ?? '' });
+export const isStudy = (x) => !!x?.isStudy;
+// Ders ve aktivite kimlikleri ayrı tablolardan gelir: çizelgede ayırt edici anahtar
+export const itemKey = (x) => (x.isStudy ? `s${x.id}` : `e${x.id}`);
+// Bee (Ajanda) öğeleri: önce dersler (eklenme sırası), sonra aktiviteler; "Saati yok" şeridi bu sırayı korur
+export const agendaItems = (studyEntries = [], events = []) => [...studyEntries.map(studyItem), ...events];
+
 // Tek kayıt: { ev, S, E, noEnd, night } (saatsizse null). E gece aşımında 1440'tan büyüktür.
 export function span(ev) {
   const S = toMin(ev.time);
   if (S == null) return null;
+  if (ev.isStudy && ev.minutes > 0) {
+    // Gece yarısında ya da sonrasında biten ders ertesi güne geçer (sunucu: endTime < startTime)
+    const E = S + ev.minutes;
+    return { ev, S, E, noEnd: false, night: E >= 1440, start: hm(S), end: hm(E) };
+  }
   const e = toMin(endOf(ev));
   const noEnd = e == null || e === S;
   let E = noEnd ? S + NO_END_MIN : e;
@@ -111,14 +126,14 @@ export const rangeText = (r) => (r.noEnd ? r.start : `${r.start}–${r.end}`);
 
 // Ekran okuyucu: "Kurs, 09:00–13:00, 4 saat" / "Okul konseri, 15:00, süre belirsiz" / "Sinema, 21:00–00:30, ertesi gün biter"
 export function ariaEvent(r) {
-  const name = eventLabel(r.ev);
+  const name = eventLabel(r.ev) + (r.ev.isStudy ? ', ders' : '');
   if (r.noEnd) return `${name}, ${r.start}, süre belirsiz`;
   const rng = `${r.start}–${r.end}`;
   if (r.night) return `${name}, ${rng}, ertesi gün biter`;
   return `${name}, ${rng}, ${durationLong(r.E - r.S)}`;
 }
 
-export const kindClass = (ev) => (isTraining(ev) ? 'sport' : 'evt');
+export const kindClass = (ev) => (ev.isStudy ? 'study' : isTraining(ev) ? 'sport' : 'evt');
 
 // ---------- Gün çizelgesi yerleşimi ----------
 export const K = 32 / 60;     // px/dk (32 px/saat)
@@ -170,11 +185,11 @@ export function layoutDay(inw, nowMin = null) {
     if (n >= 4) {
       // 4+ yan yana okunmaz: liste kümesi
       H = LIST_HEAD + LIST_ROW * c.items.length + 6;
-      items.push({ type: 'list', key: `l${c.items[0].ev.id}`, top: y, height: H, a: cs, b: c.end, rows: c.items });
+      items.push({ type: 'list', key: `l${itemKey(c.items[0].ev)}`, top: y, height: H, a: cs, b: c.end, rows: c.items });
     } else {
       H = Math.max(...lanes);
       for (const p of placed) {
-        items.push({ type: 'blk', key: `e${p.r.ev.id}`, top: y + p.ry, height: p.rh, lane: p.lane, n, r: p.r });
+        items.push({ type: 'blk', key: itemKey(p.r.ev), top: y + p.ry, height: p.rh, lane: p.lane, n, r: p.r });
       }
     }
     labels.push({ y, text: hm(cs), p: 1 });
@@ -238,7 +253,7 @@ export function weekColumnLabel(head, col) {
 function ariaShort(r) {
   const name = eventLabel(r.ev);
   if (r.noEnd) return `${name} ${r.start}, süre belirsiz`;
-  return `${name} ${r.start}–${r.end}${r.night ? ', ertesi gün biter' : ''}`;
+  return `${name} ${r.start}–${r.end}${r.ev.isStudy ? ', ders' : ''}${r.night ? ', ertesi gün biter' : ''}`;
 }
 
 // En uzun boşluğu en büyük 3 gün: [{ label: "Cum", a, b }]; hiç pencere içi kayıt yoksa null
@@ -255,25 +270,34 @@ export function longestGaps(cols, shortNames) {
 }
 
 // ---------- Form yardımcıları ----------
-// Formdaki aralıkla çakışan diğer kayıtlar (saatsizler ve excludeId hariç), başlangıca göre sıralı
-export function overlapping(events, time, endTime, excludeId) {
-  const r = span({ time, endTime });
+// Formdaki aralıkla çakışan diğer kayıtlar (saatsizler ve excludeKey hariç), başlangıca göre sıralı.
+// events: aktiviteler ve (studyItem ile) dersler; excludeKey: düzenlenen kaydın itemKey'i.
+// range: { time, endTime } ya da ders için { time, minutes, isStudy: true }
+export function overlapping(events, range, excludeKey) {
+  const r = span(range);
   if (!r) return [];
   return events
-    .filter((ev) => ev.id !== excludeId)
+    .filter((ev) => itemKey(ev) !== excludeKey)
     .map(span)
     .filter((o) => o && o.S < r.E && r.S < o.E)
     .sort((a, b) => a.S - b.S);
 }
 
-// Çakışma uyarısı: "20:00 Antrenman ile çakışıyor." / "20:00 Antrenman ve 1 aktivite daha ile çakışıyor."
+// Çakışma uyarısı: "20:00 Antrenman ile çakışıyor." / "20:00 Antrenman ve 1 kayıt daha ile çakışıyor." (dersler dahil)
 export function overlapText(list) {
   if (!list.length) return '';
   const first = `${list[0].start} ${eventLabel(list[0].ev)}`;
-  return list.length === 1 ? `${first} ile çakışıyor.` : `${first} ve ${list.length - 1} aktivite daha ile çakışıyor.`;
+  return list.length === 1 ? `${first} ile çakışıyor.` : `${first} ve ${list.length - 1} kayıt daha ile çakışıyor.`;
+}
+
+// Ders formu uyarısı: "Kurs (09:00–13:00) ile çakışıyor." / "Kurs (09:00–13:00) ve 1 kayıt daha ile çakışıyor."
+export function clashText(list) {
+  if (!list.length) return '';
+  const first = `${eventLabel(list[0].ev)} (${rangeText(list[0])})`;
+  return list.length === 1 ? `${first} ile çakışıyor.` : `${first} ve ${list.length - 1} kayıt daha ile çakışıyor.`;
 }
 
 // başlangıç + süre (24 saatte sarar)
 export const addMinutes = (t, mins) => { const s = toMin(t); return s == null ? '' : hm(s + mins); };
 
-export const iconOf = (ev) => kindInfo(ev.kind).icon;
+export const iconOf = (ev) => (ev.isStudy ? '📚' : kindInfo(ev.kind).icon);

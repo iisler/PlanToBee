@@ -1,72 +1,68 @@
-import { useEffect, useRef, useState } from 'react';
-import client from '../api/client';
-import { patchEntry, removeEntry } from '../hooks/useMutation';
-import { deletedText } from '../utils/events';
-import { freeSummary } from '../utils/timeline';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { eventLabel } from '../utils/events';
+import { creatorMark } from '../utils/format';
+import { useAuditSettings } from '../context/AuditContext';
+import { ariaEvent, iconOf, kindClass, span } from '../utils/timeline';
 import EventForm from './EventForm';
-import Timeline from './Timeline';
 import EntryMenu from './EntryMenu';
+import AuditTag from './AuditTag';
 import useFocusAfterDelete from '../hooks/useFocusAfterDelete';
 
-const EVENT_ICON = (
-  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
-);
+// Plan sırası: saatliler başlangıca göre, sonra saatsizler (ve eski serbest metin saatliler) sunucu sırasıyla
+export function sortEvents(events) {
+  const withSpan = events.map(ev => ({ ev, r: span(ev) }));
+  const timed = withSpan.filter(x => x.r).sort((a, b) => a.r.S - b.r.S);
+  return [...timed, ...withSpan.filter(x => !x.r)];
+}
 
-// Günün aktiviteleri saat çizelgesi olarak (Görev 09, components/Timeline). Bloğa ya da satıra dokununca ⋯ menüsü
-// (Düzenle / Sil; yalnızca canEdit kayıtlarda) açılır. Düzenleme formu kartın altında, ekleme formunun yerinde açılır;
-// kapanınca odak bloğa döner. Boşluktaki "+ Ekle" ekleme formunu o aralıkla doldurur (tür seçimi kullanıcıda).
-export default function EventCard({ date, events, myId, mutate, menuReset, isToday }) {
+// Satırın saat metni: "09:00–13:00", bitişsiz "15:00", gece aşımı "21:00–00:30 ↷"; saatsiz null
+const whenText = (r) => (r.noEnd ? r.start : `${r.start}–${r.end}${r.night ? ' ↷' : ''}`);
+
+// Plan (Aktiviteler, Görev 10): üstte aktivite türü ikonları (dokununca ekleme formu altında açılır), altında günün
+// aktiviteleri liste olarak. Satır: tür ikonu · ad · saat aralığı ya da "saati yok" · ⋯ menüsü (Düzenle / Sil).
+// Düzenleme formu satırın yerinde açılır. Bu kartta çizelge ve boşluk yok.
+// items: Bee öğeleri (çakışma uyarısı dersleri de görsün). actions: DayPage'deki aktivite işlemleri (add, save, remove).
+export default function EventCard({ date, events, items, actions, myId, menuReset, isToday, dayName, panel }) {
+  const { hideInitials } = useAuditSettings();
   const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [menu, setMenu] = useState(null); // açık ⋯ menüsü: { entry, reset }
-  const [prefill, setPrefill] = useState(null); // boşluktan gelme: { start, end, n }
   const openerRef = useRef(null);
   const cardRef = useRef(null);
   const headingRef = useRef(null);
-  const formRef = useRef(null);
-  const focusAfterDelete = useFocusAfterDelete(events, cardRef, () => headingRef.current);
-  const editing = editingId != null ? events.find(e => e.id === editingId) : null;
+  const rows = useMemo(() => sortEvents(events), [events]);
+  const focusAfterDelete = useFocusAfterDelete(rows.map(x => x.ev), cardRef, () => headingRef.current);
+  const editFormRef = useRef(null);
 
   // Menü, açıldığı andaki menuReset değeriyle tutulur: bildirimden gün açılınca (menuReset artar) kendiliğinden kapanır
   const menuEntry = menu && menu.reset === menuReset ? menu.entry : null;
 
-  // Gün değişince düzenleme ve boşluk ön doldurması kapanır
+  // Gün değişince düzenleme kapanır
   const [lastDate, setLastDate] = useState(date);
-  if (lastDate !== date) { setLastDate(date); setEditingId(null); setPrefill(null); }
+  if (lastDate !== date) { setLastDate(date); setEditingId(null); }
 
-  // ⋯ → Düzenle: form kartın altında açılır, odak ilk alana
+  // ⋯ → Düzenle: form satırın yerinde açılır, odak ilk alana
   useEffect(() => {
-    if (editingId != null) formRef.current?.querySelector('input')?.focus();
+    if (editingId != null) editFormRef.current?.querySelector('input')?.focus();
   }, [editingId]);
 
-  // Boşluktan gelme: form görünür alana kayar, odak ilk tür düğmesine
-  useEffect(() => {
-    if (!prefill) return;
-    const el = formRef.current;
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    el?.querySelector('.acts button')?.focus({ preventScroll: true });
-  }, [prefill]);
-
-  function focusEntry(id) {
-    requestAnimationFrame(() => cardRef.current?.querySelector(`[data-id="${id}"]`)?.focus());
-  }
+  const focusRow = (id) => requestAnimationFrame(() => cardRef.current?.querySelector(`[data-id="${id}"]`)?.focus());
 
   async function add(body) {
     if (busyRef.current) return false; // hızlı çift dokunuş iki kayıt eklemesin
     busyRef.current = true;
     setBusy(true);
-    const ok = await mutate(null, () => client.post(`/days/${date}/events`, body));
+    const created = await actions.add(body);
     busyRef.current = false;
     setBusy(false);
-    if (ok) setPrefill(null);
-    return ok;
+    return !!created;
   }
 
   async function save(ev, body) {
     setEditingId(null);
-    focusEntry(ev.id);
-    const ok = await mutate(d => patchEntry(d, 'events', ev.id, body), () => client.put(`/days/${date}/events/${ev.id}`, body));
+    focusRow(ev.id);
+    const ok = await actions.save(ev, body);
     if (!ok) setEditingId(ev.id); // hata: düzenleme formu açık kalsın
     return ok;
   }
@@ -74,40 +70,46 @@ export default function EventCard({ date, events, myId, mutate, menuReset, isTod
   function cancelEdit() {
     const id = editingId;
     setEditingId(null);
-    focusEntry(id);
+    focusRow(id);
   }
 
   function remove(ev) {
     focusAfterDelete(ev);
-    mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
-      { undo: deletedText(ev) });
+    actions.remove(ev);
   }
 
-  function fromGap(start, end) {
-    setEditingId(null);
-    setPrefill(p => ({ start, end, n: (p?.n ?? 0) + 1 }));
-  }
-
+  const who = (ev) => {
+    const m = hideInitials ? null : creatorMark(ev, myId);
+    return m ? `, ${m.text}` : '';
+  };
+  const summary = !events.length ? 'Aktivite yok' : `${events.length} ${isToday ? 'bugün' : 'aktivite'}`;
   return (
-    <div className="card" ref={cardRef}>
+    <div className="card" ref={cardRef} {...panel}>
       <div className="card-head">
-        <div className="card-title"><span className="icon-tile evt">{EVENT_ICON}</span><h2 ref={headingRef} tabIndex={-1}>Aktiviteler</h2></div>
-        <span className="card-sum">{freeSummary(events)}</span>
+        <h2 className="sumh" ref={headingRef} tabIndex={-1}>{summary}</h2>
       </div>
 
-      <Timeline events={events} isToday={isToday} myId={myId} editingId={editingId}
-        onOpen={(ev, el) => { openerRef.current = el; setMenu({ entry: ev, reset: menuReset }); }}
-        onGap={fromGap} />
+      <EventForm key="add" mode="add" onSubmit={add} busy={busy} events={items} />
 
-      <div className="evadd" ref={formRef}>
-        {editing ? (
-          <EventForm key={`edit${editing.id}`} mode="edit" initial={editing} events={events}
-            onSubmit={body => save(editing, body)} onCancel={cancelEdit} />
+      <div className="sub-lb">{isToday ? 'Bugün' : dayName}</div>
+      {rows.length === 0 ? <div className="empty-note">Bu gün için aktivite yok.</div> : rows.map(({ ev, r }) => (
+        editingId === ev.id ? (
+          <div key={ev.id} className="entry-edit" ref={editFormRef}>
+            <EventForm key={`edit${ev.id}`} mode="edit" initial={ev} events={items}
+              onSubmit={body => save(ev, body)} onCancel={cancelEdit} />
+          </div>
         ) : (
-          <EventForm key="add" mode="add" onSubmit={add} busy={busy} events={events}
-            prefill={prefill} onClearPrefill={() => setPrefill(null)} />
-        )}
-      </div>
+          <div key={ev.id} className="entry">
+            <span className={`ico ${kindClass(ev)}`} aria-hidden="true">{iconOf(ev)}</span>
+            <div className="info"><div className="subj">{eventLabel(ev)}<AuditTag entry={ev} myId={myId} /></div></div>
+            {r ? <span className="when">{whenText(r)}</span>
+              : <span className="when none">{ev.time || 'saati yok'}</span>}
+            <button type="button" className="more" data-id={ev.id} aria-haspopup="dialog"
+              aria-label={`${r ? ariaEvent(r) : `${eventLabel(ev)}, ${ev.time || 'saati yok'}`}${who(ev)}: seçenekler`}
+              onClick={e => { openerRef.current = e.currentTarget; setMenu({ entry: ev, reset: menuReset }); }}>⋯</button>
+          </div>
+        )
+      ))}
 
       {menuEntry && (
         <EntryMenu kind="event" entry={menuEntry} myId={myId} returnFocusRef={openerRef}

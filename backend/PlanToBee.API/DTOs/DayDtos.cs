@@ -6,8 +6,11 @@ namespace PlanToBee.API.DTOs;
 // Kayıtlardaki CanEdit: istek sahibi bu kaydı düzenleyip silebilir mi (ebeveyn ya da kaydı ekleyen).
 public record AuditMemberDto(int MemberId, string DisplayName, bool IsFormerMember);
 
+// StartTime: dersin başlangıcı (SS:dd) ya da null (saatsiz). EndTime saklanmaz, başlangıç + Minutes'tan türetilir
+// (gösterim içindir); EndTime < StartTime ise ders ertesi gün biter. Saatsiz derste ikisi de null.
 public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, string Status, bool CanEdit,
-    AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
+    AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported,
+    string? StartTime, string? EndTime);
 // Aktivite. Kind: "Training" (Spor) | "Music" | "Concert" | "Meeting" | "Exam" | "Event" (Diğer).
 // Title aktivitenin adıdır; eski antrenman kayıtlarında boş olabilir, ad TrainingType'tan türetilir. Minutes yalnızca sporda.
 // EndTime: girilmiş bitiş (SS:dd) ya da null. EndTime < Time ise kayıt ertesi gün biter.
@@ -36,18 +39,21 @@ public record WeekDetailsDto(List<DayDto> Days);
 
 public record SubjectListDto(List<SubjectDto> Subjects);
 
-// Bir kayıt en fazla bir tam gün (1440 dk) sürebilir.
+// Bir kayıt en fazla bir tam gün (1440 dk) sürebilir. StartTime boş ya da SS:dd (isteğe bağlı başlangıç).
 public record AddStudyEntryDto(
     [Required(ErrorMessage = "Ders seçin"), StringLength(100, ErrorMessage = "Ders adı en fazla 100 karakter olabilir")] string Subject,
     [StringLength(200, ErrorMessage = "Konu en fazla 200 karakter olabilir")] string? Topic,
-    [Range(1, 1440, ErrorMessage = "Süre 1 ile 1440 dakika arasında olmalı")] int Minutes);
+    [Range(1, 1440, ErrorMessage = "Süre 1 ile 1440 dakika arasında olmalı")] int Minutes,
+    [StringLength(20, ErrorMessage = "Başlangıç saati en fazla 20 karakter olabilir")] string? StartTime = null);
 
-// Status boş bırakılırsa mevcut durum korunur.
+// Status boş bırakılırsa mevcut durum korunur. StartTime gönderilmezse (null; başlangıcı bilmeyen eski istemci)
+// mevcut başlangıç korunur, "" gönderilirse silinir.
 public record UpdateStudyEntryDto(
     [Required(ErrorMessage = "Ders seçin"), StringLength(100, ErrorMessage = "Ders adı en fazla 100 karakter olabilir")] string Subject,
     [StringLength(200, ErrorMessage = "Konu en fazla 200 karakter olabilir")] string? Topic,
     [Range(1, 1440, ErrorMessage = "Süre 1 ile 1440 dakika arasında olmalı")] int Minutes,
-    string? Status);
+    string? Status,
+    [StringLength(20, ErrorMessage = "Başlangıç saati en fazla 20 karakter olabilir")] string? StartTime = null);
 
 public record PatchStatusDto([Required] string Status);
 
