@@ -548,7 +548,11 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .tl-list > li { position: absolute; left: 0; right: 0; }
 .tl-list .tl-blk { inset: 0; width: 100%; }
 .tl-list .tl-gap { inset: 3px 0; }
-.tl-gap .gt { min-width: 0; }
+.tl-gap .gt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Dar ekranda (360–400 px) boşluk metni tek satıra sığsın: "boş" sözcüğü düşer (kesik çerçeve ve ekran okuyucu adı
+   boşluğu zaten söyler), 380 px altında "+ Ekle" düğmesi "+" olarak kısalır */
+@media (max-width: 400px) { .tl-gap .gw { display: none; } }
+@media (max-width: 380px) { .tl-gap .pl-t { display: none; } .tl-gap .pl { min-width: 36px; padding: 0; justify-content: center; font-size: 16px; } }
 .tl-blk:focus-visible, .tl-gap:focus-visible, .tl-row:focus-visible { outline-offset: -2px; }
 .tl-row .ic { width: 20px; text-align: center; flex-shrink: 0; }
 .tl-row.edit { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 10px; }

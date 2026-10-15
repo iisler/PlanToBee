@@ -127,8 +127,8 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
                   <li key={it.key} style={pos}>
                     <button type="button" className="tl-gap" onClick={(e) => onGap(hm(it.a), hm(it.b), e.currentTarget)}
                       aria-label={`${hm(it.a)}–${hm(it.b)} boş, ${durationLong(it.d)}. Bu aralığa ders ya da aktivite ekle`}>
-                      <span className="gt"><b>{hm(it.a)}–{hm(it.b)}</b> boş · {formatDuration(it.d)}</span>
-                      <span className="pl" aria-hidden="true">+ Ekle</span>
+                      <span className="gt"><b>{hm(it.a)}–{hm(it.b)}</b><span className="gw"> boş</span> · {formatDuration(it.d)}</span>
+                      <span className="pl" aria-hidden="true">+<span className="pl-t">&nbsp;Ekle</span></span>
                     </button>
                   </li>
                 );

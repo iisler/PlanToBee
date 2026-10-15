@@ -44,6 +44,7 @@ export default function StudyForm({
   let summary;
   if (!hasStart) summary = <>Saat seçmezsen ders ajandada “Saati yok” bölümünde görünür.</>;
   else if (E == null) summary = <>Süreyi seçince bitiş görünür.</>;
+  else if (E - S >= 1440) summary = <>Bitiş ertesi gün <b>{end}</b> · 24 saat</>;
   else if (E >= 1440) summary = <>Bitiş <b>{end}</b> · ↷ ertesi gün biter</>;
   else summary = <>Bitiş <b>{end}</b> · ajandada {value.startTime}–{end} görünür</>;
 
