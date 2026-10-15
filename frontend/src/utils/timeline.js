@@ -52,8 +52,9 @@ export function span(ev) {
   if (S == null) return null;
   if (ev.isStudy && ev.minutes > 0) {
     // Gece yarısında ya da sonrasında biten ders ertesi güne geçer (sunucu: endTime < startTime)
+    // 1440 dk'lık ders tam 24 saat sürer: bitiş saati başlangıçla aynı olduğundan "full" ile ayrı yazılır
     const E = S + ev.minutes;
-    return { ev, S, E, noEnd: false, night: E >= 1440, start: hm(S), end: hm(E) };
+    return { ev, S, E, noEnd: false, night: E >= 1440, full: E - S >= 1440, start: hm(S), end: hm(E) };
   }
   const e = toMin(endOf(ev));
   const noEnd = e == null || e === S;
@@ -115,6 +116,7 @@ export function clusters(inw) {
 export function timeText(r, level = 1) {
   if (r.noEnd) return level < 3 ? `${r.start} · süre belirsiz` : r.start;
   if (level === 3) return r.start + (r.night ? '↷' : '');
+  if (r.full) return level === 2 ? `${r.start} · 24 sa` : `${r.start} · 24 sa ↷`;
   const rng = `${r.start}–${r.end}`;
   if (level === 2) return r.night ? `${rng} ↷` : rng;
   if (r.night) return `${rng} ↷ ertesi gün`;
@@ -122,12 +124,13 @@ export function timeText(r, level = 1) {
 }
 
 // Kısa aralık metni (pencere dışı satırları, form, şerit): "09:00–13:00" / "15:00"
-export const rangeText = (r) => (r.noEnd ? r.start : `${r.start}–${r.end}`);
+export const rangeText = (r) => (r.noEnd ? r.start : r.full ? `${r.start} · 24 sa` : `${r.start}–${r.end}`);
 
 // Ekran okuyucu: "Kurs, 09:00–13:00, 4 saat" / "Okul konseri, 15:00, süre belirsiz" / "Sinema, 21:00–00:30, ertesi gün biter"
 export function ariaEvent(r) {
   const name = eventLabel(r.ev) + (r.ev.isStudy ? ', ders' : '');
   if (r.noEnd) return `${name}, ${r.start}, süre belirsiz`;
+  if (r.full) return `${name}, ${r.start}, 24 saat, ertesi gün biter`;
   const rng = `${r.start}–${r.end}`;
   if (r.night) return `${name}, ${rng}, ertesi gün biter`;
   return `${name}, ${rng}, ${durationLong(r.E - r.S)}`;

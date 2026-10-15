@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/09-saat-cizelgesi.md`.
 
-Durum: Ürün: Tamamlandı · Tasarım: Tamamlandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Başlamadı
+Durum: Ürün: Tamamlandı · Tasarım: Tamamlandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Onaylandı (backend e2e bu ortamda çalıştırılamadı; bkz. QA Sonuçları)
 
 > **Sıra güncellemesi (kullanıcı kararı, 2026-10-11):** Seçici sırası soldan sağa **Plan (Aktiviteler) · To-do (Dersler) · Bee (Ajanda)** — marka sırası. Uygulama açılınca herkes için **Bee** seçili gelir. Belgedeki "1) Bee 2) To-do 3) Plan" sırası bu notla geçersizdir; maket: /tmp/ptb-ux-preview/67-plan-todo-bee.png.
 
@@ -449,3 +449,68 @@ Ek: 07:00 öncesi, 22:00 sonrası/↷ ve aktiviteyle yan yana (n2) ders denendi.
 - Sunucu 400 metni form içinde değil, mevcut bildirim (toast) ile gösterilir (useMutation akışı).
 - Hafta şeridi değişmedi (tasarımda değişiklik yok). Aktivite formundaki çakışma metni "… ve N kayıt daha" oldu (dersler de sayılıyor).
 - Bee sayfasında ders listesi boşsa formun üstünde bilgi satırı çıkar (ders adı To-do'dan eklenir).
+
+---
+
+## QA Sonuçları
+
+Tarih: 2026-10-14 · Commit: `a4bb79a` · Sonuç: **QA: Onaylandı** (engelleyici hata yok). **Koşul:** backend testleri bu
+ortamda çalıştırılamadı (aşağıda); Kabul 27, 28, 30 kod incelemesi ve e2e senaryosunun okunmasıyla doğrulandı. Canlıya
+almadan önce `dotnet build` + `backend/tests/e2e.py` (245 kontrol) bir kez çalıştırılmalı.
+
+### Çalıştırılanlar
+- **Backend:** `dotnet` yok; .NET 10 SDK kurulumu (`dot.net/v1/dotnet-install.sh`) kurum ağ politikasınca engellendi
+  (builds.dotnet.microsoft.com → 403). `dotnet build`, `dotnet test`, WebPushSelfTest ve e2e **çalıştırılamadı**.
+  `python3 -m py_compile backend/tests/e2e.py` geçti. (Not: `backend/tests` altında `dotnet test` ile çalışan bir test
+  projesi yok; testler `e2e.py` + `WebPushSelfTest` konsol uygulaması.)
+- **Frontend:** `npm ci` geçti · `npm run build` VITE_API_URL olmadan bilinçli olarak durur (vite.config korumalı);
+  `VITE_API_URL=... npm run build` geçti (hata/uyarı yok) · `npm run lint` (oxlint) **0 hata, 15 uyarı** (yeni
+  dosyalarda `only-export-components`: SectionTabs.jsx:7,13,14, StudyForm.jsx:8,11, StudyCard.jsx:13, EventCard.jsx:12;
+  engelleyici değil). Projede test script'i yok.
+- **Tarayıcı testi:** Üretim derlemesi + `vite preview`, Backend Çıktısı sözleşmesini (startTime/endTime, PUT'ta
+  null=koru, ""=sil, PATCH dokunmaz) taklit eden yerel sahte API, Playwright Chromium; 390 ve 360 px, ebeveyn ve çocuk
+  profili, saat `2026-10-11 10:30` (bugün) ve `?date=2026-10-11` (geçmiş gün). Örnek gün QA verisiyle kuruldu.
+- **Saf işlev simülasyonu:** `utils/timeline.js` örnek günle Node'da çalıştırıldı (boşluklar, özet, çakışma, hafta sütunu).
+
+### Kriter bazında
+| # | Sonuç | Kanıt |
+|---|---|---|
+| 1 | Geçti | Sekmeler soldan sağa Plan/Aktiviteler · To-do/Dersler · Bee/Ajanda (Sıra güncellemesine uygun); seçili zemin rgb(246,181,30), yazı rgb(30,26,20); tek `tabpanel` kart; DOM sırası hero → seçici → gün başlığı. |
+| 2 | Geçti | İlk açılış, `?date=` ve yenilemede `aria-selected=true` → `sect-tab-bee`; ebeveyn ve çocuk (Ece) profilinde aynı. PlanShell.jsx:58 `useState('bee')`, kalıcı saklama yok (localStorage/sessionStorage'da bölüm anahtarı yok). |
+| 3 | Geçti | To-do seçiliyken şeritten Pazartesi 5 Ekim'e geçildi → To-do korundu; yenileme → Bee. |
+| 4 | Geçti | `/?date=2026-10-11` → "Pazar, 11 Ekim", Bee seçili, adres temizlendi. SW mesajında `setSection('bee')` (PlanShell.jsx:107). |
+| 5 | Geçti | `role=tablist/tab/tabpanel`, `aria-selected`, roving tabIndex; ←/→ (uçlarda döner), Home/End çalışıyor, odak sekmede. Sekme yüksekliği 52 px; 360 px'te sekme 103 px, açıklamalar taşmıyor, `scrollWidth = 360`. |
+| 6 | Geçti | Kart başlığı yalnız özet: "8 sa 20 dk boş", "1/3 · 100 dk", "3 bugün" (bugün) / "3 aktivite" (başka gün). |
+| 7 | Geçti | Özet "8 sa 20 dk boş"; sıra: 07:00–09:00 boş · 2 sa, Kurs, 13:00–15:00 boş · 2 sa, Matematik 15:00–15:40 · 40 dk, Fizik 16:00–16:30 · 30 dk, 16:30–20:00 boş · 3 sa 30 dk, Antrenman. 15:40–16:00 ve 21:30–22:00 etiketsiz. |
+| 8 | Geçti | Saati yok: Türkçe (✓, `line-through`, "30 dk") ve Veteriner randevusu. |
+| 9 | Geçti | Ders bloğu `--study-soft` zemin + 4 px mavi iç şerit + daire + "ders" metni (aria); ikon yerine daire. |
+| 10 | Geçti | Bee dairesi → To-do'da aynı durum; To-do dairesi → Bee'de aynı durum (tek kaynak `study.cycle`, DayPage.jsx). Blok gövdesi ⋯ menüsü (Düzenle/Sil); çocukta salt okunur menü. Daire 40×44 px. |
+| 11 | Geçti | "13:00–15:00 arasına ekle", Ders seçili (sarı, 44 px), "Boşluk: 13:00–15:00 · 2 sa", başlangıç 13:00 dolu; 40 dk → Bitiş 13:40. Aktivite'ye geçişte saatler 13:00–15:00, Ders'e dönüşte 13:00 korunuyor. |
+| 12 | Geçti | 13:00 + 40 dk eklenince "13:40–15:00 boş · 1 sa 20 dk", özet "7 sa 40 dk boş"; sayfa kapanıp odak yeni bloğa gidiyor. Düzenleme/silme de aynı `shown` verisinden yeniden hesaplanıyor. |
+| 13 | Geçti | `.tl-op` aria: "Matematik, ders, 15:00–15:40, 40 dakika, Yapılacak: seçenekler" (tasarımdaki "Yapılacak" metni); daire: "Matematik: Yapılacak. Dokununca Devam Ediyor olur." |
+| 14 | Geçti | Saatli + saatsiz tüm dersler listede; özet "1/3 · 100 dk", ilerleme çubuğu. |
+| 15 | Geçti | "15:00 · 40 dk" / "30 dk"; sıra saatliler başlangıca göre, sonra saatsizler eklenme sırasıyla (StudyCard.jsx `sortStudies`). |
+| 16 | Geçti | Form: Ders, Konu, Süre çipleri + dk, "Başlangıç (isteğe bağlı)", salt okunur Bitiş; "Bitiş 13:40 · ajandada 13:00–13:40 görünür". Gece aşımı: 23:50 + 40 → "Bitiş 00:30 · ↷ ertesi gün biter". |
+| 17 | Geçti | Başlangıç boşken "Saat seçmezsen ders ajandada “Saati yok” bölümünde görünür."; POST gövdesi `startTime: ""`. |
+| 18 | Geçti | 12:00 + 40 dk → "⚠ Kurs (09:00–13:00) ile çakışıyor. Yine de ekleyebilirsin."; Ekle çalıştı. Birden çok: "… ve 1 kayıt daha ile çakışıyor." |
+| 19 | Geçti | Düzenlemede başlangıç 12:00 dolu; silinip kaydedilince PUT `startTime: ""`, ders "40 dk" (saatsiz) oldu. Bee "Dersi düzenle" alt sayfası Ders/Aktivite seçimi olmadan açılıyor. |
+| 20 | Geçti | Spor, Müzik, Konser, Buluşma, Sınav, Diğer; Spor'a dokununca aktivite formu açılıyor. |
+| 21 | Geçti | Kurs 09:00–13:00, Antrenman 20:00–21:30, Veteriner randevusu · saati yok; her satırda ⋯; ders yok. |
+| 22 | Geçti | Bugün: "BUGÜN" (büyük harf CSS); başka gün: "PAZAR". |
+| 23 | Geçti | `.wg-b.study` mavi (rgb(47,91,216)), ikon/saat metni yok, 8–11 px; açıklamada ilk öğe "Ders (saatli)". |
+| 24 | Geçti | Saatsiz dersler ızgarada yok; alt toplam "… 180 dk ders · 2 ders saatsiz · …". |
+| 25 | Geçti | Sütun adı "… Kurs 09:00–13:00; Fizik 13:00–13:40, ders; Matematik 15:00–15:40, ders; …"; saatsiz ders sütunda okunmuyor. En uzun boşluk dersleri sayıyor (örnek günde 13–20 yerine 16:30–20). |
+| 26 | Geçti | `startTime: null` dersler To-do'da "30 dk", Bee'de Saati yok şeridinde. Migration yalnızca `AddColumn StudyEntries.StartTime varchar(5) NULL` / Down `DropColumn` (20261011161616_StudyEntryStartTime.cs); snapshot uyumlu. |
+| 27 | Geçti (kod + e2e okuma; çalıştırılmadı) | DaysController.cs:129 `TryParseStartTime(dto.StartTime, entry.StartTime, …)`: null → mevcut korunur; PATCH status (DaysController.cs:143–157) StartTime'a dokunmuyor. e2e.py:588–595 bu durumları kapsıyor. Frontend düzenlemede `startTime` her zaman gönderiyor. |
+| 28 | Geçti (kod; çalıştırılmadı) | NotificationService.cs:109 saatli "📚 Matematik · 15:00–15:40 · Konu", saatsiz değişmedi; ekleme/değişiklik/silme aynı `Study()` metnini kullanıyor. Bitiş tek yerde (`PlanText.StudyEndTime`). |
+| 29 | Geçti | 360 ve 390 px'te üç bölümde `scrollWidth = innerWidth`; sekme 52, daire 40×44, ⋯ 44, seg 44; süre çipleri 36 px + `::before` −4/−4 = 44 (tasarım kuralı). Çocuk profilinde üç bölüm, durum değiştirme serbest, ebeveyn dersinde düzenle/sil yok. |
+| 30 | Geçti (kod + e2e okuma; çalıştırılmadı) | Yetki `AuthorizeEntry` ile değişmedi; e2e.py:617–629 başka ailenin gün/hafta okumasında ders görmemesini ve PUT/PATCH 404'ü kapsıyor. |
+
+### Bulunan hatalar
+Engelleyici ya da kabul kriterini bozan hata bulunmadı. Düşük öncelikli gözlemler (düzeltme zorunlu değil):
+1. **(Düşük, frontend)** 1440 dk saatli derste çizelge "10:00–10:00 ↷ ertesi gün", form özeti "Bitiş 10:00 · ↷ ertesi gün
+   biter" gösteriyor; sunucu bu durumda `endTime: null` döndürüyor (Backend Varsayımlar: "tam gün"). Tekrar: To-do →
+   + Ders ekle → dk 1440, başlangıç 10:00. Kaynak: `frontend/src/utils/timeline.js:53-56` (`span`), `StudyForm.jsx:47`.
+2. **(Düşük, frontend)** 360 px'te 80 dk'lık boşluk etiketi "13:40–15:00 boş · 1 sa 20 / dk" iki satıra kırılıyor
+   (Görev 09 boşluk düğmesi, `index.css:486`); kabul kriteri ihlali değil, görsel.
+3. **(Bilgi, frontend)** oxlint 15 uyarı (yeni bileşen dosyalarından sabit/işlev dışa aktarımı); derlemeyi etkilemiyor.
