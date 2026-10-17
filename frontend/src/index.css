@@ -562,7 +562,11 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .tl-many .hd { display: block; height: 28px; line-height: 28px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); }
 .tl-many .tl-row .t2.tm { font-family: var(--f-mono); }
 /* Form: Başlangıç – Bitiş */
-.evtimes .time-input, .evform .evtimes input[type="time"].time-input { width: 100%; min-width: 0; flex: none; font-family: var(--f-mono); }
+.evtimes .time-input, .evtimes input[type="time"].time-input, .evform .evtimes input[type="time"].time-input { width: 100%; min-width: 0; flex: none; font-family: var(--f-mono); }
+/* iOS Safari: yerel saat alanı kendi genişliğinin altına inmez, sütundan taşıp yandaki alanın üstüne biner; boşken de
+   yüksekliği çöker. Görünümü sıfırlanınca genişliğe uyar (dokununca saat seçici yine açılır). */
+input[type="time"].time-input { -webkit-appearance: none; appearance: none; display: block; max-width: 100%; }
+input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.3em; }
 .evform input:disabled { background: var(--bg); border-style: dashed; color: var(--ink-faint); }
 /* Hafta ızgarası renk açıklaması */
 .wg-leg .lg-sport { background: var(--sport); }

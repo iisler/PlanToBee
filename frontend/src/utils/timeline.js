@@ -67,14 +67,16 @@ export function span(ev) {
 
 // Günün kayıtlarını sınıflar: saatsiz / 07:00 öncesi / 22:00 sonrası / pencere içi (cs–ce kesilmiş).
 // Pencere içi kayıtlar cs'ye göre sıralı (eşitse uzun olan önce).
-export function classify(events) {
+// end: pencere içinde başlayan kaydın kesildiği an. Hafta ızgarası sabit yükseklikte olduğundan 22:00'de keser;
+// gün çizelgesi 1440 verir: 22:00'yi aşan kayıt (ör. 21:54–22:34) bütün görünür, yalnızca gece yarısında kesilir.
+export function classify(events, end = WE) {
   const untimed = [], before = [], after = [], inw = [];
   for (const ev of events) {
     const r = span(ev);
     if (!r) { untimed.push(ev); continue; }
     if (r.E <= WS) before.push(r);
     else if (r.S >= WE) after.push(r);
-    else inw.push({ ...r, cs: Math.max(r.S, WS), ce: Math.min(r.E, WE), cutTop: r.S < WS, cutBot: r.E > WE });
+    else inw.push({ ...r, cs: Math.max(r.S, WS), ce: Math.min(r.E, end), cutTop: r.S < WS, cutBot: r.E > end });
   }
   inw.sort((a, b) => a.cs - b.cs || b.ce - a.ce);
   return { untimed, before, after, inw };
@@ -205,7 +207,8 @@ export function layoutDay(inw, nowMin = null) {
     }
     y += H;
   }
-  labels.push({ y, text: '22:00', p: 1 });
+  // Çizelge 22:00'de, 22:00'yi aşan kayıt varsa onun bitişinde biter
+  labels.push({ y, text: hm(Math.max(cur, WE)), p: 1 });
 
   // Eksen etiketleri: şu an > bölüm sınırı > tam saat; tutulan bir etikete 14 px'ten yakın olan çizilmez
   const keep = [];

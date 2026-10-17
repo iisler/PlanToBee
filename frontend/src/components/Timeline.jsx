@@ -35,7 +35,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
   const { hideInitials } = useAuditSettings();
   const rawNow = useNow(isToday);
   const nowMin = rawNow != null && rawNow >= WS && rawNow < WE ? rawNow : null;
-  const { untimed, before, after, inw } = useMemo(() => classify(events), [events]);
+  const { untimed, before, after, inw } = useMemo(() => classify(events, 1440), [events]);
   const lay = useMemo(() => layoutDay(inw, nowMin), [inw, nowMin]);
 
   // Erişilebilir ada "kim ekledi" eklenir (görünen baş harf düğmenin aria-label'ı altında okunmaz)
