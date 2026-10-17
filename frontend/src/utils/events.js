@@ -8,6 +8,7 @@ export const ACTIVITY_KINDS = [
   { kind: 'Concert', icon: '🎤', label: 'Konser', placeholder: 'ör. Okul konseri' },
   { kind: 'Meeting', icon: '👥', label: 'Buluşma', placeholder: 'ör. Arkadaşlarla sinema' },
   { kind: 'Exam', icon: '📝', label: 'Sınav', placeholder: 'ör. Deneme sınavı' },
+  { kind: 'School', icon: '🏫', label: 'Okul', placeholder: 'ör. Okul, Kurs' },
   { kind: 'Event', icon: '✦', label: 'Diğer', placeholder: 'ör. Veteriner randevusu', nameRequired: true },
 ];
 

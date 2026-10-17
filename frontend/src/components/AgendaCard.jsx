@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { freeSummary, itemKey } from '../utils/timeline';
+import { isOccurrence } from '../utils/recurrence';
 import Timeline from './Timeline';
 import EntryMenu from './EntryMenu';
 import AgendaSheet from './AgendaSheet';
@@ -40,13 +41,15 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
     setSheet(null);
   }
 
-  function remove(entry) {
+  function remove(entry, all = false) {
     focusAfterDelete({ id: itemKey(entry) });
-    (entry.isStudy ? study : events).remove(entry);
+    if (all) events.removeSeries(entry);
+    else (entry.isStudy ? study : events).remove(entry);
   }
 
-  function edit(entry) {
-    setSheet({ mode: entry.isStudy ? 'study' : 'event', entry, reset: menuReset });
+  // scope: tekrarlanan kayıtta 'one' (yalnızca bu gün) ya da 'all' (bütün tekrarlar)
+  function edit(entry, scope) {
+    setSheet({ mode: entry.isStudy ? 'study' : 'event', entry, scope, reset: menuReset });
   }
 
   return (
@@ -64,10 +67,11 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
 
       {menuEntry && (
         <EntryMenu kind={menuEntry.isStudy ? 'study' : 'event'} entry={menuEntry} myId={myId} returnFocusRef={openerRef}
-          onClose={() => setMenu(null)} onEdit={() => edit(menuEntry)} onDelete={() => remove(menuEntry)} />
+          onClose={() => setMenu(null)} onEdit={() => edit(menuEntry, isOccurrence(menuEntry) ? 'one' : undefined)}
+          onEditAll={() => edit(menuEntry, 'all')} onDelete={() => remove(menuEntry)} onDeleteAll={() => remove(menuEntry, true)} />
       )}
       {openSheet && (
-        <AgendaSheet sheet={openSheet} items={items} subjects={subjects} study={study} events={events} dateLabel={dateLabel}
+        <AgendaSheet sheet={openSheet} date={date} items={items} subjects={subjects} study={study} events={events} dateLabel={dateLabel}
           returnFocusRef={openerRef} onClose={() => setSheet(null)} onDone={onDone} />
       )}
     </div>

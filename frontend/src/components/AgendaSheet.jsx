@@ -14,7 +14,7 @@ const KINDS = [{ id: 'study', label: 'Ders' }, { id: 'event', label: 'Aktivite' 
 // - { mode: 'study', entry }: "Dersi düzenle" (ders formu + Durum).
 // - { mode: 'event', entry }: "Aktiviteyi düzenle" (aktivite formu).
 // onDone(itemKey): başarılı kayıttan sonra; sayfa kapanır, odak o öğeye gider (AgendaCard).
-export default function AgendaSheet({ sheet, items, subjects, study, events, dateLabel, onClose, onDone, returnFocusRef }) {
+export default function AgendaSheet({ sheet, date, items, subjects, study, events, dateLabel, onClose, onDone, returnFocusRef }) {
   const titleId = useId();
   const [tab, setTab] = useState('study');
   const [draft, setDraft] = useState(() => (sheet.mode === 'study' ? studyDraft(sheet.entry) : { ...EMPTY_STUDY, startTime: sheet.start ?? '' }));
@@ -25,7 +25,7 @@ export default function AgendaSheet({ sheet, items, subjects, study, events, dat
   const names = subjects.map(s => s.name);
 
   const gap = sheet.mode === 'add' && sheet.start ? `${sheet.start}–${sheet.end}` : null;
-  const title = sheet.mode === 'study' ? 'Dersi düzenle' : sheet.mode === 'event' ? 'Aktiviteyi düzenle'
+  const title = sheet.mode === 'study' ? 'Dersi düzenle' : sheet.mode === 'event' ? (sheet.scope === 'all' ? 'Tüm tekrarları düzenle' : 'Aktiviteyi düzenle')
     : gap ? `${gap} arasına ekle` : 'Ekle';
 
   function pick(id) {
@@ -56,9 +56,9 @@ export default function AgendaSheet({ sheet, items, subjects, study, events, dat
     return !!key;
   }
   const addStudy = (body) => run(async () => { const c = await study.add(body); return c && (c.id ? `s${c.id}` : 'x'); });
-  const addEvent = (body) => run(async () => { const c = await events.add(body); return c && (c.id ? `e${c.id}` : 'x'); });
+  const addEvent = (body) => run(async () => { const c = await events.add(body); return c && (c.id || c.seriesId ? itemKey(c) : 'x'); });
   const saveStudy = (body) => run(async () => ((await study.save(sheet.entry, body)) ? `s${sheet.entry.id}` : null));
-  const saveEvent = (body) => run(async () => ((await events.save(sheet.entry, body)) ? `e${sheet.entry.id}` : null));
+  const saveEvent = (body) => run(() => events.save(sheet.entry, body, sheet.scope));
   const studyForm = (mode) => (
     <>
       {names.length === 0 && mode === 'add' && (
@@ -73,7 +73,7 @@ export default function AgendaSheet({ sheet, items, subjects, study, events, dat
   let body;
   if (sheet.mode === 'study') body = studyForm('edit');
   else if (sheet.mode === 'event') {
-    body = <EventForm mode="edit" initial={sheet.entry} events={items} onSubmit={saveEvent} onCancel={onClose} />;
+    body = <EventForm mode="edit" initial={sheet.entry} events={items} scope={sheet.scope} onSubmit={saveEvent} onCancel={onClose} />;
   } else {
     body = (
       <>
@@ -87,7 +87,7 @@ export default function AgendaSheet({ sheet, items, subjects, study, events, dat
           <div className="tl-pre"><span>Boşluk: <b>{gap}</b> · {formatDuration(toMin(sheet.end) - toMin(sheet.start))}</span></div>
         )}
         {tab === 'study' ? studyForm('add') : (
-          <EventForm mode="add" events={items} busy={busy} onSubmit={addEvent} prefill={evPrefill} hidePre
+          <EventForm mode="add" events={items} busy={busy} onSubmit={addEvent} prefill={evPrefill} hidePre date={date}
             onTimeChange={v => setDraft(d => ({ ...d, startTime: v }))} />
         )}
       </>

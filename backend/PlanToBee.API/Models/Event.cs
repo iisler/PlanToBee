@@ -10,7 +10,9 @@ public enum EventKind
     Music,
     Concert,
     Meeting,
-    Exam
+    Exam,
+    // Okul. Eski sürüm bu değeri okuyamaz; geri dönüşte kayıtlar "Event"e çevrilir (docs/DEPLOY.md 6.5).
+    School
 }
 
 // Günün aktiviteleri tek listede. Saat isteğe bağlı (SS:dd; eski kayıtlarda serbest metin olabilir).

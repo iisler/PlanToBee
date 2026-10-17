@@ -11,27 +11,38 @@ public record AuditMemberDto(int MemberId, string DisplayName, bool IsFormerMemb
 public record StudyEntryDto(int Id, string Subject, string Topic, int Minutes, string Status, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported,
     string? StartTime, string? EndTime);
-// Aktivite. Kind: "Training" (Spor) | "Music" | "Concert" | "Meeting" | "Exam" | "Event" (Diğer).
+// Aktivite. Kind: "Training" (Spor) | "Music" | "Concert" | "Meeting" | "Exam" | "School" (Okul) | "Event" (Diğer).
 // Title aktivitenin adıdır; eski antrenman kayıtlarında boş olabilir, ad TrainingType'tan türetilir. Minutes yalnızca sporda.
 // EndTime: girilmiş bitiş (SS:dd) ya da null. EndTime < Time ise kayıt ertesi gün biter.
 // DerivedEndTime: EndTime yokken eski süreden (Time + Minutes) hesaplanan bitiş; yalnızca gösterim içindir. İkisi de
 // null ise bitiş bilinmiyor ("süre belirsiz").
 public record EventDto(int Id, string Kind, string Title, string Time, string Note, string? TrainingType, int? Minutes, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported,
-    string? EndTime, string? DerivedEndTime);
+    string? EndTime, string? DerivedEndTime,
+    int? SeriesId = null, string? OccurrenceDate = null, RecurrenceDto? Recurring = null);
+// Tekrarlayan aktivitenin bir günü (sanal kayıt): Id = 0, SeriesId ve OccurrenceDate dolu, Recurring kural özeti.
+// Normal kayıtta üçü de null. Sanal kayıt /api/days/.../events uçlarıyla değil /api/series uçlarıyla değiştirilir;
+// CanEdit ve kayıt izleri serinin kendisinindir. DaysOfWeek: 1 = Pazartesi ... 7 = Pazar.
+public record RecurrenceDto(List<int> DaysOfWeek, string StartDate, string UntilDate);
 public record SubjectDto(int Id, string Name, bool CanEdit,
     AuditMemberDto? CreatedBy, DateTime CreatedAt, AuditMemberDto? UpdatedBy, DateTime? UpdatedAt, bool IsImported);
 
 // Ailenin ortak planındaki bir gün. Ailedeki herkes kayıt ekleyebilir.
 // Events: aktiviteler tek listede; önce saati olanlar saat sırasıyla, sonra saatsizler eklenme sırasıyla.
+// Holidays: o günün resmî tatili, arifesi, okul tatili ve özel günleri (Services/Holidays); yoksa boş liste.
 public record DayDto(
     string Date,
     List<StudyEntryDto> StudyEntries,
-    List<EventDto> Events
+    List<EventDto> Events,
+    List<HolidayDto> Holidays
 );
 
+// Kind: "official" resmî tatil · "half" arife (yarım gün) · "school" okul tatili · "special" özel gün.
+public record HolidayDto(string Name, string Kind);
+
 // EventCount sporu saymaz; spor TrainingCount ve TrainingMinutes'tadır.
-public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int TrainingMinutes, int EventCount);
+public record WeekSummaryDto(string Date, int StudyMinutes, int EntryCount, bool TrainingDone, int TrainingCount, int TrainingMinutes, int EventCount,
+    List<HolidayDto> Holidays);
 public record WeekDto(List<WeekSummaryDto> Days);
 
 // GET /api/days/week/{monday}/details: haftanın 7 günü, her biri GET /api/days/{date} cevabıyla aynı biçimde.
@@ -57,7 +68,7 @@ public record UpdateStudyEntryDto(
 
 public record PatchStatusDto([Required] string Status);
 
-// Kind: "Event" (Diğer, varsayılan), "Training" (Spor), "Music", "Concert", "Meeting" ya da "Exam".
+// Kind: "Event" (Diğer, varsayılan), "Training" (Spor), "Music", "Concert", "Meeting", "Exam" ya da "School".
 // - Title zorunlu. Yalnızca sporda Title yerine TrainingType verilebilir (eski istemciler).
 // - Minutes yalnızca sporda, isteğe bağlı (1-1440); diğer türlerde yok sayılır.
 // Time boş ya da SS:dd. EndTime boş ya da SS:dd; yalnızca SS:dd Time ile ve ondan farklı olarak verilebilir

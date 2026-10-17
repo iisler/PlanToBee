@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using PlanToBee.API.Data;
 using PlanToBee.API.DTOs;
 using PlanToBee.API.Infrastructure;
@@ -32,12 +31,13 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
 
         // Okuma kayıt oluşturmaz; gün yoksa boş döner.
         var days = await LoadDaysAsync(me.FamilyId, d, d);
-        var audit = await LoadAuditAsync(me, days);
-        return Ok(ToDayDto(d, days.FirstOrDefault(), me, audit));
+        var series = await LoadSeriesAsync(me.FamilyId, d, d);
+        var audit = await LoadAuditAsync(me, days, series);
+        return Ok(ToDayDto(d, days.FirstOrDefault(), series, me, audit));
     }
 
-    // Hafta özeti (Gün sekmesindeki hafta şeridi): her gün için toplamlar. Toplamlar veritabanında hesaplanır,
-    // kayıtların kendisi yüklenmez.
+    // Hafta özeti (Gün sekmesindeki hafta şeridi): her gün için toplamlar. Günlerin toplamları veritabanında
+    // hesaplanır, kayıtların kendisi yüklenmez; tekrarlayan aktiviteler kuraldan sayılır.
     [HttpGet("week/{monday}")]
     public async Task<IActionResult> GetWeek(string monday)
     {
@@ -59,19 +59,43 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
                 EventCount = d.Events.Count(e => e.Kind != EventKind.Training)
             })
             .ToDictionaryAsync(x => x.Date);
+        // Tekrarlayan aktiviteler normal aktivite gibi sayılır (sporda süre yok). Yalnızca kural alanları okunur.
+        var series = await db.EventSeries
+            .AsNoTracking()
+            .Where(x => x.FamilyId == me.FamilyId && x.StartDate <= end && x.UntilDate >= start)
+            .Select(x => new
+            {
+                x.Kind,
+                x.DaysOfWeek,
+                x.StartDate,
+                x.UntilDate,
+                Skipped = x.Exceptions.Where(ex => ex.Date >= start && ex.Date <= end).Select(ex => ex.Date).ToList()
+            })
+            .ToListAsync();
+        var seriesTraining = new Dictionary<DateOnly, int>();
+        var seriesOther = new Dictionary<DateOnly, int>();
+        foreach (var x in series)
+            foreach (var date in SeriesSchedule.Occurrences(x.DaysOfWeek, x.StartDate, x.UntilDate, start, end, x.Skipped)
+                         .Where(d => Holidays.Shows(x.Kind, d)))
+            {
+                var counts = x.Kind == EventKind.Training ? seriesTraining : seriesOther;
+                counts[date] = counts.GetValueOrDefault(date) + 1;
+            }
 
         var result = Enumerable.Range(0, 7).Select(i =>
         {
             var date = start.AddDays(i);
             totals.TryGetValue(date, out var t);
+            var trainingCount = (t?.TrainingCount ?? 0) + seriesTraining.GetValueOrDefault(date);
             return new WeekSummaryDto(
                 PlanText.Format(date),
                 (int)Math.Min(int.MaxValue, t?.StudyMinutes ?? 0),
                 t?.EntryCount ?? 0,
-                t?.TrainingCount > 0,
-                t?.TrainingCount ?? 0,
+                trainingCount > 0,
+                trainingCount,
                 (int)Math.Min(int.MaxValue, t?.TrainingMinutes ?? 0),
-                t?.EventCount ?? 0);
+                (t?.EventCount ?? 0) + seriesOther.GetValueOrDefault(date),
+                HolidaysOn(date));
         }).ToList();
         return Ok(new WeekDto(result));
     }
@@ -87,11 +111,12 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
 
         var end = start.AddDays(6);
         var days = await LoadDaysAsync(me.FamilyId, start, end);
-        var audit = await LoadAuditAsync(me, days);
+        var series = await LoadSeriesAsync(me.FamilyId, start, end);
+        var audit = await LoadAuditAsync(me, days, series);
         var byDate = days.ToDictionary(x => x.Date);
         var result = Enumerable.Range(0, 7)
             .Select(i => start.AddDays(i))
-            .Select(date => ToDayDto(date, byDate.GetValueOrDefault(date), me, audit))
+            .Select(date => ToDayDto(date, byDate.GetValueOrDefault(date), series, me, audit))
             .ToList();
         return Ok(new WeekDetailsDto(result));
     }
@@ -107,9 +132,9 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var me = await members.GetCurrentAsync();
         if (me == null) return await members.MissingAsync();
 
-        var dayId = await GetOrCreateDayId(me.FamilyId, d);
+        var dayId = await PlanWrites.GetOrCreateDayIdAsync(db, me.FamilyId, d);
         var entry = new StudyEntry { DayId = dayId, Subject = dto.Subject.Trim(), Topic = dto.Topic?.Trim() ?? "", Minutes = dto.Minutes, Status = "todo", StartTime = start };
-        StampCreated(entry, me);
+        PlanWrites.StampCreated(entry, me);
         db.StudyEntries.Add(entry);
         await db.SaveChangesAsync();
         await notifications.EnqueueAsync(me, NotificationCategory.StudyAdded, $"{me.DisplayName} ders ekledi",
@@ -134,7 +159,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         entry.Minutes = dto.Minutes;
         entry.StartTime = start;
         if (dto.Status != null) entry.Status = dto.Status;
-        StampUpdated(entry, me!);
+        PlanWrites.StampUpdated(entry, me!);
         await db.SaveChangesAsync();
         await NotifyStudyChange(me!, entry, wasDone, changed: true);
         return Ok(await MapOne(entry, me!));
@@ -152,7 +177,7 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
 
         var wasDone = entry!.Status == "done";
         entry.Status = dto.Status; // izde son güncelleyen olarak durumu değiştiren görünür
-        StampUpdated(entry, me!);
+        PlanWrites.StampUpdated(entry, me!);
         await db.SaveChangesAsync();
         await NotifyStudyChange(me!, entry, wasDone, changed: false);
         return Ok(await MapOne(entry, me!));
@@ -180,13 +205,13 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var kind = dto.Kind ?? EventKind.Event;
         if (!Enum.IsDefined(kind)) return Err.BadRequest("validation", "Geçersiz kayıt türü.");
         var ev = new Event { Kind = kind };
-        var error = ApplyEvent(ev, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime ?? "");
+        var error = PlanWrites.ApplyEvent(ev, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime ?? "");
         if (error != null) return error;
         var me = await members.GetCurrentAsync();
         if (me == null) return await members.MissingAsync();
 
-        ev.DayId = await GetOrCreateDayId(me.FamilyId, d);
-        StampCreated(ev, me);
+        ev.DayId = await PlanWrites.GetOrCreateDayIdAsync(db, me.FamilyId, d);
+        PlanWrites.StampCreated(ev, me);
         db.Events.Add(ev);
         await db.SaveChangesAsync();
         await notifications.EnqueueAsync(me, NotificationCategory.ActivityAdded, $"{me.DisplayName} aktivite ekledi",
@@ -202,9 +227,9 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         var (me, authError) = await AuthorizeEntry(date, ev);
         if (authError != null) return authError;
 
-        var error = ApplyEvent(ev!, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime);
+        var error = PlanWrites.ApplyEvent(ev!, dto.Title, dto.Time, dto.Note, dto.TrainingType, dto.Minutes, dto.EndTime);
         if (error != null) return error;
-        StampUpdated(ev!, me!);
+        PlanWrites.StampUpdated(ev!, me!);
         await db.SaveChangesAsync();
         await notifications.EnqueueAsync(me!, NotificationCategory.Changed, $"{me!.DisplayName} bir aktiviteyi değiştirdi",
             $"{NotificationText.Activity(ev!)} — {NotificationText.Date(ev!.Day!.Date)}", ev.Day.Date);
@@ -259,56 +284,6 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         return (me, null);
     }
 
-    // Türüne göre alanları doğrular ve kayda yazar. Her aktivitenin adı olur; yalnızca eski antrenman kayıtları ad
-    // yerine TrainingType ile gelebilir. Süre yalnızca sporda tutulur. Saat boş ya da SS:dd olmalı; eski kayıtlardaki
-    // serbest metin saat, değiştirilmeden geri gönderildiyse kabul edilir.
-    // endTime: "" bitişi siler, null mevcut bitişi korur (bitişi bilmeyen eski istemci düzenlerken veri kaybolmasın).
-    private static ObjectResult? ApplyEvent(Event ev, string? title, string? time, string? note, string? trainingType, int? minutes,
-        string? endTime)
-    {
-        var t = time?.Trim() ?? "";
-        if (t.Length > 0 && !PlanText.IsTime(t) && t != ev.Time)
-            return Err.BadRequest("validation", "Saat SS:dd biçiminde olmalı (örn. 17:30).");
-        string? end;
-        if (endTime == null)
-        {
-            // Korunan bitiş, eski istemcinin değiştirdiği başlangıçla anlamsızlaşırsa (saat silindi ya da bitişe
-            // eşitlendi) düşürülür; bitişi göremeyen istemciye 400 dönmek düzenlemeyi kilitlerdi.
-            end = ev.EndTime != null && PlanText.IsTime(t) && t != ev.EndTime ? ev.EndTime : null;
-        }
-        else
-        {
-            var e = endTime.Trim();
-            if (e.Length == 0) end = null;
-            else if (!PlanText.IsTime(e)) return Err.BadRequest("validation", "Bitiş saati SS:dd biçiminde olmalı (örn. 13:00).");
-            else if (!PlanText.IsTime(t)) return Err.BadRequest("validation", "Bitiş saati için önce başlangıç saatini girin.");
-            else if (e == t) return Err.BadRequest("validation", "Bitiş saati başlangıçla aynı olamaz.");
-            else end = e;
-        }
-        var name = title?.Trim() ?? "";
-        if (ev.Kind == EventKind.Training)
-        {
-            var type = trainingType?.Trim() ?? "";
-            if (name.Length == 0 && type.Length == 0) return Err.BadRequest("validation", "Aktivite adını yazın.");
-            // Süre isteğe bağlı; verilirse 1-1440 dakika.
-            if (minutes is not null and not (>= 1 and <= 1440)) return Err.BadRequest("validation", "Süre 1 ile 1440 dakika arasında olmalı.");
-            ev.Title = name;
-            ev.TrainingType = type.Length > 0 ? type : null;
-            ev.Minutes = minutes;
-        }
-        else
-        {
-            if (name.Length == 0) return Err.BadRequest("validation", "Aktivite adını yazın.");
-            ev.Title = name;
-            ev.TrainingType = null;
-            ev.Minutes = null;
-        }
-        ev.Time = t;
-        ev.EndTime = end;
-        ev.Note = note?.Trim() ?? "";
-        return null;
-    }
-
     // Dersin başlangıcı. null mevcut değeri korur (başlangıcı bilmeyen eski istemci düzenlerken saat kaybolmasın),
     // "" siler, SS:dd yazar. Aktivitedeki gibi serbest metin istisnası yok: ders saati hiçbir zaman serbest metin olmadı.
     private static bool TryParseStartTime(string? value, string? current, out string? start)
@@ -324,11 +299,20 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
         Err.BadRequest("validation", "Başlangıç saati SS:dd biçiminde olmalı (örn. 15:00).");
 
     // Günün etkinlik listesi: önce saati olanlar saat sırasıyla, sonra saatsizler (ve eski serbest metin saatliler)
-    // eklenme sırasıyla.
-    private static IEnumerable<Event> InDayOrder(IEnumerable<Event> events) =>
-        events.OrderBy(e => PlanText.IsTime(e.Time) ? 0 : 1)
-              .ThenBy(e => PlanText.IsTime(e.Time) ? e.Time : "", StringComparer.Ordinal)
-              .ThenBy(e => e.Id);
+    // eklenme sırasıyla. Aynı saatte normal kayıtlar tekrarlardan önce gelir; normal kayıtların kendi sırası
+    // seriler eklenmeden önceki sırayla aynıdır.
+    private static List<EventDto> DayEvents(DateOnly date, Day? day, List<EventSeries> series, FamilyMember me, AuditLookup audit) =>
+        (day?.Events ?? []).Select(e => (Dto: Map(e, me, audit), IsSeries: 0, Key: e.Id))
+            .Concat(series
+                .Where(x => SeriesSchedule.IsOccurrence(x.DaysOfWeek, x.StartDate, x.UntilDate, date)
+                            && !x.Exceptions.Any(ex => ex.Date == date) && Holidays.Shows(x.Kind, date))
+                .Select(x => (Dto: MapOccurrence(x, date, me, audit), IsSeries: 1, Key: x.Id)))
+            .OrderBy(x => PlanText.IsTime(x.Dto.Time) ? 0 : 1)
+            .ThenBy(x => PlanText.IsTime(x.Dto.Time) ? x.Dto.Time : "", StringComparer.Ordinal)
+            .ThenBy(x => x.IsSeries)
+            .ThenBy(x => x.Key)
+            .Select(x => x.Dto)
+            .ToList();
 
     private static ObjectResult InvalidDate() =>
         Err.BadRequest("invalid_date", "Geçersiz tarih. Tarih yyyy-AA-gg biçiminde olmalı.");
@@ -344,29 +328,27 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
             .Where(x => x.FamilyId == familyId && x.Date >= from && x.Date <= to)
             .ToListAsync();
 
-    private Task<AuditLookup> LoadAuditAsync(FamilyMember me, List<Day> days) =>
+    // Aralığa uğrayan seriler, yalnızca aralıktaki istisnalarıyla birlikte tek sorguda. Tekrar günleri bellekte
+    // yayılır (DayEvents); aralık en fazla 7 gün olduğundan istisna satırı da en fazla 7 × seri sayısı kadardır.
+    private Task<List<EventSeries>> LoadSeriesAsync(int familyId, DateOnly from, DateOnly to) =>
+        db.EventSeries
+            .AsNoTracking()
+            .Include(x => x.Exceptions.Where(ex => ex.Date >= from && ex.Date <= to))
+            .Where(x => x.FamilyId == familyId && x.StartDate <= to && x.UntilDate >= from)
+            .ToListAsync();
+
+    private Task<AuditLookup> LoadAuditAsync(FamilyMember me, List<Day> days, List<EventSeries> series) =>
         AuditLookup.LoadAsync(db, me.FamilyId,
-            days.SelectMany(x => x.StudyEntries.Cast<AuditedEntity>().Concat(x.Events)), me);
+            days.SelectMany(x => x.StudyEntries.Cast<AuditedEntity>().Concat(x.Events)).Concat(series), me);
 
-    private static DayDto ToDayDto(DateOnly date, Day? day, FamilyMember me, AuditLookup audit) =>
-        day == null
-            ? new DayDto(PlanText.Format(date), [], [])
-            : new DayDto(
-                PlanText.Format(date),
-                day.StudyEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList(),
-                InDayOrder(day.Events).Select(e => Map(e, me, audit)).ToList());
+    private static DayDto ToDayDto(DateOnly date, Day? day, List<EventSeries> series, FamilyMember me, AuditLookup audit) =>
+        new(PlanText.Format(date),
+            day?.StudyEntries.OrderBy(e => e.Id).Select(e => Map(e, me, audit)).ToList() ?? [],
+            DayEvents(date, day, series, me, audit),
+            HolidaysOn(date));
 
-    private static void StampCreated(AuditedEntity e, FamilyMember by)
-    {
-        e.CreatedByMemberId = by.Id;
-        e.CreatedAt = DateTime.UtcNow;
-    }
-
-    private static void StampUpdated(AuditedEntity e, FamilyMember by)
-    {
-        e.UpdatedByMemberId = by.Id;
-        e.UpdatedAt = DateTime.UtcNow;
-    }
+    private static List<HolidayDto> HolidaysOn(DateOnly date) =>
+        Holidays.On(date).Select(h => new HolidayDto(h.Name, h.Kind)).ToList();
 
     private async Task<object> MapOne(AuditedEntity e, FamilyMember me)
     {
@@ -382,32 +364,16 @@ public class DaysController(AppDbContext db, MemberContext members, Notification
     private static StudyEntryDto Map(StudyEntry e, FamilyMember me, AuditLookup a) =>
         new(e.Id, e.Subject, e.Topic, e.Minutes, e.Status, MemberContext.CanEdit(me, e), a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported,
             e.StartTime, PlanText.StudyEndTime(e.StartTime, e.Minutes));
-    private static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
+    internal static EventDto Map(Event e, FamilyMember me, AuditLookup a) =>
         new(e.Id, e.Kind.ToString(), e.Title, e.Time, e.Note, e.TrainingType, e.Minutes, MemberContext.CanEdit(me, e),
             a.Get(e.CreatedByMemberId), e.CreatedAt, a.Get(e.UpdatedByMemberId), e.UpdatedAt, e.IsImported,
             PlanText.EndTime(e.Time, e.EndTime), PlanText.DerivedEndTime(e.Time, PlanText.EndTime(e.Time, e.EndTime), e.Minutes));
 
-    // Aynı gün için eşzamanlı iki yazma isteği gelirse ikisi de gün oluşturmaya çalışır;
-    // (FamilyId, Date) benzersiz indeksine takılan istek, diğerinin oluşturduğu günü kullanır.
-    private async Task<int> GetOrCreateDayId(int familyId, DateOnly date)
-    {
-        var id = await FindDayId(familyId, date);
-        if (id != null) return id.Value;
-
-        var day = new Day { FamilyId = familyId, Date = date };
-        db.Days.Add(day);
-        try
-        {
-            await db.SaveChangesAsync();
-            return day.Id;
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            db.Entry(day).State = EntityState.Detached;
-            return await FindDayId(familyId, date) ?? throw new InvalidOperationException("Gün oluşturulamadı");
-        }
-    }
-
-    private Task<int?> FindDayId(int familyId, DateOnly date) =>
-        db.Days.Where(d => d.FamilyId == familyId && d.Date == date).Select(d => (int?)d.Id).FirstOrDefaultAsync();
+    // Serinin bir günü. Sporda bile süre yok (seri süre tutmaz); bitiş yalnızca girilmiş bitiştir.
+    private static EventDto MapOccurrence(EventSeries s, DateOnly date, FamilyMember me, AuditLookup a) =>
+        new(0, s.Kind.ToString(), s.Title, s.Time, s.Note, null, null, MemberContext.CanEdit(me, s),
+            a.Get(s.CreatedByMemberId), s.CreatedAt, a.Get(s.UpdatedByMemberId), s.UpdatedAt, false,
+            PlanText.EndTime(s.Time, s.EndTime), null,
+            s.Id, PlanText.Format(date),
+            new RecurrenceDto(SeriesSchedule.IsoDays(s.DaysOfWeek), PlanText.Format(s.StartDate), PlanText.Format(s.UntilDate)));
 }

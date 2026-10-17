@@ -41,8 +41,9 @@ export const endOf = (ev) => ev.endTime || ev.derivedEndTime || null;
 // Dersin süresi her zaman vardır (bitiş = başlangıç + dakika; "süre belirsiz" ders olmaz).
 export const studyItem = (e) => ({ ...e, isStudy: true, time: e.startTime ?? '' });
 export const isStudy = (x) => !!x?.isStudy;
-// Ders ve aktivite kimlikleri ayrı tablolardan gelir: çizelgede ayırt edici anahtar
-export const itemKey = (x) => (x.isStudy ? `s${x.id}` : `e${x.id}`);
+// Ders ve aktivite kimlikleri ayrı tablolardan gelir: çizelgede ayırt edici anahtar.
+// Tekrarlanan (sanal) aktivitenin id'si 0'dır: anahtarı seri + gün ("r12-2026-10-21", Görev 11).
+export const itemKey = (x) => (x.isStudy ? `s${x.id}` : !x.id && x.seriesId ? `r${x.seriesId}-${x.occurrenceDate}` : `e${x.id}`);
 // Bee (Ajanda) öğeleri: önce dersler (eklenme sırası), sonra aktiviteler; "Saati yok" şeridi bu sırayı korur
 export const agendaItems = (studyEntries = [], events = []) => [...studyEntries.map(studyItem), ...events];
 

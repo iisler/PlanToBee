@@ -1,10 +1,13 @@
 import { addDays, dkey, MONTHS, WEEKDAYS, WEEKDAYS_FULL, withPossessive } from '../utils/format';
 import { daySummary, eventWithTime, kindInfo } from '../utils/events';
+import { itemKey } from '../utils/timeline';
+import { holidayAria, holidayTone } from '../utils/holidays';
 
 // Ekran okuyucu adı: "Cumartesi 10 Ekim, bugün: 3 dersten 1'i tamam; Yüzme 10:00, Okul konseri 15:00",
 // "Cuma 9 Ekim: plan yok". Veri yoksa (yükleniyor / hata) yalnızca tarih.
-function cellLabel(date, isToday, s) {
-  const head = `${WEEKDAYS_FULL[(date.getDay() + 6) % 7]} ${date.getDate()} ${MONTHS[date.getMonth()]}${isToday ? ', bugün' : ''}`;
+function cellLabel(date, isToday, s, day) {
+  const hol = holidayAria(day);
+  const head = `${WEEKDAYS_FULL[(date.getDay() + 6) % 7]} ${date.getDate()} ${MONTHS[date.getMonth()]}${isToday ? ', bugün' : ''}${hol ? `, ${hol}` : ''}`;
   if (!s) return head;
   if (s.total === 0 && s.events.length === 0) return `${head}: plan yok`;
   const study = s.total > 0 ? `${s.total} dersten ${withPossessive(s.done)} tamam` : 'ders yok';
@@ -25,7 +28,9 @@ export default function WeekTrail({ monday, currentDate, setCurrentDate, days })
       {WEEKDAYS.map((wd, i) => {
         const date = addDays(monday, i);
         const key = dkey(date);
-        const s = days ? daySummary(days.find(d => d.date === key)) : null;
+        const day = days?.find(d => d.date === key);
+        const s = days ? daySummary(day) : null;
+        const tone = holidayTone(day);
         const isSelected = selectedKey === key;
         const isToday = todayKey === key;
         const evs = s?.events ?? [];
@@ -38,16 +43,17 @@ export default function WeekTrail({ monday, currentDate, setCurrentDate, days })
             className={`trail-dot${isSelected ? ' selected' : ''}${isToday ? ' istoday' : ''}`}
             aria-pressed={isSelected}
             aria-current={isToday ? 'date' : undefined}
-            aria-label={cellLabel(date, isToday, s)}
+            aria-label={cellLabel(date, isToday, s, day)}
             onClick={() => setCurrentDate(new Date(date))}
           >
+            {tone && <span className={`hdot ${tone}`} aria-hidden="true" />}
             <span className="wk" aria-hidden="true">{wd}</span>
             <span className="num" aria-hidden="true">{date.getDate()}</span>
             <span className={`cnt${s && s.total > 0 && s.done === s.total ? ' full' : ''}`} aria-hidden="true">
               {s ? (s.total > 0 ? `${s.done}/${s.total}` : '–') : ''}
             </span>
             <span className={`ics${evs.length ? ' on' : ''}`} aria-hidden="true">
-              {shown.map(ev => <span key={ev.id} className="e">{kindInfo(ev.kind).icon}</span>)}
+              {shown.map(ev => <span key={itemKey(ev)} className="e">{kindInfo(ev.kind).icon}</span>)}
             </span>
             {/* 2 ikon + "+N" yan yana dar ekranda (360 px) hücreye sığmaz; "+N" ikonların altında durur */}
             {evs.length > 2 && <span className="more" aria-hidden="true">+{evs.length - 2}</span>}

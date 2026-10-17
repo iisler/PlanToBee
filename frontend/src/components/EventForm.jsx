@@ -3,6 +3,10 @@ import TimeInput from './TimeInput';
 import { ACTIVITY_KINDS, eventLabel, isTraining, kindInfo } from '../utils/events';
 import { formatDuration } from '../utils/format';
 import { addMinutes, endOf, hm, itemKey, overlapText, overlapping, toMin } from '../utils/timeline';
+import {
+  dayMonth, daysText, hasOccurrence, isoDay, plusYear, untilText, WEEKDAY_ISO, WEEKDAYS_ISO, weekCount,
+} from '../utils/recurrence';
+import { WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
 
 const CHIPS = [
   { mins: 30, label: '30 dk' },
@@ -21,6 +25,25 @@ function initialState(initial) {
   };
 }
 
+// Tekrar bölümü (Görev 11): kapalı başlar, gün olarak eklenen günün hafta günü seçili; "Tüm tekrarları düzenle"de kuraldan dolar.
+function initialRepeat(scope, initial, date) {
+  if (scope === 'all' && initial?.recurring) {
+    return { on: true, days: [...initial.recurring.daysOfWeek], until: initial.recurring.untilDate };
+  }
+  return { on: false, days: date ? [isoDay(date)] : [], until: '' };
+}
+const sameDays = (a, b) => a.length === b.length && b.every((d) => a.includes(d));
+
+// Tekrar kuralının istemci denetimi (sunucu da denetler); hata metni ya da ''
+function repeatError(rep, start) {
+  if (!rep.days.length) return 'En az bir gün seç.';
+  if (!rep.until) return 'Bitiş tarihini seç.';
+  if (rep.until > plusYear(start)) return 'Bitiş tarihi en fazla 1 yıl sonrası olabilir.';
+  if (rep.until < start) return `Bitiş tarihi ${dayMonth(start)} ya da sonrası olmalı.`;
+  if (!hasOccurrence(rep.days, start, rep.until)) return 'Seçtiğin günler bu tarih aralığına düşmüyor.';
+  return '';
+}
+
 // Aktivite ekleme / düzenleme formu (gün kartı).
 // - mode 'add': tür ikonları (Spor, Müzik, Konser, Buluşma, Sınav, Diğer). İkona dokununca ad, Başlangıç – Bitiş, süre
 //   çipleri, özet ve not açılır; aynı ikona yeniden dokunmak, İptal ya da başarılı ekleme formu kapatır.
@@ -31,16 +54,33 @@ function initialState(initial) {
 // events: günün kayıtları, dersler dahil (çakışma uyarısı için; engellemez). onSubmit(body) true dönerse ekleme formu kapanır.
 // Bee'deki boşluk sayfasında (Görev 10): hidePre üstteki 'aralığına ekliyorsun' satırını gizler (sayfa kendi bilgi satırını
 // gösterir), onTimeChange(başlangıç) girilen başlangıcı sayfaya bildirir (Ders <-> Aktivite geçişinde korunur).
+// Görev 11: date (yyyy-AA-gg) verilirse eklemede "↻ Her hafta tekrarla" bölümü çıkar; açıksa body.repeat =
+// { daysOfWeek, startDate: date, untilDate }. scope (tekrarlanan kaydı düzenlerken): 'one' = yalnızca o gün (tekrar
+// bölümü yok, bilgi satırı), 'all' = bütün tekrarlar (bölüm açık ve dolu; body.repeat yine gönderilir).
 export default function EventForm({
   mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill, hidePre = false, onTimeChange,
+  date, scope,
 }) {
   const [kind, setKind] = useState(mode === 'edit' ? initial?.kind : null);
   const [f, setF] = useState(() => initialState(mode === 'edit' ? initial : null));
   const [error, setError] = useState('');
+  const [rep, setRep] = useState(() => initialRepeat(scope, initial, date));
+  const [repErr, setRepErr] = useState('');
+  const canRepeat = scope === 'all' || (mode === 'add' && !!date);
+  const repStart = scope === 'all' ? initial?.recurring?.startDate : date;
+  const updRep = (patch) => { setRep((r) => ({ ...r, ...patch })); setRepErr(''); };
+  const toggleDay = (d) => updRep({ days: rep.days.includes(d) ? rep.days.filter((x) => x !== d) : [...rep.days, d] });
   const info = kind ? kindInfo(kind) : null;
   const setE = (k) => (e) => { const v = e.target.value; setF((s) => ({ ...s, [k]: v })); setError(''); };
 
   // Yeni bir boşluktan gelince tür seçimi sıfırlanır (kullanıcı türü yeniden seçer)
+  // Ekleme formu gün değişince açık kalır: tekrar kapalıysa varsayılan gün yeni günün hafta günü olur
+  const [lastDate, setLastDate] = useState(date);
+  if (date !== lastDate) {
+    setLastDate(date);
+    if (!rep.on && mode === 'add') setRep(initialRepeat(null, null, date));
+  }
+
   const [lastPrefill, setLastPrefill] = useState(prefill);
   if (prefill !== lastPrefill) {
     setLastPrefill(prefill);
@@ -74,6 +114,8 @@ export default function EventForm({
     setKind(null);
     setF(initialState(null));
     setError('');
+    setRep(initialRepeat(null, null, date));
+    setRepErr('');
     onClearPrefill?.();
   }
 
@@ -83,9 +125,15 @@ export default function EventForm({
     const name = f.title.trim();
     if (!name && info.nameRequired) return setError('Aktivite adını yaz.');
     if (same) return; // satır içi hata zaten görünüyor
+    const repeating = canRepeat && rep.on;
+    if (repeating) {
+      const msg = repeatError(rep, repStart);
+      if (msg) return setRepErr(msg);
+    }
     const body = { title: name || info.label, time: f.time, endTime: hasStart && endMin != null ? f.endTime : '', note: f.note.trim() };
     if (mode === 'add') body.kind = kind;
-    else if (isTraining(initial)) { body.trainingType = null; body.minutes = initial.minutes ?? null; }
+    else if (!scope && isTraining(initial)) { body.trainingType = null; body.minutes = initial.minutes ?? null; }
+    if (repeating) body.repeat = { daysOfWeek: [...rep.days].sort((a, b) => a - b), startDate: repStart, untilDate: rep.until };
     const ok = await onSubmit(body);
     if (ok && mode === 'add') close();
   }
@@ -99,6 +147,39 @@ export default function EventForm({
   else if (same) summary = null;
   else if (endMin == null) summary = <><b>{f.time}</b> · süre belirsiz. Çizelgede 1 saatlik yer kaplar.</>;
   else summary = <><b>{f.time}–{hm(endMin)}</b> · {formatDuration(dur)}{endMin < startMin && ' · ↷ ertesi gün biter'}</>;
+
+  // Tekrar kutusu: kısayollar, gün dizisi, bitiş tarihi, özet ve hata
+  let repeatBox = null;
+  if (canRepeat && rep.on) {
+    const timeTxt = hasStart ? (endMin != null && !same ? `${f.time}–${f.endTime}` : f.time) : '';
+    const shortcut = (label, days) => {
+      const on = sameDays(rep.days, days);
+      return <button type="button" className={on ? 'on' : ''} aria-pressed={on} onClick={() => updRep({ days })}>{label}</button>;
+    };
+    repeatBox = (
+      <div className="repbox">
+        <div className="repq">
+          {shortcut('Hafta içi', WEEKDAYS_ISO)}
+          {shortcut('Her gün', WEEKDAY_ISO)}
+        </div>
+        <div className="repdays" role="group" aria-label="Tekrar günleri">
+          {WEEKDAY_ISO.map((d) => (
+            <button key={d} type="button" className={rep.days.includes(d) ? 'on' : ''} aria-pressed={rep.days.includes(d)}
+              aria-label={WEEKDAYS_FULL[d - 1]} onClick={() => toggleDay(d)}>{WEEKDAYS[d - 1]}</button>
+          ))}
+        </div>
+        <label className="repd">Bitiş tarihi
+          <input type="date" value={rep.until} min={repStart} max={plusYear(repStart)} aria-invalid={repErr ? true : undefined}
+            onChange={(e) => updRep({ until: e.target.value })} />
+        </label>
+        <div className="repsum" aria-live="polite">
+          {rep.days.length > 0 && <>↻ <b>{daysText(rep.days)}{timeTxt && ` ${timeTxt}`}</b>{!timeTxt && ' saatsiz'}</>}
+          {rep.days.length > 0 && rep.until >= repStart && <> · {untilText(rep.until)} · {weekCount(repStart, rep.until)} hafta</>}
+        </div>
+        {repErr && <div className="inline-error" role="alert">{repErr}</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="evform">
@@ -120,6 +201,8 @@ export default function EventForm({
 
       {info && (
         <form className="evfields" onSubmit={submit} noValidate>
+          {scope === 'one' && <p className="repinfo">Yalnızca {dayMonth(initial.occurrenceDate)} değişir, diğer günler aynı kalır.</p>}
+          {scope === 'all' && <p className="repinfo">Ayrı düzenlediğin günler değişmez.</p>}
           <div className="evrow">
             <input className="grow" aria-label={`${info.label} adı`} placeholder={info.placeholder} maxLength={150}
               value={f.title} onChange={setE('title')} aria-invalid={error ? true : undefined} autoFocus={mode === 'add' && !prefill} />
@@ -155,6 +238,19 @@ export default function EventForm({
             </div>
           )}
 
+          {canRepeat && (
+            <>
+              <div className="rep">
+                <span>↻ Her hafta tekrarla<small>Seçtiğin günlerde, aynı saatte</small></span>
+                {scope !== 'all' && (
+                  <button type="button" role="switch" className={`switch${rep.on ? ' on' : ''}`} aria-checked={rep.on}
+                    aria-label="Her hafta tekrarla" onClick={() => updRep({ on: !rep.on })} />
+                )}
+              </div>
+              {rep.on && repeatBox}
+            </>
+          )}
+
           <div className="evrow">
             <input className="grow" aria-label="Not" placeholder="Not (isteğe bağlı)" maxLength={500} value={f.note} onChange={setE('note')} />
           </div>
@@ -162,7 +258,7 @@ export default function EventForm({
           {error && <div className="inline-error" role="alert">{error}</div>}
 
           <div className="evrow evactions">
-            <button type="submit" className={`evsubmit ${mode === 'add' ? 'add' : isTraining(initial) ? 'sport' : 'event'}`} disabled={busy}>{mode === 'add' ? 'Ekle' : 'Kaydet'}</button>
+            <button type="submit" className={`evsubmit ${mode === 'add' ? 'add' : isTraining(initial) ? 'sport' : 'event'}`} disabled={busy}>{mode === 'add' ? 'Ekle' : scope === 'all' ? 'Tüm tekrarları kaydet' : 'Kaydet'}</button>
             {cancel && <button type="button" className="btn-ghost" onClick={cancel}>İptal</button>}
           </div>
         </form>

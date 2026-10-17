@@ -26,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
     // ESKİ: yalnızca yedek tablo olarak modelde (bkz. Models/TrainingEntry.cs)
     public DbSet<TrainingEntry> TrainingEntries => Set<TrainingEntry>();
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<EventSeries> EventSeries => Set<EventSeries>();
+    public DbSet<EventSeriesException> EventSeriesExceptions => Set<EventSeriesException>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
@@ -112,6 +114,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.Property(e => e.EndTime).HasMaxLength(5);
         });
         ConfigureAudit<Subject>(builder);
+        ConfigureAudit<EventSeries>(builder);
+        builder.Entity<EventSeries>(b =>
+        {
+            b.Property(e => e.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(e => e.Title).HasMaxLength(150);
+            b.Property(e => e.Note).HasMaxLength(500);
+            b.Property(e => e.Time).HasMaxLength(5);
+            b.Property(e => e.EndTime).HasMaxLength(5);
+            b.HasOne(e => e.Family).WithMany().HasForeignKey(e => e.FamilyId).OnDelete(DeleteBehavior.Cascade);
+            // Gün/hafta okuması: FamilyId = x AND StartDate <= bitiş AND UntilDate >= başlangıç.
+            b.HasIndex(e => new { e.FamilyId, e.UntilDate });
+            b.HasMany(e => e.Exceptions).WithOne(x => x.Series!).HasForeignKey(x => x.SeriesId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // Aynı gün iki kez ayrılamaz/atlanamaz; eşzamanlı iki "yalnızca bu gün" isteğinden biri bu indekse takılır.
+        builder.Entity<EventSeriesException>().HasIndex(x => new { x.SeriesId, x.Date }).IsUnique();
 
         // Bildirimler (Web Push). Abonelik adresi ve anahtarları şifreli; aramak için anahtarlı özet.
         builder.Entity<PushSubscription>(b =>

@@ -72,6 +72,8 @@ public class AccountController(
             // önce kayıtlar, sonra profiller silinir.
             await db.StudyEntries.Where(e => e.Day!.FamilyId == fid).ExecuteDeleteAsync();
             await db.Events.Where(e => e.Day!.FamilyId == fid).ExecuteDeleteAsync();
+            await db.EventSeriesExceptions.Where(x => x.Series!.FamilyId == fid).ExecuteDeleteAsync();
+            await db.EventSeries.Where(x => x.FamilyId == fid).ExecuteDeleteAsync();
             await db.TrainingEntries.Where(e => e.Day!.FamilyId == fid).ExecuteDeleteAsync();
             await db.Days.Where(d => d.FamilyId == fid).ExecuteDeleteAsync();
             await db.Subjects.Where(s => s.FamilyId == fid).ExecuteDeleteAsync();

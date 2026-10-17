@@ -2,8 +2,8 @@
 """PlanToBee uçtan uca API senaryosu (yalnızca Python standart kütüphanesi).
 
 Kayıt, e-posta doğrulama, giriş kilidi, oturum yenileme, şifre sıfırlama, aile kurma, profiller ve PIN, ortak plan
-yetkileri, ders listesi, aktivite başlangıç-bitiş saati, hafta ayrıntısı, başka aile izolasyonu, bildirimler ve hesap
-silmeyi kontrol eder.
+yetkileri, ders listesi, aktivite başlangıç-bitiş saati, tekrarlayan aktiviteler, hafta ayrıntısı, başka aile izolasyonu,
+bildirimler ve hesap silmeyi kontrol eder.
 
 API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmalı (LogEmailSender):
 
@@ -118,6 +118,12 @@ def register_and_verify(name, password="sifre123"):
 
 def monday(d):
     return d - dt.timedelta(days=d.weekday())
+
+
+def next_june15(d):
+    """d'den sonraki ilk 15 Haziran (en fazla 1 yıl sonra)."""
+    j = dt.date(d.year, 6, 15)
+    return j if j > d else dt.date(d.year + 1, 6, 15)
 
 
 # ---------------------------------------------------------------- senaryolar
@@ -629,6 +635,289 @@ def test_study_start_time():
     check("başka ailenin denemesi dersi değiştirmedi", m["startTime"] == "15:00" and m["status"] == "done", m)
 
 
+# ---------------------------------------------------------------- tekrarlayan aktiviteler
+
+def week_events(token, mon):
+    """Haftanın günleri: tarih -> aktivite listesi (GET /days/week/{monday}/details)."""
+    s, wk = req("GET", f"/days/week/{mon.isoformat()}/details", token=token)
+    assert s == 200, (s, wk)
+    return {x["date"]: x["events"] for x in wk["days"]}
+
+
+def occ(events, series_id):
+    return [e for e in events if e.get("seriesId") == series_id]
+
+
+def test_series():
+    print("Tekrarlayan aktiviteler (seri) ve Okul türü")
+    email, acc = register_and_verify("Tekrar")
+    s, own = req("POST", "/family", {"name": "Tekrar Ailesi", "profileName": "Anne", "pin": "1593", "refreshToken": acc["refreshToken"]}, acc["token"])
+    pt = own["token"]
+    s, kid = req("POST", "/profiles", {"displayName": "Ela", "role": "Child"}, pt)
+    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, ct = select(dev, kid["id"])
+    ct = ct["token"]
+    o_email, o_acc = register_and_verify("TekrarB")
+    s, o_own = req("POST", "/family", {"name": "Başka Tekrar", "profileName": "Baba", "pin": "7531", "refreshToken": o_acc["refreshToken"]}, o_acc["token"])
+    ot = o_own["token"]
+
+    w1 = monday(dt.date.today()) + dt.timedelta(days=7)  # gelecek hafta (pazartesi)
+    iso = lambda d: d.isoformat()  # noqa: E731
+    until = w1 + dt.timedelta(days=7 * 4 + 3)  # 5. haftanın perşembesi
+    # Tür "Event": Okul türü tatilde gizlenir, değişen haftalarda tatile denk gelmesin (Okul + tatil aşağıda sabit tarihle)
+    base = {"kind": "Event", "title": "Okul", "time": "08:00", "endTime": "15:00", "daysOfWeek": [1, 2, 3, 4, 5],
+            "startDate": iso(w1), "untilDate": iso(until)}
+
+    bad = [
+        ("gün yok", dict(base, daysOfWeek=[])),
+        ("gün alanı yok", {k: v for k, v in base.items() if k != "daysOfWeek"}),
+        ("geçersiz gün (8)", dict(base, daysOfWeek=[1, 8])),
+        ("bitiş < başlangıç", dict(base, untilDate=iso(w1 - dt.timedelta(days=1)))),
+        ("bitiş > 1 yıl", dict(base, untilDate=iso(dt.date(w1.year + 1, w1.month, w1.day) + dt.timedelta(days=1)))),
+        ("bitiş tarihi yok", dict(base, untilDate=None)),
+        ("bitiş tarihi biçimi", dict(base, untilDate="15.06.2027")),
+        ("bitiş saati başlangıçsız", dict(base, time="", endTime="15:00")),
+        ("bitiş = başlangıç", dict(base, endTime="08:00")),
+        ("geçersiz saat", dict(base, time="8:00")),
+        ("adsız", dict(base, title="  ")),
+        ("aralıkta seçili gün yok", dict(base, untilDate=iso(w1), daysOfWeek=[6])),
+        ("aralık dışı istisna", dict(base, exceptions=[iso(until + dt.timedelta(days=1))])),
+    ]
+    for name, body in bad:
+        s, b = req("POST", "/series", body, pt)
+        check(f"seri doğrulama: {name} 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, b = req("POST", "/series", dict(base, startDate="2026-13-01"), pt)
+    check("seri doğrulama: geçersiz başlangıç 400 invalid_date", s == 400 and code_of(b) == "invalid_date", (s, b))
+    s, b = req("POST", "/series", dict(base, kind="Dance"), pt)
+    check("seri doğrulama: tanımsız tür 400", s == 400, (s, b))
+    s, b = req("POST", "/series", dict(base, untilDate=iso(dt.date(w1.year + 1, w1.month, w1.day)), daysOfWeek=[7]), pt)
+    check("bitiş tam 1 yıl sonrası kabul", s == 200, (s, b))
+    req("DELETE", f"/series/{b['id']}", token=pt) if s == 200 else None
+
+    s, sr = req("POST", "/series", base, pt)
+    check("Okul serisi eklendi (Pzt–Cum 08:00–15:00)",
+          s == 200 and sr["kind"] == "Event" and sr["daysOfWeek"] == [1, 2, 3, 4, 5] and sr["time"] == "08:00"
+          and sr["endTime"] == "15:00" and sr["startDate"] == iso(w1) and sr["untilDate"] == iso(until)
+          and sr["exceptions"] == [] and sr["canEdit"] and sr["createdBy"]["displayName"] == "Anne", (s, sr))
+    sid = sr["id"]
+    s, n1 = req("POST", f"/days/{iso(w1)}/events", {"kind": "Music", "title": "Piyano", "time": "07:00"}, pt)
+    s, n2 = req("POST", f"/days/{iso(w1)}/events", {"kind": "Event", "title": "Saatsiz"}, pt)
+    s, n3 = req("POST", f"/days/{iso(w1)}/events", {"kind": "Exam", "title": "Aynı saat", "time": "08:00"}, pt)
+
+    wk = week_events(pt, w1)
+    days = [w1 + dt.timedelta(days=i) for i in range(7)]
+    check("hafta içi her gün bir tekrar, hafta sonu yok",
+          [len(occ(wk[iso(d)], sid)) for d in days] == [1, 1, 1, 1, 1, 0, 0], [len(occ(wk[iso(d)], sid)) for d in days])
+    o = occ(wk[iso(days[2])], sid)[0]
+    check("sanal kayıt: id 0, seriesId, occurrenceDate, recurring özeti",
+          o["id"] == 0 and o["occurrenceDate"] == iso(days[2]) and o["kind"] == "Event" and o["time"] == "08:00"
+          and o["endTime"] == "15:00" and o["recurring"] == {"daysOfWeek": [1, 2, 3, 4, 5], "startDate": iso(w1), "untilDate": iso(until)}
+          and o["canEdit"] and o["createdBy"]["displayName"] == "Anne", o)
+    order = [(e["title"], e["id"] == 0) for e in wk[iso(w1)]]
+    check("gün sırası: saate göre, aynı saatte normal kayıt önce, saatsiz sonda",
+          order == [("Piyano", False), ("Aynı saat", False), ("Okul", True), ("Saatsiz", False)], order)
+    s, b = req("GET", f"/days/{iso(days[3])}", token=pt)
+    check("gün ucu da tekrarı gösterir", s == 200 and len(occ(b["events"], sid)) == 1, b)
+    normal = [e for e in wk[iso(w1)] if e["id"] != 0]
+    check("normal kayıtlarda seri alanları null",
+          all(e["seriesId"] is None and e["occurrenceDate"] is None and e["recurring"] is None for e in normal), normal)
+    last = week_events(pt, monday(until))
+    check("bitiş tarihinde var, sonrasında yok",
+          len(occ(last[iso(until)], sid)) == 1 and len(occ(last[iso(until + dt.timedelta(days=1))], sid)) == 0, last)
+    check("başlangıçtan önce yok", all(len(occ(v, sid)) == 0 for v in week_events(pt, w1 - dt.timedelta(days=7)).values()))
+    s, sw = req("GET", f"/days/week/{iso(w1)}", token=pt)
+    counts = [x["eventCount"] for x in sw["days"]]
+    check("hafta özeti tekrarları sayar", counts == [4, 1, 1, 1, 1, 0, 0], counts)
+
+    # Saatsiz tekrar (spor, cumartesi): "Saati yok" şeridinde, hafta özetinde spor olarak
+    s, tr = req("POST", "/series", {"kind": "Training", "title": "Yüzme", "daysOfWeek": [6], "startDate": iso(w1), "untilDate": iso(until)}, ct)
+    check("çocuk saatsiz spor serisi ekledi", s == 200 and tr["time"] == "" and tr["endTime"] is None and tr["daysOfWeek"] == [6], (s, tr))
+    wk = week_events(pt, w1)
+    o = occ(wk[iso(days[5])], tr["id"])
+    check("saatsiz tekrar: saat boş, süre yok", len(o) == 1 and o[0]["time"] == "" and o[0]["minutes"] is None and o[0]["canEdit"], o)
+    s, sw = req("GET", f"/days/week/{iso(w1)}", token=pt)
+    sat = sw["days"][5]
+    check("hafta özeti: tekrarlayan spor", sat["trainingDone"] and sat["trainingCount"] == 1 and sat["eventCount"] == 0, sat)
+
+    # Yalnızca bu gün sil (salı)
+    tue, wed, fri = days[1], days[2], days[4]
+    s, b = req("POST", f"/series/{sid}/skip", {"date": iso(tue)}, pt)
+    check("yalnızca bu gün silme 204", s == 204, (s, b))
+    wk = week_events(pt, w1)
+    check("salı kalktı, diğer günler duruyor", len(occ(wk[iso(tue)], sid)) == 0 and len(occ(wk[iso(wed)], sid)) == 1, wk)
+    s, b = req("POST", f"/series/{sid}/skip", {"date": iso(tue)}, pt)
+    check("aynı günü tekrar silmek idempotent (204)", s == 204, (s, b))
+    s, b = req("POST", f"/series/{sid}/skip", {"date": iso(days[5])}, pt)
+    check("tekrar günü olmayan tarih 400 not_occurrence", s == 400 and code_of(b) == "not_occurrence", (s, b))
+    s, b = req("POST", f"/series/{sid}/skip", {"date": iso(until + dt.timedelta(days=4))}, pt)
+    check("bitişten sonraki tarih 400 not_occurrence", s == 400 and code_of(b) == "not_occurrence", (s, b))
+    s, b = req("POST", f"/series/{sid}/skip", {"date": "yarın"}, pt)
+    check("geçersiz tarih 400 invalid_date", s == 400 and code_of(b) == "invalid_date", (s, b))
+    s, sw = req("GET", f"/days/week/{iso(w1)}", token=pt)
+    check("hafta özeti atlanan günü saymaz", sw["days"][1]["eventCount"] == 0, sw["days"][1])
+    s, b = req("POST", f"/series/{sid}/restore", {"date": iso(tue)}, pt)
+    check("yalnızca bu gün silmeyi geri al (204), salı geri geldi", s == 204 and len(occ(week_events(pt, w1)[iso(tue)], sid)) == 1, (s, b))
+    s, b = req("POST", f"/series/{sid}/restore", {"date": iso(tue)}, ct)
+    check("çocuk ebeveynin serisinde geri alamaz (403)", s == 403, (s, b))
+    req("POST", f"/series/{sid}/skip", {"date": iso(tue)}, pt)
+
+    # Yalnızca bu gün düzenle (çarşamba): o gün normal aktivite olur
+    s, b = req("POST", f"/series/{sid}/detach", {"date": iso(wed), "title": "Okul (yarım gün)", "time": "08:00", "endTime": "07:00"}, pt)
+    check("ayırmada saat kuralları geçerli (bitiş < başlangıç gece yarısını aşar, kabul)", s == 200, (s, b))
+    s, b = req("POST", f"/series/{sid}/detach", {"date": iso(wed), "title": "Tekrar", "time": "08:00"}, pt)
+    check("ayrılmış günü yeniden ayırmak 409 occurrence_gone", s == 409 and code_of(b) == "occurrence_gone", (s, b))
+    s, b = req("POST", f"/series/{sid}/detach", {"date": iso(fri), "title": "X", "time": "", "endTime": "12:00"}, pt)
+    check("ayırmada bitiş başlangıçsız 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, det = req("POST", f"/series/{sid}/detach", {"date": iso(fri), "title": "Okul gezisi", "time": "09:00", "endTime": "12:00", "note": "çanta"}, pt)
+    check("yalnızca bu gün düzenleme: normal aktivite döner",
+          s == 200 and det["id"] > 0 and det["seriesId"] is None and det["kind"] == "Event" and det["title"] == "Okul gezisi"
+          and det["endTime"] == "12:00" and det["note"] == "çanta", (s, det))
+    wk = week_events(pt, w1)
+    check("cuma: tekrar yok, ayrılan aktivite var",
+          len(occ(wk[iso(fri)], sid)) == 0 and [e["title"] for e in wk[iso(fri)]] == ["Okul gezisi"], wk[iso(fri)])
+    s, b = req("PUT", f"/days/{iso(fri)}/events/{det['id']}", {"title": "Okul gezisi (müze)", "time": "09:00", "endTime": "13:00"}, pt)
+    check("ayrılan gün normal uçla düzenlenir", s == 200 and b["endTime"] == "13:00", (s, b))
+    s, b = req("PUT", f"/days/{iso(days[3])}/events/0", {"title": "X"}, pt)
+    check("sanal kayıt (id 0) eski uçla düzenlenemez (404)", s == 404, (s, b))
+
+    # Tüm tekrarlar düzenleme: kural değişir, ayrılan ve atlanan günler korunur
+    s, b = req("PUT", f"/series/{sid}", {"title": "Okul", "time": "08:30", "endTime": "15:30", "daysOfWeek": [1, 2, 3, 4], "untilDate": iso(w1 - dt.timedelta(days=1))}, pt)
+    check("tüm tekrarlar: bitiş < başlangıç 400", s == 400, (s, b))
+    s, b = req("PUT", f"/series/{sid}", {"title": "Okul", "time": "08:30", "daysOfWeek": [], "untilDate": iso(until)}, pt)
+    check("tüm tekrarlar: gün yok 400", s == 400, (s, b))
+    s, up = req("PUT", f"/series/{sid}", {"title": "Okul", "time": "08:30", "endTime": "15:30", "daysOfWeek": [4, 1, 2, 3, 3], "untilDate": iso(until), "note": "servis"}, pt)
+    check("tüm tekrarlar düzenlendi (günler sıralı, tekrarsız)",
+          s == 200 and up["daysOfWeek"] == [1, 2, 3, 4] and up["time"] == "08:30" and up["note"] == "servis"
+          and up["exceptions"] == sorted([iso(tue), iso(wed), iso(fri)]) and up["updatedBy"]["displayName"] == "Anne", (s, up))
+    wk = week_events(pt, w1)
+    mon_o = occ(wk[iso(w1)], sid)
+    check("pazartesi yeni saatle, salı hâlâ yok, çarşamba ayrılmış, cuma tekrar yok",
+          len(mon_o) == 1 and mon_o[0]["time"] == "08:30" and mon_o[0]["endTime"] == "15:30"
+          and not occ(wk[iso(tue)], sid) and not occ(wk[iso(wed)], sid) and not occ(wk[iso(fri)], sid)
+          and [e["title"] for e in wk[iso(wed)]] == ["Okul (yarım gün)"], wk)
+    nxt = week_events(pt, w1 + dt.timedelta(days=7))
+    check("sonraki hafta: Pzt–Per var, cuma yok",
+          [len(occ(nxt[iso(w1 + dt.timedelta(days=7 + i))], sid)) for i in range(5)] == [1, 1, 1, 1, 0], nxt)
+
+    # Yetki: çocuk ebeveynin serisini değiştiremez (403), kendi serisini değiştirir; ebeveyn çocuğunkini değiştirir
+    o = occ(week_events(ct, w1)[iso(w1)], sid)
+    check("çocuk ebeveynin tekrarını görür, düzenleyemez (canEdit false)", len(o) == 1 and o[0]["canEdit"] is False, o)
+    upd = {"title": "X", "time": "08:00", "daysOfWeek": [1], "untilDate": iso(until)}
+    for name, (m, path, body) in {
+        "düzenleme": ("PUT", f"/series/{sid}", upd),
+        "silme": ("DELETE", f"/series/{sid}", None),
+        "yalnızca bu gün silme": ("POST", f"/series/{sid}/skip", {"date": iso(w1)}),
+        "yalnızca bu gün düzenleme": ("POST", f"/series/{sid}/detach", {"date": iso(w1), "title": "X"}),
+    }.items():
+        s, b = req(m, path, body, ct)
+        check(f"çocuk ebeveynin serisinde {name}: 403 plan_read_only", s == 403 and code_of(b) == "plan_read_only", (s, b))
+    s, b = req("GET", f"/series/{sid}", token=ct)
+    check("çocuk seriyi okuyabilir (canEdit false)", s == 200 and b["canEdit"] is False, (s, b))
+    s, b = req("PUT", f"/series/{tr['id']}", {"title": "Yüzme kursu", "daysOfWeek": [6, 7], "untilDate": iso(until)}, ct)
+    check("çocuk kendi serisini düzenler", s == 200 and b["daysOfWeek"] == [6, 7], (s, b))
+    s, b = req("POST", f"/series/{tr['id']}/detach", {"date": iso(days[6]), "title": "Yüzme yarışı", "time": "10:00"}, pt)
+    check("ebeveyn çocuğun serisinden gün ayırır; kayıt çocuğun kalır",
+          s == 200 and b["createdBy"]["displayName"] == "Ela" and b["updatedBy"]["displayName"] == "Anne", (s, b))
+    s, b = req("PUT", f"/days/{iso(days[6])}/events/{b['id']}", {"title": "Yüzme yarışı", "time": "11:00"}, ct)
+    check("çocuk kendi serisinden ayrılan günü düzenler", s == 200, (s, b))
+
+    # Başka aile: görmez, değiştiremez (404)
+    check("başka aile tekrarları görmez", all(v == [] for v in week_events(ot, w1).values()))
+    s, sw = req("GET", f"/days/week/{iso(w1)}", token=ot)
+    check("başka aile hafta özetinde tekrar sayılmaz", all(x["eventCount"] == 0 and x["trainingCount"] == 0 for x in sw["days"]), sw)
+    for name, (m, path, body) in {
+        "okuma": ("GET", f"/series/{sid}", None),
+        "düzenleme": ("PUT", f"/series/{sid}", upd),
+        "silme": ("DELETE", f"/series/{sid}", None),
+        "yalnızca bu gün silme": ("POST", f"/series/{sid}/skip", {"date": iso(w1)}),
+        "yalnızca bu gün düzenleme": ("POST", f"/series/{sid}/detach", {"date": iso(w1), "title": "X"}),
+        "geri alma": ("POST", f"/series/{sid}/restore", {"date": iso(tue)}),
+    }.items():
+        s, b = req(m, path, body, ot)
+        check(f"başka aile {name}: 404", s == 404 and code_of(b) == "not_found", (s, b))
+    s, b = req("GET", "/series/99999999", token=pt)
+    check("olmayan seri 404", s == 404, (s, b))
+
+    # Okul türü normal aktivitede de
+    s, b = req("POST", f"/days/{iso(days[5])}/events", {"kind": "School", "title": "Veli toplantısı", "time": "10:00"}, pt)
+    check("Okul türünde normal aktivite", s == 200 and b["kind"] == "School", (s, b))
+
+    # Tüm tekrarlar silme + "Geri al" (silinen seri istisnalarıyla yeniden eklenir)
+    s, res = req("DELETE", f"/series/{sid}", token=pt)
+    gone = res.get("series", {}) if isinstance(res, dict) else {}
+    check("tüm tekrarlar silindi (cevap: silinen seri)", s == 200 and res["truncated"] is False and gone["id"] == sid and gone["exceptions"] == up["exceptions"], (s, gone))
+    wk = week_events(pt, w1)
+    check("silinince hiçbir günde tekrar yok, ayrılan günler kalır",
+          all(not occ(v, sid) for v in wk.values()) and [e["title"] for e in wk[iso(fri)]] == ["Okul gezisi (müze)"], wk)
+    s, b = req("GET", f"/series/{sid}", token=pt)
+    check("silinen seri 404", s == 404, (s, b))
+    s, b = req("POST", f"/series/{sid}/skip", {"date": iso(w1)}, pt)
+    check("silinen seride gün silme 404", s == 404, (s, b))
+    undo = {k: gone[k] for k in ["kind", "title", "time", "endTime", "note", "daysOfWeek", "startDate", "untilDate", "exceptions"]}
+    s, again = req("POST", "/series", undo, pt)
+    check("geri al: seri istisnalarıyla geri geldi", s == 200 and again["exceptions"] == gone["exceptions"] and again["id"] != sid, (s, again))
+    wk = week_events(pt, w1)
+    check("geri alınca salı/çarşamba/cuma yine boş, pazartesi var",
+          [len(occ(wk[iso(d)], again["id"])) for d in days[:5]] == [1, 0, 0, 1, 0], [len(occ(wk[iso(d)], again["id"])) for d in days[:5]])
+
+    # Eşzamanlı aynı gün ayırma: yalnızca biri aktivite oluşturur
+    thu2 = iso(w1 + dt.timedelta(days=10))
+    with concurrent.futures.ThreadPoolExecutor(4) as ex:
+        res = list(ex.map(lambda _: req("POST", f"/series/{again['id']}/detach", {"date": thu2, "title": "Aynı anda"}, pt)[0], range(4)))
+    s, d = req("GET", f"/days/{thu2}", token=pt)
+    check("eşzamanlı ayırma: tek 200, diğerleri 409; günde tek kayıt",
+          sorted(res) == [200, 409, 409, 409] and [e["title"] for e in d["events"]] == ["Aynı anda"], (res, d["events"]))
+
+    # "Tüm tekrarlar" silme bugünden (from) itibaren: seri kısalır, önceki günler kalır; "Geri al" = PUT
+    aid, w3 = again["id"], w1 + dt.timedelta(days=14)
+    s, b = req("DELETE", f"/series/{aid}?from=15.06.2027", token=pt)
+    check("silme: geçersiz from 400", s == 400 and code_of(b) == "invalid_date", (s, b))
+    s, res = req("DELETE", f"/series/{aid}?from={iso(w3)}", token=pt)
+    check("from ile silme: seri kısaldı, cevap önceki hâl",
+          s == 200 and res["truncated"] is True and res["series"]["untilDate"] == iso(until), (s, res))
+    s, cur = req("GET", f"/series/{aid}", token=pt)
+    check("kısalan seri: bitiş from - 1, istisnalar korunur",
+          s == 200 and cur["untilDate"] == iso(w3 - dt.timedelta(days=1)) and cur["exceptions"] == res["series"]["exceptions"], (s, cur))
+    check("from öncesi günler kalır, from ve sonrası yok",
+          len(occ(week_events(pt, w1)[iso(w1)], aid)) == 1 and all(not occ(v, aid) for v in week_events(pt, w3).values()))
+    put = {k: res["series"][k] for k in ["title", "time", "endTime", "note", "daysOfWeek", "untilDate"]}
+    s, b = req("PUT", f"/series/{aid}", put, pt)
+    check("geri al (PUT): eski bitiş tarihi ve günler geri geldi",
+          s == 200 and b["untilDate"] == iso(until) and len(occ(week_events(pt, w3)[iso(w3)], aid)) == 1, (s, b))
+    s, b = req("DELETE", f"/series/{aid}?from={iso(w1)}", token=pt)
+    check("from başlangıçtan önce/eşit: seri tamamen silinir", s == 200 and b["truncated"] is False
+          and req("GET", f"/series/{aid}", token=pt)[0] == 404, (s, b))
+
+    # Tatiller: Okul tekrarı resmî tatilde ve okul tatilinde görünmez, arifede görünür; diğer türler görünür
+    s, sch = req("POST", "/series", {"kind": "School", "title": "Okul", "time": "08:00", "endTime": "15:00",
+                                     "daysOfWeek": [1, 2, 3, 4, 5], "startDate": "2027-10-25", "untilDate": "2027-11-26"}, pt)
+    s, mus = req("POST", "/series", {"kind": "Music", "title": "Piyano", "time": "17:00", "daysOfWeek": [5],
+                                     "startDate": "2027-10-25", "untilDate": "2027-11-26"}, pt)
+    wk = week_events(pt, dt.date(2027, 10, 25))
+    check("Okul: 28 Ekim (arife) var, 29 Ekim (Cumhuriyet Bayramı) yok; Piyano 29 Ekim'de var",
+          [len(occ(wk[f"2027-10-{d}"], sch["id"])) for d in (25, 26, 27, 28, 29)] == [1, 1, 1, 1, 0]
+          and len(occ(wk["2027-10-29"], mus["id"])) == 1, {k: [e["title"] for e in v] for k, v in wk.items()})
+    s, d = req("GET", "/days/2027-10-29", token=pt)
+    check("gün cevabında tatil: Cumhuriyet Bayramı (official)",
+          s == 200 and {"name": "Cumhuriyet Bayramı", "kind": "official"} in d["holidays"], (s, d.get("holidays")))
+    s, d = req("GET", "/days/2027-10-28", token=pt)
+    check("arife yarım gün (half)", s == 200 and [h["kind"] for h in d["holidays"]] == ["half"], (s, d.get("holidays")))
+    s, d = req("GET", "/days/2027-10-27", token=pt)
+    check("sıradan gün: tatil listesi boş", s == 200 and d["holidays"] == [], (s, d.get("holidays")))
+    s, w = req("GET", "/days/week/2027-10-25", token=pt)
+    check("hafta özeti: 29 Ekim tatil, Okul sayılmaz (yalnızca Piyano)",
+          s == 200 and w["days"][4]["holidays"][0]["name"] == "Cumhuriyet Bayramı" and w["days"][4]["eventCount"] == 1
+          and w["days"][3]["eventCount"] == 1, (s, w))
+    s, sch2 = req("POST", "/series", {"kind": "School", "title": "Okul", "daysOfWeek": [1, 2, 3, 4, 5],
+                                      "startDate": "2027-03-01", "untilDate": "2027-03-19"}, pt)
+    gone = [len(occ(week_events(pt, dt.date(2027, 3, 8))[f"2027-03-{d:02d}"], sch2["id"])) for d in range(8, 13)]
+    check("ara tatil (8-12 Mart 2027): Okul hiç görünmez, önceki hafta görünür",
+          gone == [0] * 5 and len(occ(week_events(pt, dt.date(2027, 3, 1))["2027-03-01"], sch2["id"])) == 1, gone)
+    s, d = req("GET", "/days/2027-03-09", token=pt)
+    check("aynı güne iki kayıt: Ramazan Bayramı ve ara tatil",
+          [h["kind"] for h in d["holidays"]] == ["official", "school"], d.get("holidays"))
+
+
 # ---------------------------------------------------------------- bildirimler (Web Push)
 # API'nin WebPush:Key ve WebPush:TestEndpointHosts=localhost ile, kısa toplama süresiyle çalışması gerekir
 # (WebPush__BatchSeconds=2). Ayarlı değilse bu senaryo atlanır.
@@ -802,6 +1091,17 @@ def test_push():
         WHERE "RecipientMemberId" = {own['profile']['id']} AND "Body" LIKE '📚 Tarih · 20 dk —%'""")
     if held is not None:
         check("saatsiz ders bildirim metni değişmedi", held == 1, held)
+    # Tekrarlayan aktivite (sessiz saatte kuyrukta bekler): tek bildirim, metinde kuralın özeti
+    okul = f"Okul {uuid.uuid4().hex[:6]}"
+    sd = monday(day) + dt.timedelta(days=7)
+    s, ser = req("POST", "/series", {"kind": "School", "title": okul, "time": "08:00", "endTime": "15:00", "daysOfWeek": [1, 2, 3, 4, 5],
+                                     "startDate": sd.isoformat(), "untilDate": next_june15(sd).isoformat()}, ct)
+    check("seri eklendi (bildirim senaryosu)", s == 200, (s, ser))
+    time.sleep(1)
+    held = db_count(f"""SELECT count(*) FROM "PendingNotifications"
+        WHERE "RecipientMemberId" = {own['profile']['id']} AND "Body" LIKE '🏫 {okul} · Pzt–Cum 08:00–15:00 · 15 Haziran''a kadar'""")
+    if held is not None:
+        check("seri eklenince tek bildirim, metin kural özeti", held == 1, held)
     req("PUT", "/push/settings", off, pt)
 
     s, b = req("PUT", "/push/settings", dict(off, quietStart="25:00"), pt)
@@ -872,6 +1172,9 @@ def account_rows(user_id, family_id, member_ids, entry_ids, event_ids):
         "StudyEntries": f"""SELECT count(*) FROM "StudyEntries" WHERE "Id" IN ({",".join(map(str, entry_ids)) or "0"})""",
         "Events": f"""SELECT count(*) FROM "Events" WHERE "Id" IN ({",".join(map(str, event_ids)) or "0"})""",
         "Subjects": f"""SELECT count(*) FROM "Subjects" WHERE "FamilyId" = {family_id}""",
+        "EventSeries": f"""SELECT count(*) FROM "EventSeries" WHERE "FamilyId" = {family_id}""",
+        "EventSeriesExceptions": f"""SELECT count(*) FROM "EventSeriesExceptions" x JOIN "EventSeries" s ON s."Id" = x."SeriesId"
+            WHERE s."FamilyId" = {family_id}""",
         "PushSubscriptions": f"""SELECT count(*) FROM "PushSubscriptions" WHERE "FamilyId" = {family_id} OR "MemberId" IN ({mids})""",
         "NotificationPreferences": f"""SELECT count(*) FROM "NotificationPreferences" WHERE "MemberId" IN ({mids})""",
         "PendingNotifications": f"""SELECT count(*) FROM "PendingNotifications" WHERE "FamilyId" = {family_id} OR "RecipientMemberId" IN ({mids})""",
@@ -905,6 +1208,10 @@ def test_account_delete():
     s, e2 = req("POST", f"/days/{day}/entries", {"subject": "Fizik", "minutes": 20}, ct["token"])
     s, ev = req("POST", f"/days/{day}/events", {"kind": "Music", "title": "Piyano"}, ct["token"])
     req("GET", "/subjects", token=pt)  # varsayılan ders listesi oluşur
+    today = dt.date.today()
+    s, ser = req("POST", "/series", {"kind": "School", "title": "Okul", "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
+                                     "startDate": today.isoformat(), "untilDate": (today + dt.timedelta(days=30)).isoformat()}, ct["token"])
+    req("POST", f"/series/{ser['id']}/skip", {"date": (today + dt.timedelta(days=1)).isoformat()}, pt)
     entry_ids, event_ids = [e1["id"], e2["id"]], [ev["id"]]
 
     # Bildirim: abonelik + ayar + sessiz saatte bekleyen (kuyrukta duran) bildirim
@@ -957,7 +1264,8 @@ def test_account_delete():
     rows_before = account_rows(user_id, family_id, member_ids, entry_ids, event_ids)
     if rows_before["Users"] is not None:
         check("silmeden önce satırlar var (bildirim kuyruğu ve abonelik dahil)",
-              all(rows_before[k] > 0 for k in ["Users", "Families", "FamilyMembers", "Days", "StudyEntries", "Events", "Subjects", "RefreshTokens"])
+              all(rows_before[k] > 0 for k in ["Users", "Families", "FamilyMembers", "Days", "StudyEntries", "Events", "Subjects", "RefreshTokens",
+                                               "EventSeries", "EventSeriesExceptions"])
               and (fake is None or (rows_before["PushSubscriptions"] > 0 and rows_before["PendingNotifications"] > 0
                                     and rows_before["NotificationPreferences"] > 0)), rows_before)
     anne_pushes = len(fake.to("del-anne")) if fake else 0
@@ -1059,7 +1367,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_push, test_account_delete):
+    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

@@ -311,8 +311,8 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .grow { flex: 1 1 150px; }
 .evform input[type="time"].time-input { flex: 1 0 110px; }
 /* Aktivite türü ikonları: tek sıra, dokununca sarı */
-.evform .acts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-.evform .acts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 7px 0 6px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10.5px; font-weight: 600; color: var(--ink-soft); min-width: 0; overflow: hidden; }
+.evform .acts { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.evform .acts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 7px 0 6px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 600; color: var(--ink-soft); min-width: 0; overflow: hidden; }
 .evform .acts button .ai { font-size: 19px; line-height: 1.2; }
 .evform .acts button.on { background: var(--honey); border-color: var(--honey); color: var(--ink); }
 .evform .evfields { display: flex; flex-direction: column; gap: 8px; }
@@ -326,9 +326,9 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .inline-error { margin: 0; }
 .entry-edit { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .card-head .total.sport { color: var(--sport-deep); background: var(--sport-soft); border-color: transparent; }
-/* Dar kapsayıcıda (ör. çok dar ekranda gün kartı) altı tür tek sırada etiketleri kırpıyordu: sıra korunarak 3 x 2 */
+/* Dar kapsayıcıda (ör. çok dar ekranda gün kartı) yedi tür tek sırada etiketleri kırpıyordu: sıra korunarak 4 + 3 */
 @container (max-width: 289px) {
-  .evform .acts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .evform .acts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .evform .acts button { flex-direction: row; gap: 5px; min-height: 44px; padding: 4px 6px; font-size: 12px; }
 }
 
@@ -664,3 +664,43 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .terms-check a, .auth-hint a, .legal-links a { color: var(--ink); text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: 12px; font-size: 12.5px; }
 .legal-links a { display: inline-block; padding: 10px 2px; color: var(--ink-soft); }
+
+/* Tekrarlayan aktiviteler (Görev 11) */
+.rep { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--line); padding-top: 4px; font-weight: 600; font-size: 14px; }
+.rep small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+.repbox { display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px; }
+.repq { display: flex; gap: 6px; }
+.repq button { position: relative; min-height: 36px; margin: 4px 0; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.repq button::before { content: ''; position: absolute; inset: -4px 0; }
+.repq button.on { background: var(--honey); border-color: var(--honey); }
+.repdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.repdays button { min-height: 44px; min-width: 0; border: none; border-left: 1px solid var(--line); background: none; padding: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.repdays button:first-child { border-left: none; }
+.repdays button.on { background: var(--honey); }
+.repdays button.on::after { content: '✓'; display: block; font-size: 9px; line-height: 1; }
+.repd { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.evform .repd input { width: 100%; background: var(--surface); }
+.repsum { font-size: 13px; color: var(--ink-soft); }
+.repsum b { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.repinfo { margin: 0; padding: 9px 11px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 13px; color: var(--ink-soft); }
+.rc { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.wg-b .rc2 { font-size: 9px; line-height: 1; color: var(--on-accent); }
+.mgrp { margin: 12px 0 2px; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.menu-item .two { display: flex; flex-direction: column; padding: 6px 0; }
+.menu-item .two small { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
+
+/* Tatil ve özel günler (Görev 11 eki): Bee'de gün şeridi, hafta şeridinde ve ızgara başlığında nokta */
+.holstrip { margin: -4px 4px 10px; padding: 7px 11px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.holstrip.hol { background: var(--honey-soft); color: var(--ink); box-shadow: inset 3px 0 0 var(--honey); }
+.holstrip.spc { background: var(--surface-2); color: var(--ink-soft); font-weight: 500; }
+.trail-dot, .wg-hd { position: relative; }
+.hdot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; }
+.trail-dot .hdot.hol { background: var(--honey); }
+.trail-dot .hdot.spc { background: var(--hero-soft); }
+.trail-dot.selected .hdot { background: var(--ink); }
+.trail-dot.selected .hdot.spc { background: var(--ink-soft); }
+.wg-hd .hdot { top: 3px; right: 3px; }
+.wg-hd .hdot.hol { background: var(--honey); }
+.wg-hd .hdot.spc { background: var(--ink-soft); }
+.wg-col.today .wg-hd .hdot { background: var(--ink); }
+.wg-col.today .wg-hd .hdot.spc { background: var(--ink-soft); }

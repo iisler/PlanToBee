@@ -261,6 +261,98 @@ namespace PlanToBee.API.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("PlanToBee.API.Models.EventSeries", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByMemberId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DaysOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EndTime")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<int>("FamilyId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsImported")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Time")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateOnly>("UntilDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByMemberId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("UpdatedByMemberId");
+
+                    b.HasIndex("FamilyId", "UntilDate");
+
+                    b.ToTable("EventSeries");
+                });
+
+            modelBuilder.Entity("PlanToBee.API.Models.EventSeriesException", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SeriesId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeriesId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("EventSeriesExceptions");
+                });
+
             modelBuilder.Entity("PlanToBee.API.Models.Family", b =>
                 {
                     b.Property<int>("Id")
@@ -844,6 +936,42 @@ namespace PlanToBee.API.Migrations
                     b.Navigation("UpdatedBy");
                 });
 
+            modelBuilder.Entity("PlanToBee.API.Models.EventSeries", b =>
+                {
+                    b.HasOne("PlanToBee.API.Models.FamilyMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PlanToBee.API.Models.Family", "Family")
+                        .WithMany()
+                        .HasForeignKey("FamilyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PlanToBee.API.Models.FamilyMember", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Family");
+
+                    b.Navigation("UpdatedBy");
+                });
+
+            modelBuilder.Entity("PlanToBee.API.Models.EventSeriesException", b =>
+                {
+                    b.HasOne("PlanToBee.API.Models.EventSeries", "Series")
+                        .WithMany("Exceptions")
+                        .HasForeignKey("SeriesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Series");
+                });
+
             modelBuilder.Entity("PlanToBee.API.Models.FamilyMember", b =>
                 {
                     b.HasOne("PlanToBee.API.Models.Family", "Family")
@@ -1001,6 +1129,11 @@ namespace PlanToBee.API.Migrations
                     b.Navigation("Events");
 
                     b.Navigation("StudyEntries");
+                });
+
+            modelBuilder.Entity("PlanToBee.API.Models.EventSeries", b =>
+                {
+                    b.Navigation("Exceptions");
                 });
 
             modelBuilder.Entity("PlanToBee.API.Models.Family", b =>

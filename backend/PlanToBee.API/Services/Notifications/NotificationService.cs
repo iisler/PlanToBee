@@ -124,12 +124,26 @@ public static class NotificationText
             EventKind.Concert => ("🎤", "Konser"),
             EventKind.Meeting => ("👥", "Buluşma"),
             EventKind.Exam => ("📝", "Sınav"),
+            EventKind.School => ("🏫", "Okul"),
             _ => ("✦", "Diğer")
         };
         var name = e.Title.Length > 0 ? e.Title : e.Kind == EventKind.Training ? e.TrainingType ?? label : label;
         var time = e.Time.Length == 0 ? "" : e.EndTime != null ? $" · {e.Time}–{e.EndTime}" : $" · {e.Time}";
         return $"{icon} {name}{time}";
     }
+
+    // Tekrarlayan aktivite: "🏫 Okul · Pzt–Cum 08:00–15:00 · 15 Haziran'a kadar". Tek bildirimde kuralın tamamı
+    // anlatılır; tekrar günleri için ayrı bildirim gitmez.
+    public static string Series(EventSeries s)
+    {
+        var head = Activity(new Event { Kind = s.Kind, Title = s.Title });
+        var time = s.Time.Length == 0 ? "" : s.EndTime != null ? $" {s.Time}–{s.EndTime}" : $" {s.Time}";
+        return $"{head} · {SeriesSchedule.DaysText(s.DaysOfWeek)}{time} · {s.UntilDate.Day} {UntilMonths[s.UntilDate.Month - 1]} kadar";
+    }
+
+    // Ay adlarının yönelme hâli (bitiş tarihi için).
+    private static readonly string[] UntilMonths =
+        ["Ocak'a", "Şubat'a", "Mart'a", "Nisan'a", "Mayıs'a", "Haziran'a", "Temmuz'a", "Ağustos'a", "Eylül'e", "Ekim'e", "Kasım'a", "Aralık'a"];
 
     // "Matematik'i", "Kimya'yı", "Türkçe'yi", "Coğrafya'yı" (belirtme hâli eki, ünlü uyumuyla)
     public static string Accusative(string word)

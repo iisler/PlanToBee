@@ -9,9 +9,26 @@ import EventCard from '../components/EventCard';
 import AgendaCard from '../components/AgendaCard';
 import SectionTabs, { panelId, tabId } from '../components/SectionTabs';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
-import { deletedText } from '../utils/events';
-import { addMinutes, agendaItems } from '../utils/timeline';
+import { deletedText, eventLabel } from '../utils/events';
+import { addMinutes, agendaItems, itemKey } from '../utils/timeline';
+import { dayMonth, isOccurrence, isoDay } from '../utils/recurrence';
+import { useNotice } from '../context/NoticeContext';
+import { holidayLine, holidayTone } from '../utils/holidays';
 import Loading from '../components/Loading';
+
+// Aktivite listesinde anahtarla değiştirme / silme (tekrarlanan sanal kayıtların id'si 0'dır, Görev 11)
+const mapEvents = (d, fn) => ({ ...d, events: d.events.map(fn) });
+const patchItem = (d, ev, patch) => mapEvents(d, (e) => (itemKey(e) === itemKey(ev) ? { ...e, ...patch } : e));
+const removeItem = (d, ev) => ({ ...d, events: d.events.filter((e) => itemKey(e) !== itemKey(ev)) });
+const ofSeries = (e, id) => isOccurrence(e) && e.seriesId === id;
+const patchSeries = (d, id, patch) => mapEvents(d, (e) => (ofSeries(e, id) ? { ...e, ...patch } : e));
+const dropSeries = (d, id) => ({ ...d, events: d.events.filter((e) => !ofSeries(e, id)) });
+// Silinen seriyi "Geri al": seri kısaltıldıysa eski kural geri yazılır (PUT), tamamen silindiyse yeniden oluşturulur (POST, yeni id)
+function restoreSeries({ truncated, series: s }) {
+  const rule = { title: s.title, time: s.time ?? '', endTime: s.endTime ?? '', note: s.note ?? '', daysOfWeek: s.daysOfWeek, untilDate: s.untilDate };
+  return truncated ? client.put(`/series/${s.id}`, rule)
+    : client.post('/series', { ...rule, kind: s.kind, startDate: s.startDate, exceptions: s.exceptions ?? [] });
+}
 
 const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
 
@@ -98,20 +115,56 @@ export default function DayPage({
         { undo: `${entry.subject} kaydı silindi` });
     },
   }), [date, mutate]);
+  const { notify } = useNotice();
   const events = useMemo(() => ({
-    async add(body) {
+    // body.repeat varsa (Görev 11) seri eklenir; dönüş, seri bu güne düşüyorsa bugünkü tekrarın anahtar alanları
+    async add({ repeat, ...body }) {
       let created = null;
-      const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/events`, body)).data; });
+      const ok = await mutate(null, async () => {
+        if (!repeat) { created = (await client.post(`/days/${date}/events`, body)).data; return; }
+        const sr = (await client.post('/series', { ...body, ...repeat })).data;
+        created = repeat.daysOfWeek.includes(isoDay(date)) ? { id: 0, seriesId: sr.id, occurrenceDate: date } : {};
+      });
       return ok ? created ?? {} : null;
     },
-    save(ev, body) {
-      return mutate(d => patchEntry(d, 'events', ev.id, body), () => client.put(`/days/${date}/events/${ev.id}`, body));
+    // scope: yok (tek aktivite) · 'one' (o günü seriden ayır) · 'all' (kuralı düzenle). Dönüş: kaydın itemKey'i ya da null.
+    async save(ev, { repeat, ...body }, scope) {
+      if (scope === 'one') {
+        let created = null;
+        const ok = await mutate(d => patchItem(d, ev, body), async () => {
+          created = (await client.post(`/series/${ev.seriesId}/detach`, { date: ev.occurrenceDate, ...body })).data;
+        });
+        return ok ? (created?.id ? `e${created.id}` : itemKey(ev)) : null;
+      }
+      if (scope === 'all') {
+        const rule = { ...body, daysOfWeek: repeat.daysOfWeek, untilDate: repeat.untilDate };
+        const ok = await mutate(d => patchSeries(d, ev.seriesId, body), () => client.put(`/series/${ev.seriesId}`, rule));
+        return ok ? itemKey(ev) : null;
+      }
+      const ok = await mutate(d => patchItem(d, ev, body), () => client.put(`/days/${date}/events/${ev.id}`, body));
+      return ok ? itemKey(ev) : null;
     },
+    // Tekrarlanan kayıtta yalnızca o gün atlanır (skip); istek, diğer silmeler gibi "Geri al" süresi kadar bekletilir.
     remove(ev) {
-      return mutate(d => removeEntry(d, 'events', ev.id), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
+      if (isOccurrence(ev)) {
+        return mutate(d => removeItem(d, ev), (cfg) => client.post(`/series/${ev.seriesId}/skip`, { date: ev.occurrenceDate }, cfg),
+          { undo: `${dayMonth(ev.occurrenceDate)} silindi.` });
+      }
+      return mutate(d => removeItem(d, ev), (cfg) => client.delete(`/days/${date}/events/${ev.id}`, cfg),
         { undo: deletedText(ev) });
     },
-  }), [date, mutate]);
+    // Bugünden itibaren bütün tekrarlar silinir (geçmiş günler kalır); "Geri al" sunucudaki eski hâli geri yazar.
+    removeSeries(ev) {
+      const from = dkey(new Date());
+      return mutate(d => (date >= from ? dropSeries(d, ev.seriesId) : d), async () => {
+        const res = (await client.delete(`/series/${ev.seriesId}`, { params: { from } })).data;
+        notify(`${eventLabel(ev)} tekrarları silindi.`, 'info', {
+          duration: 6000,
+          action: { label: 'Geri al', onClick: () => mutate(null, () => restoreSeries(res)) },
+        });
+      });
+    },
+  }), [date, mutate, notify]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
@@ -193,6 +246,10 @@ export default function DayPage({
       <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
         {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
       </h2>
+
+      {section === 'bee' && holidayLine(shown) && (
+        <p className={`holstrip ${holidayTone(shown)}`}>{holidayLine(shown)}</p>
+      )}
 
       {loadError && !ready ? (
         <div className="load-error" role="alert">

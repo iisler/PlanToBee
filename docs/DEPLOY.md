@@ -441,6 +441,42 @@ git push origin main
   DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_StudyEntryStartTime';
   ```
 
+### 6.5 Geri dönüş: "Tekrarlayan aktiviteler" sürümünden önceki sürüme
+
+Tekrarlayan aktiviteler (seri) ve Okul türü gelen sürümden önceki hal git'te `rollback-oncesi-tekrar` etiketiyle saklanır.
+Yayından önce Neon > **Branches** > **Create branch** ile yedek alınır.
+
+Bu sürüm yalnızca iki **yeni tablo** ekler (`EventSeries` ve `EventSeriesExceptions`, `EventSeries` migration'ı); mevcut
+tablolara ve satırlara dokunmaz. Eski sürüm bu tabloları bilmez: tekrarlar eski sürümde görünmez, hesap silmede eski kod
+bu tabloları açıkça silmez ama satırlar `Families` silinince veritabanındaki cascade ile gider. "Yalnızca bu gün düzenle"
+ile seriden ayrılan günler zaten normal `Events` satırıdır, eski sürümde de görünür.
+
+Yeni `School` (Okul) türü metin olarak saklanır; **eski kod bu değeri okuyamaz** (o günün planı hata verir). Geri dönüşte
+kod geri alınmadan önce Neon > SQL Editor:
+
+```sql
+UPDATE "Events" SET "Kind" = 'Event' WHERE "Kind" = 'School';
+```
+
+Ardından kod geri alınır:
+
+```bash
+git revert --no-edit rollback-oncesi-tekrar..main
+git push origin main
+```
+
+- Okul kayıtları "Diğer" türüne döner (ad ve saat korunur); ileri geçildiğinde tür elle düzeltilir.
+- Tekrar kuralları tablolarda kalır; yeniden ileri geçince geri gelir. Eski sürüm `EventSeries` satırlarını okumaz,
+  `School` türlü seri olsa da hata vermez.
+- Site Render'dan önce yayına çıkarsa yeni istemcinin `/api/series` istekleri eski API'de 404, `School` türünde aktivite
+  400 alır; API yayına çıkınca düzelir.
+- Tabloları kaldırmak gerekirse (girilmiş tekrarlar kaybolur; gerekirse yedekten alınır) Neon > SQL Editor:
+  ```sql
+  DROP TABLE "EventSeriesExceptions";
+  DROP TABLE "EventSeries";
+  DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_EventSeries';
+  ```
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

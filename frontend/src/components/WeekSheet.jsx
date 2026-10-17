@@ -3,6 +3,8 @@ import Sheet from './Sheet';
 import HoneycombSpinner from './HoneycombSpinner';
 import { addDays, dkey, mondayOf, MONTHS, WEEKDAYS, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { daySummary, weekTotals } from '../utils/events';
+import { isOccurrence } from '../utils/recurrence';
+import { holidayAria, holidayTone } from '../utils/holidays';
 import { agendaItems, iconOf, itemKey, kindClass, longestGaps, toMin, weekColumn, weekColumnLabel, WE, WG_HEIGHT, WG_PX, WS } from '../utils/timeline';
 
 const AXIS = [7, 10, 13, 16, 19, 22];
@@ -57,11 +59,13 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
             const date = addDays(monday, i);
             const key = dkey(date);
             const today = key === todayKey;
-            const head = `${WEEKDAYS_FULL[i]} ${date.getDate()} ${MONTHS[date.getMonth()]}${today ? ', bugün' : ''}`;
+            const hol = holidayAria(dayOf(i));
+            const tone = holidayTone(dayOf(i));
+            const head = `${WEEKDAYS_FULL[i]} ${date.getDate()} ${MONTHS[date.getMonth()]}${today ? ', bugün' : ''}${hol ? `, ${hol}` : ''}`;
             return (
               <button key={key} type="button" className={`wg-col${today ? ' today' : ''}`} aria-current={today ? 'date' : undefined}
                 aria-label={weekColumnLabel(head, col)} onClick={() => onPick(date)}>
-                <span className="wg-hd" aria-hidden="true"><span className="w">{WEEKDAYS[i]}</span><span className="n">{date.getDate()}</span></span>
+                <span className="wg-hd" aria-hidden="true">{tone && <span className={`hdot ${tone}`} />}<span className="w">{WEEKDAYS[i]}</span><span className="n">{date.getDate()}</span></span>
                 <span className="wg-un" aria-hidden="true">
                   {col.untimed.length > 0 && iconOf(col.untimed[0])}
                   {col.untimed.length > 1 && <i>+{col.untimed.length - 1}</i>}
@@ -74,6 +78,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
                       style={{ top: Math.round(top) + 1, height: Math.round(height) - 2, left: `calc(2px + ${lane} * (100% - 4px) / ${n})`, width: `calc((100% - 4px) / ${n} - ${n > 1 ? 1 : 0}px)` }}>
                       {!r.ev.isStudy && n === 1 && height >= 20 && <span className="ic">{iconOf(r.ev)}</span>}
                       {!r.ev.isStudy && n === 1 && height >= 40 && <span className="t">{r.start.endsWith(':00') ? r.start.slice(0, 2) : r.start}</span>}
+                      {isOccurrence(r.ev) && n === 1 && height >= 60 && <span className="rc2">↻</span>}
                     </i>
                   ))}
                   {today && nowMin >= WS && nowMin < WE && <span className="wg-now" style={{ top: Math.round((nowMin - WS) * WG_PX) }} />}
