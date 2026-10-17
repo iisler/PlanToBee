@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/08-hesap-silme.md`.
 
-Durum: Ürün: Tamamlandı · Tasarım: Tamamlandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Başlamadı
+Durum: Tamamlandı ve canlıda (2026-10-11). Ürün, Tasarım, Backend, Frontend tamam; QA: geçti (e2e 214/214, 35 kabul kriteri).
 
 ---
 

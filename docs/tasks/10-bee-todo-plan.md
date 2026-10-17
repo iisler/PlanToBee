@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/09-saat-cizelgesi.md`.
 
-Durum: Ürün: Tamamlandı · Tasarım: Tamamlandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Onaylandı (backend e2e bu ortamda çalıştırılamadı; bkz. QA Sonuçları)
+Durum: Ürün: Tamamlandı · Tasarım: Tamamlandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Onaylandı (genel QA turunda e2e 246/246 geçti, 2026-10-16; bkz. QA Sonuçları)
 
 > **Sıra güncellemesi (kullanıcı kararı, 2026-10-11):** Seçici sırası soldan sağa **Plan (Aktiviteler) · To-do (Dersler) · Bee (Ajanda)** — marka sırası. Uygulama açılınca herkes için **Bee** seçili gelir. Belgedeki "1) Bee 2) To-do 3) Plan" sırası bu notla geçersizdir; maket: /tmp/ptb-ux-preview/67-plan-todo-bee.png.
 

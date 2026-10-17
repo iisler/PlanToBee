@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/06-bildirimler.md`.
 
-Durum: Tasarım: Tamamlandı · Ürün: Düzeltmeyle onaylandı (Frontend başlayabilir; "Ürün Onayı" bölümündeki düzeltmeler dahil) · Backend: Tamamlandı (değişiklik yok) · Frontend: Tamamlandı · Tasarım İncelemesi: Başlamadı · QA: Başlamadı
+Durum: Tamamlandı ve canlıda (2026-10-11). Ürün, Tasarım, Backend, Frontend tamam; QA: geçti (inceleme turu düzeltmeleriyle; e2e ve QA, ux-ui-designer, product-manager incelemesi).
 
 ---
 

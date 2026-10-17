@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/07-tek-ekran.md` (tek ekran plan).
 
-Durum: Ürün: Taslak · Tasarım: Tamam (önizleme kullanıcı onayı bekliyor) · Backend: Tamamlandı (yalnızca hesap silme) · Frontend: Başlamadı · QA: Başlamadı
+Durum: Tamamlandı ve canlıda (2026-10-11), yalnızca hesap silme kapsamı. Backend ve Frontend tamam; QA: ana oturumda arayüz senaryoları ve e2e ile doğrulandı. KVKK metinleri ve koşul onayı ayrı iş olarak kaldı.
 
 > **Kapsam güncellemesi (kullanıcı kararı):** Bu turda YALNIZCA hesap silme (uygulama içi silme akışı + sunucu ucu) yapılır. KVKK metinleri, herkese açık metin sayfaları, kayıt ekranındaki koşul onayı ve hesap silme bilgi sayfası sonraki tura kaldı (taslaklar: docs/legal/). Bu turda ilgili kabul kriterleri kapsam dışıdır.
 
