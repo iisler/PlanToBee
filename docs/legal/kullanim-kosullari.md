@@ -1,9 +1,8 @@
 # PlanToBee Kullanım Koşulları
 
-Sürüm 1 · Yürürlük tarihi: [GG.AA.YYYY]
+Sürüm 1 · Yürürlük tarihi: 17.10.2026
 
-Bu koşullar, PlanToBee uygulamasının ve web sitesinin ("Hizmet") kullanımını düzenler. Hizmet, **[Ad Soyad]**
-tarafından sunulur. Hesap oluşturarak bu koşulları kabul etmiş olursun.
+Bu koşullar, PlanToBee uygulamasının ve web sitesinin ("Hizmet") kullanımını düzenler. Hizmet, **PlanToBee uygulaması** tarafından sunulur. Hesap oluşturarak bu koşulları kabul etmiş olursun.
 
 ## 1. Hizmet
 

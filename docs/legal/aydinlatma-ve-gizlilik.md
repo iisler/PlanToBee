@@ -1,6 +1,6 @@
 # PlanToBee Kişisel Verilerin Korunması Aydınlatma Metni ve Gizlilik Politikası
 
-Sürüm 1 · Yürürlük tarihi: [GG.AA.YYYY]
+Sürüm 1 · Yürürlük tarihi: 17.10.2026
 
 Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. maddesi uyarınca, PlanToBee
 uygulamasını ve web sitesini kullanırken kişisel verilerinin nasıl işlendiğini anlatır. Bu bir bilgilendirmedir;
@@ -8,7 +8,7 @@ senden ayrıca bir onay istemez.
 
 ## 1. Veri sorumlusu
 
-Veri sorumlusu: **[Ad Soyad]** (gerçek kişi, bireysel geliştirici)
+Veri sorumlusu: **PlanToBee uygulaması** (bireysel geliştirici tarafından işletilir)
 İletişim: **plantobee.app@gmail.com**
 
 ## 2. Hangi kişisel verileri işliyoruz?

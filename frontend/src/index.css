@@ -657,3 +657,10 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 /* Hafta */
 .wg-b.study { background: var(--study); }
 .wg-leg .lg-study { background: var(--study); }
+
+/* KVKK: kayıt onay kutusu ve metin bağlantıları */
+.terms-check { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 6px 0; font-size: 13.5px; color: var(--ink); cursor: pointer; }
+.terms-check input { width: 22px; height: 22px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--ink); }
+.terms-check a, .auth-hint a, .legal-links a { color: var(--ink); text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: 12px; font-size: 12.5px; }
+.legal-links a { display: inline-block; padding: 10px 2px; color: var(--ink-soft); }

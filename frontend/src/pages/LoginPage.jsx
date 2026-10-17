@@ -9,6 +9,9 @@ import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
 import PasswordInput from '../components/PasswordInput';
 
+// KVKK ve kullanım koşulları: girişsiz açılan statik sayfalar (public/legal/)
+const LEGAL = `${import.meta.env.BASE_URL}legal/`;
+
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
 // Kayıt oturum açmaz; "e-postana bağlantı gönderdik" ekranı gösterilir (hesap varlığı belli olmasın diye).
@@ -21,6 +24,7 @@ export default function LoginPage() {
   // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   // Hesap silindikten sonra gelindiyse kalıcı bilgi; sekme değiştirince ya da yazmaya başlayınca kapanır.
   const [deletedInfo, setDeletedInfo] = useState(() => {
     try {
@@ -39,6 +43,7 @@ export default function LoginPage() {
   function switchMode(m) {
     setMode(m);
     setDeletedInfo(false);
+    setAcceptTerms(false);
     setError('');
     setRegistered(null);
     setResendInfo('');
@@ -53,6 +58,7 @@ export default function LoginPage() {
       if (mode === 'login') {
         await login(form.email.trim(), form.password);
       } else {
+        if (!acceptTerms) { setError('Kayıt olmak için Kullanım Koşulları\'nı kabul etmelisin.'); setLoading(false); return; }
         const data = await register(form.email.trim(), form.password, form.displayName.trim());
         setRegistered({ email: data.email || form.email.trim(), message: data.message });
         setLoading(false);
@@ -92,10 +98,18 @@ export default function LoginPage() {
   return (
     <AuthLayout
       subtitle="Haftalık plan ve takip platformu"
-      footer={mode === 'login' && (
-        <div className="auth-links">
-          <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
-        </div>
+      footer={(
+        <>
+          {mode === 'login' && (
+            <div className="auth-links">
+              <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
+            </div>
+          )}
+          <div className="legal-links">
+            <a href={`${LEGAL}aydinlatma.html`}>Aydınlatma Metni ve Gizlilik</a>
+            <a href={`${LEGAL}kosullar.html`}>Kullanım Koşulları</a>
+          </div>
+        </>
       )}
     >
       {deletedInfo && <div className="auth-info deleted-info" role="status">Hesabın ve tüm verilerin silindi.</div>}
@@ -119,6 +133,16 @@ export default function LoginPage() {
           onChange={set('password')}
           required
         />
+        {mode === 'register' && (
+          <>
+            <label className="terms-check">
+              <input type="checkbox" checked={acceptTerms} onChange={(e) => { setAcceptTerms(e.target.checked); setError(''); }} required />
+              <span><a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
+            </label>
+            {/* Aydınlatma bir bilgilendirmedir, onay kutusu değildir (KVKK m.10) */}
+            <div className="auth-hint">Kişisel verilerin <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni</a>'ne uygun işlenir.</div>
+          </>
+        )}
         {error && <div className="auth-error" role="alert">{error}</div>}
         <button type="submit" className="auth-submit" disabled={loading}>
           <BusyLabel busy={loading} text={mode === 'login' ? 'Giriş yap' : 'Kayıt ol'} busyText={mode === 'login' ? 'Giriş yapılıyor…' : 'Kaydediliyor…'} />
