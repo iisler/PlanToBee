@@ -67,15 +67,16 @@ export function span(ev) {
 
 // Günün kayıtlarını sınıflar: saatsiz / 07:00 öncesi / 22:00 sonrası / pencere içi (cs–ce kesilmiş).
 // Pencere içi kayıtlar cs'ye göre sıralı (eşitse uzun olan önce).
-// end: pencere içinde başlayan kaydın kesildiği an. Hafta ızgarası sabit yükseklikte olduğundan 22:00'de keser;
-// gün çizelgesi 1440 verir: 22:00'yi aşan kayıt (ör. 21:54–22:34) bütün görünür, yalnızca gece yarısında kesilir.
+// end: pencerenin bittiği an. Hafta ızgarası sabit yükseklikte olduğundan 22:00'de keser, sonrası "22:00 sonrası" olur;
+// gün çizelgesi 1440 verir: 22:00'yi aşan ve 22:00'den sonra başlayan kayıtlar da çizelgede görünür, yalnızca
+// gece yarısında kesilir.
 export function classify(events, end = WE) {
   const untimed = [], before = [], after = [], inw = [];
   for (const ev of events) {
     const r = span(ev);
     if (!r) { untimed.push(ev); continue; }
     if (r.E <= WS) before.push(r);
-    else if (r.S >= WE) after.push(r);
+    else if (r.S >= end) after.push(r);
     else inw.push({ ...r, cs: Math.max(r.S, WS), ce: Math.min(r.E, end), cutTop: r.S < WS, cutBot: r.E > end });
   }
   inw.sort((a, b) => a.cs - b.cs || b.ce - a.ce);
@@ -150,7 +151,7 @@ const LIST_ROW = 44, LIST_HEAD = 30;
 
 // Çizelge yerleşimi: kümeler ve boşluklar üst üste dizilir (eksen doğrusal değil).
 // Dönen: { items: [{ type: 'gap'|'blk'|'list', top, height, ... }], labels: [{ y, text, now }], breaks: [y],
-//          nowY, height }. items kronolojik sıradadır (DOM sırası = okuma sırası).
+//          nowY, height, end }. items kronolojik sıradadır (DOM sırası = okuma sırası).
 export function layoutDay(inw, nowMin = null) {
   const items = [], labels = [], breaks = [];
   let y = 0, nowY = null;
@@ -208,7 +209,8 @@ export function layoutDay(inw, nowMin = null) {
     y += H;
   }
   // Çizelge 22:00'de, 22:00'yi aşan kayıt varsa onun bitişinde biter
-  labels.push({ y, text: hm(Math.max(cur, WE)), p: 1 });
+  const end = Math.max(cur, WE);
+  labels.push({ y, text: hm(end), p: 1 });
 
   // Eksen etiketleri: şu an > bölüm sınırı > tam saat; tutulan bir etikete 14 px'ten yakın olan çizilmez
   const keep = [];
@@ -216,7 +218,7 @@ export function layoutDay(inw, nowMin = null) {
   for (const l of [...labels].sort((a, b) => a.p - b.p || a.y - b.y)) {
     if (keep.every((k) => Math.abs(l.y - k.y) >= 14)) keep.push(l);
   }
-  return { items, labels: keep, breaks, nowY, height: y };
+  return { items, labels: keep, breaks, nowY, height: y, end };
 }
 
 // ---------- Hafta ızgarası ----------

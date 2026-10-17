@@ -27,15 +27,17 @@ const BREAK = (
 );
 
 // Bee (Ajanda): günün dersleri ve aktiviteleri saat çizelgesi olarak (Görev 09 + Görev 10): üstte "Saati yok" şeridi ve 07:00 öncesi satırları, ortada
-// 07:00–22:00 çizelgesi (kümeler + boşluklar üst üste; uzun boşluk sıkıştırılır), altta 22:00 sonrası satırları.
+// 07:00–22:00 çizelgesi (22:00'yi aşan ya da sonra başlayan kayıt varsa onun bitişine uzar; kümeler + boşluklar üst üste; uzun boşluk sıkıştırılır), altta 22:00 sonrası satırları.
 // Aktivite bir düğmedir: onOpen(öğe, düğme) ⋯ menüsünü açar. Ders (öğe.isStudy) iki düğmedir: daire onCycle(ders) ile
 // durumu değiştirir, kalan alan ⋯ menüsünü açar. Boşluk düğmesi onGap(start, end) ile ekleme sayfasını açar; boş günde
 // "+ Ekle" onGap(null, null). events: utils/timeline agendaItems (dersler + aktiviteler). data-id = itemKey.
 export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle }) {
   const { hideInitials } = useAuditSettings();
   const rawNow = useNow(isToday);
-  const nowMin = rawNow != null && rawNow >= WS && rawNow < WE ? rawNow : null;
   const { untimed, before, after, inw } = useMemo(() => classify(events, 1440), [events]);
+  // Çizelge 22:00'yi aşan kayıt varsa onun bitişine kadar uzar
+  const winEnd = inw.reduce((m, r) => Math.max(m, r.ce), WE);
+  const nowMin = rawNow != null && rawNow >= WS && rawNow < winEnd ? rawNow : null;
   const lay = useMemo(() => layoutDay(inw, nowMin), [inw, nowMin]);
 
   // Erişilebilir ada "kim ekledi" eklenir (görünen baş harf düğmenin aria-label'ı altında okunmaz)
@@ -122,7 +124,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
             ))}
           </div>
           <div className="tl-track" style={{ height: lay.height }}>
-            <ol className="tl-list" aria-label="Saat çizelgesi, 07:00–22:00">
+            <ol className="tl-list" aria-label={`Saat çizelgesi, 07:00–${hm(lay.end)}`}>
               {lay.items.map(it => {
                 const pos = { top: Math.round(it.top), height: Math.round(it.height) };
                 if (it.type === 'gap') return (
