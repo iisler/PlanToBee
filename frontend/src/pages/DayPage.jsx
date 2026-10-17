@@ -231,8 +231,8 @@ export default function DayPage({
       <section className="dayhero">
         <div className="weekhead">
           <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
-          <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(d, -7))}>‹</button>
-          <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(d, 7))}>›</button>
+          <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>‹</button>
+          <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>›</button>
           <button type="button" ref={weekBtnRef} className="weekbtn" aria-haspopup="dialog" aria-label="Haftanın tamamını gör"
             onClick={() => setWeekOpen(true)}><span aria-hidden="true">📅</span>Hafta</button>
         </div>

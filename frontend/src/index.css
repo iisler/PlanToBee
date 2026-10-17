@@ -68,10 +68,10 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 /* Plan ekranı üst alanı (pages/DayPage.jsx): hafta aralığı, ‹ › hafta okları, "📅 Hafta" ve gün şeridi */
 .dayhero { background: var(--hero-bg); color: var(--hero-ink); border-radius: 20px; padding: 12px 12px 10px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .weekhead { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.weekhead .range { flex: 1; min-width: 0; padding-left: 4px; font-family: var(--f-display); font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weekhead .range { flex: 0 1 auto; min-width: 0; padding-left: 4px; font-family: var(--f-display); font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .weekhead button { height: 44px; min-width: 44px; flex-shrink: 0; border-radius: 11px; border: 1px solid var(--hero-line); background: none; color: var(--hero-ink); font-size: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 .weekhead button:hover { background: var(--hero-line); }
-.weekhead .weekbtn { padding: 0 12px; gap: 6px; border-color: var(--honey); color: var(--honey); font-size: 14px; font-weight: 700; }
+.weekhead .weekbtn { margin-left: auto; padding: 0 12px; gap: 6px; border-color: var(--honey); color: var(--honey); font-size: 14px; font-weight: 700; }
 /* Dar ekranda (360 px: satır 304 px) başlık küçülür, düğmeler küçülmez (şeritte yıl yazılmaz). Yine sığmayan aralıkta
    DayPage yazıyı en çok 13 px'e kadar küçültür. */
 @media (max-width: 374px) { .weekhead .range { font-size: 16px; } }
