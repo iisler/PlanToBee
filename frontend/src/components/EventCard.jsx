@@ -6,7 +6,6 @@ import { ariaEvent, iconOf, itemKey, kindClass, span } from '../utils/timeline';
 import { isOccurrence, repeatAria } from '../utils/recurrence';
 import RepeatMark from './RepeatMark';
 import EventForm from './EventForm';
-import QuickAdd from './QuickAdd';
 import EntryMenu from './EntryMenu';
 import AuditTag from './AuditTag';
 import useFocusAfterDelete from '../hooks/useFocusAfterDelete';
@@ -25,9 +24,8 @@ const whenText = (r) => (r.noEnd ? r.start : `${r.start}–${r.end}${r.night ? '
 // günün aktiviteleri liste olarak. Satır: tür ikonu · ad · saat aralığı ya da "saati yok" · ⋯ menüsü (Düzenle / Sil).
 // Düzenleme formu satırın yerinde açılır. Bu kartta çizelge ve boşluk yok.
 // items: Bee öğeleri (çakışma uyarısı dersleri de görsün). actions: DayPage'deki aktivite işlemleri (add, save, remove).
-// quick (Görev 13): "+ Aktivite ekle"nin yanındaki 🎤 sesle ekleme panelini açar. quick.add(gün, body) başka bir güne de ekler,
-// quick.edit(gün, taslak) ekleme formunu dolu açar; taslak (quick.draft) DayPage'de tutulur, form kapanınca quick.clearDraft.
-export default function EventCard({ date, events, items, actions, quick, myId, menuReset, isToday, panel }) {
+// draft (Görev 13): sesle eklemedeki "Düzenle"den gelen taslak (DayPage'de tutulur); ekleme formu dolu açılır, kapanınca onClearDraft.
+export default function EventCard({ date, events, items, actions, draft, onClearDraft, myId, menuReset, isToday, panel }) {
   const { hideInitials } = useAuditSettings();
   const [editing, setEditing] = useState(null); // düzenlenen kayıt: { key, scope } (scope: tekrarlanan kayıtta 'one' | 'all')
   const [busy, setBusy] = useState(false);
@@ -99,9 +97,9 @@ export default function EventCard({ date, events, items, actions, quick, myId, m
       </div>
 
       {/* Tür ikonları ekleme düğmesidir (süzgeç değil); ekran okuyucu bunu ikon grubunun adından duyar */}
-      <QuickAdd date={date} onAdd={quick.add} onEdit={quick.edit} />
+      <div className="sub-lb add-lb" aria-hidden="true">+ Aktivite ekle</div>
       <EventForm key="add" mode="add" onSubmit={add} busy={busy} events={items} date={date} kindsLabel="Aktivite ekle"
-        draft={quick.draft} onClearDraft={quick.clearDraft} />
+        draft={draft} onClearDraft={onClearDraft} />
 
       {rows.length === 0 ? <div className="empty-note">Bu gün için aktivite yok.</div> : rows.map(({ ev, r }) => {
         const key = itemKey(ev);

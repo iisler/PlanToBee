@@ -1,11 +1,14 @@
 // Sesle ya da yazıyla hızlı aktivite ekleme (Görev 13). "1 Kasım saat 13:00 ila 15:00 arasına voleybol maçı gir" gibi bir
 // cümleden tarih, başlangıç–bitiş, tür ve ad çıkarılır. Kurallarla cihazda çalışır; metin sunucuya ya da yapay zekâya gitmez.
 // Saf işlevler (React Native'e aynen taşınabilir).
-// parseQuickAdd(metin, bugün) → { date, time, endTime, kind, title }
+// parseQuickAdd(metin, bugün, dersler) → { date, time, endTime, kind, title, subject, topic, minutes }
 // - date: "yyyy-AA-gg"; söylenmediyse null (seçili gün kullanılır). Yıl söylenmezse geçmiş tarih gelecek yıla gider.
 // - time / endTime: "SS:dd" ya da "". Gündüz saati varsayılır: "3'te" 15:00, "sabah 9" 09:00, "akşam 7" 19:00.
 //   Bitiş başlangıçtan sonraki en yakın saattir ("10'dan 2'ye" 10:00–14:00); süre de söylenebilir ("2 saat").
 // - kind: sunucudaki EventKind (anahtar kelimeden; bulunamazsa 'Event' = Diğer). title: kalan kelimeler ya da "".
+// - subject: cümlede ailenin ders listesinden bir ad geçiyorsa (dersler: ad dizisi) o ad; kayıt ders (To-do) olur. Okul ya da
+//   Diğer dışında bir tür kelimesi varsa aktivite kalır ("Matematik sınavı" Sınav). topic: dersten sonra kalan kelimeler.
+// - minutes: söylenen süre ya da başlangıç–bitiş farkı (yoksa 0).
 
 const lower = (s) => s.toLocaleLowerCase('tr');
 const pad = (n) => String(n).padStart(2, '0');
@@ -59,6 +62,11 @@ const KIND_WORDS = [
 ];
 const SHORT_SFX = new Set([...SFX, 'ına', 'ine', 'una', 'üne', 'ında', 'inde', 'unda', 'ünde']);
 const kindWord = (w, stem) => (stem.length < 4 ? w.startsWith(stem) && SHORT_SFX.has(w.slice(stem.length)) : w.startsWith(stem));
+
+// Ders adı çekimli de eşleşir: "matematiğe", "fenden", "türkçeyi". Ders konusundan atılanlar: dersi, çalış(ma), konusu
+const soften = (w) => w.replace(/[kçtp]$/, (c) => ({ k: 'ğ', ç: 'c', t: 'd', p: 'b' })[c]);
+const wordIs = (w, base) => [base, soften(base)].some((b) => w.startsWith(b) && SHORT_SFX.has(w.slice(b.length)));
+const STUDY_WORD = /^(ders|çalış|konu)/;
 
 function tokenize(text) {
   const spaced = text.replace(/[’‘`´]/g, "'").replace(/(\d)\s*[-–—]\s*(\d)/g, '$1 - $2');
@@ -244,6 +252,25 @@ function findTimes(toks, used) {
   return times;
 }
 
+// Önce adın tamamı ("Fen Bilimleri"), bulunamazsa çok kelimeli adın ilk kelimesi ("fen") aranır
+function findSubject(toks, subjects) {
+  const list = subjects.map((name) => ({ name, words: lower(name).split(/\s+/).filter(Boolean) }))
+    .filter((s) => s.words.length).sort((a, b) => b.words.length - a.words.length);
+  for (const s of list) {
+    for (let i = 0; i + s.words.length <= toks.length; i++) {
+      if (s.words.every((w, k) => wordIs(toks[i + k].w, w))) return { name: s.name, from: i, to: i + s.words.length };
+    }
+  }
+  for (const s of list) {
+    if (s.words.length < 2 || s.words[0].length < 3) continue;
+    const i = toks.findIndex((t) => wordIs(t.w, s.words[0]));
+    if (i >= 0) return { name: s.name, from: i, to: i + 1 };
+  }
+  return null;
+}
+
+const capital = (s) => s && s[0].toLocaleUpperCase('tr') + s.slice(1);
+
 function kindOf(words) {
   for (const [kind, stems] of KIND_WORDS) {
     if (words.some((w) => stems.some((s) => kindWord(w, s)))) return kind;
@@ -251,28 +278,31 @@ function kindOf(words) {
   return 'Event';
 }
 
-export function parseQuickAdd(text, today = new Date()) {
+export function parseQuickAdd(text, today = new Date(), subjects = []) {
   const toks = tokenize(text ?? '');
   const used = toks.map(() => false);
   const date = findDate(toks, used, today);
   const dur = findDuration(toks, used);
   const times = findTimes(toks, used);
 
-  let time = '', endTime = '';
+  let time = '', endTime = '', minutes = dur;
   if (times.length) {
     const s = clock(times[0].h, times[0].m, times[0].part, times[0].zero);
     let e = times[1] ? endClock(times[1], s) : dur ? (s + dur) % 1440 : null;
     if (e === s) e = null;
     time = hm(s);
     endTime = e == null ? '' : hm(e % 1440);
+    if (!minutes && e != null) minutes = (e - s + 1440) % 1440;
   }
 
   let rest = toks.filter((t, i) => !used[i] && !DROP.has(t.w));
   while (rest.length && (COMMAND.has(rest[rest.length - 1].w) || EDGE.has(rest[rest.length - 1].w))) rest.pop();
   while (rest.length && (EDGE.has(rest[0].w) || rest[0].w === 'bir') && rest.length > 1) rest.shift();
   if (rest.length === 1 && EDGE.has(rest[0].w)) rest = [];
-  const words = rest.map((t) => t.w);
-  const joined = rest.map((t) => t.raw).join(' ').slice(0, 150).trim();
-  const title = joined && joined[0].toLocaleUpperCase('tr') + joined.slice(1);
-  return { date, time, endTime, kind: kindOf(words), title };
+  const kind = kindOf(rest.map((t) => t.w));
+  const title = capital(rest.map((t) => t.raw).join(' ').slice(0, 150).trim());
+  const sub = kind === 'School' || kind === 'Event' ? findSubject(rest, subjects) : null;
+  const topic = sub ? capital(rest.filter((t, i) => (i < sub.from || i >= sub.to) && !STUDY_WORD.test(t.w))
+    .map((t) => t.raw).join(' ').slice(0, 200).trim()) : '';
+  return { date, time, endTime, kind, title, subject: sub?.name ?? null, topic, minutes };
 }

@@ -8,14 +8,22 @@ Durum: Frontend: Tamamlandı · QA: Ana oturum (aşağıda), telefonda denenmedi
 - Cümle **kurallarla, cihazda** çözülür (seçenek A). Yapay zekâ (Claude, sunucu üzerinden) seçilmedi: komut başına ücret,
   API anahtarı ve aile verisinin üçüncü tarafa gitmesi istenmedi. Kaçırılan cümle çok olursa yeniden düşünülür; onay kartı
   ikisinde de aynı kalır.
-- Mikrofon, Plan bölümündeki "+ Aktivite ekle" satırının sağında.
+- Mikrofon önce Plan bölümündeki "+ Aktivite ekle" satırının sağındaydı (PR #4).
+- **13b (kullanıcı, 31.10):**
+  - Mikrofon tek ve genel: gün başlığının ("Cumartesi, 31 Ekim") sağ ucunda, Bee, To-do ve Plan'da aynı yerde.
+  - Dersler (To-do) de sesle eklenir.
 
 ## Akış
 1. 🎤'a dokununca panel açılır ve dinleme başlar (tarayıcının konuşma tanıması, `tr-TR`). Dinleme dokunuşla başlatılır:
    iPhone Safari başka türlü izin vermez.
-2. Söylenen ya da kutuya yazılan cümle anında çözülür; altında onay kartı: tür ikonu · ad · tür, gün · saat · süre.
-3. **Ekle:** kayıt söylenen güne eklenir. Gün seçili günden farklıysa o gün açılır ve "… eklendi: Pazar, 1 Kasım"
-   bildirimi çıkar. **Düzenle:** ekleme formu o günde, tür seçili ve alanlar dolu açılır (not, tekrar oradan eklenir).
+2. Söylenen ya da kutuya yazılan cümle anında çözülür; altında onay kartı çıkar:
+   - Aktivite: tür ikonu · ad · tür; gün · saat · süre.
+   - Ders: 📚 ders · konu; gün · başlangıç–bitiş · süre.
+   Cümlede ailenin ders listesinden bir ad geçerse kayıt **ders** olur, geçmezse **aktivite**. "Matematik sınavı" gibi
+   aktivite türü kelimesi varsa aktivite kalır. Ders süresi söylenmezse 40 dk (kartta görünür).
+3. **Ekle:** kayıt söylenen güne eklenir. Gün seçili günden farklıysa o gün açılır; bölüm değişmez. Her eklemede
+   "… eklendi: Pazar, 1 Kasım" bildirimi çıkar.
+   **Düzenle:** ilgili bölüm (To-do ya da Plan) açılır, ekleme formu o günde dolu açılır (not, tekrar oradan eklenir).
    **Vazgeç:** panel kapanır.
 4. Konuşma tanıma yoksa ya da izin verilmezse kutu açılır: yazılır ya da klavyenin 🎤 tuşuyla (dikte) söylenir.
    İzin reddedilince o oturumda kendiliğinden dinlemeye başlanmaz.
@@ -41,8 +49,10 @@ Durum: Frontend: Tamamlandı · QA: Ana oturum (aşağıda), telefonda denenmedi
   - Okul: okul, kurs, ders, etüt, veli
   - Buluşma: sinema, parti, doğum günü…
   - Bulunamazsa Diğer; o zaman ad zorunludur.
+- **Ders:** Ders adı çekimli de tanınır ("matematiğe", "fenden"). Çok kelimeli derste ilk kelime yeter ("fen" →
+  Fen Bilimleri). Konu, dersten sonra kalan kelimelerdir ("dersi", "çalış", "konusu" atılır).
 - **Ad:** Kalan kelimelerden oluşur. "gir / ekle / koy / kaydet", "misin", "arasına", "lütfen", baştaki "bir" atılır.
-- **Desteklenmeyenler:** "her salı" gibi tekrarlar, tek cümlede birden çok aktivite ve ders (To-do) ekleme.
+- **Desteklenmeyenler:** "her salı" gibi tekrarlar, tek cümlede birden çok kayıt.
 
 ## Gizlilik
 Ses PlanToBee sunucusuna gitmez. Ancak tarayıcının konuşma tanıması sesi işletim sistemi sağlayıcısına gönderebilir
@@ -50,12 +60,18 @@ Ses PlanToBee sunucusuna gitmez. Ancak tarayıcının konuşma tanıması sesi i
 
 ## Dokunulan dosyalar
 - Yeni: `frontend/src/utils/quickAdd.js`, `components/QuickAdd.jsx`
-- `components/EventCard.jsx`: "+ Aktivite ekle" satırı QuickAdd'e taşındı.
-- `components/EventForm.jsx`: `draft` / `onClearDraft`.
-- `pages/DayPage.jsx`: `quickAdd` başka güne de ekler, `quickEdit` ve taslak.
+- `components/EventCard.jsx`, `components/EventForm.jsx`: `draft` / `onClearDraft`.
+- `pages/DayPage.jsx`:
+  - QuickAdd gün başlığını sarar.
+  - `quickAdd(gün, type, body)` ders ya da aktiviteyi başka güne de ekler.
+  - `quickEdit`: aktivite taslağı ya da `addForm`, ardından bölüm değişir.
 - `index.css`
 
 ## QA (ana oturum, 30.10)
+- **13b:**
+  - Ders cümleleri Node ile denendi: "yarın 17:00'de 45 dakika matematik kesirler" → Ders Matematik, konu Kesirler, 45 dk.
+    "matematik sınavı" → Sınav aktivitesi. "dinlenme" → Din Kültürü değil.
+  - Başlık satırı ve ders kartı 390 px'te görüldü.
 - **Ayrıştırıcı:** 32 örnek cümle Node ile denendi (bugün = 30 Ekim 2026 Cuma), hepsi doğru. Örnek: "1 kasım saat 13:00 ila
   15:00 arasına voleybol maçı gir" → 2026-11-01, 13:00–15:00, Spor, "Voleybol maçı".
 - **Arayüz:** Panel ve form, sahte konuşma tanımayla ayrı bir sayfada headless Chrome'da 390 px'te görüldü:
