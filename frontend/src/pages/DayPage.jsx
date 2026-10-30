@@ -7,6 +7,7 @@ import WeekSheet from '../components/WeekSheet';
 import StudyCard from '../components/StudyCard';
 import EventCard from '../components/EventCard';
 import AgendaCard from '../components/AgendaCard';
+import QuickAdd from '../components/QuickAdd';
 import SectionTabs, { panelId, tabId } from '../components/SectionTabs';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
@@ -171,30 +172,37 @@ export default function DayPage({
   }), [date, mutate, notify, onAdded]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
-  // Sesle ekleme (Görev 13). Söylenen gün seçili günden farklıysa kayıt o güne eklenir ve o gün açılır.
-  // "Düzenle" ekleme formunu o günde dolu açar; taslak burada tutulur (başka haftaya geçerken kart yeniden yüklenir).
+  // Sesle ekleme (Görev 13): gün başlığının sağındaki 🎤, her bölümde. type 'study' (ders, To-do) | 'event' (aktivite, Plan).
+  // Söylenen gün seçili günden farklıysa kayıt o güne eklenir ve o gün açılır; bölüm değişmez, bildirim ne eklendiğini söyler.
+  // "Düzenle" ilgili bölümü açar ve ekleme formunu o günde dolu açar: ders formu zaten burada (addForm), aktivite taslağı
+  // da burada tutulur (başka haftaya geçerken kart yeniden yüklenir).
   const [draft, setDraft] = useState(null);
-  async function quickAdd(key, body) {
-    if (key === date) return !!(await events.add(body));
-    try {
-      await client.post(`/days/${key}/events`, body);
-    } catch (err) {
-      notify(errorText(err));
-      if (errorCode(err) === 'plan_read_only') onAccessChanged?.();
-      return false;
-    }
-    onAdded?.();
+  async function quickAdd(key, type, body) {
+    const name = type === 'study' ? body.subject : body.title;
     const target = parseKey(key);
-    if (dkey(mondayOf(target)) === dkey(monday)) onDataChanged(); // başka haftaya geçince hafta zaten yeniden yüklenir
-    setCurrentDate(target);
-    notify(`${body.title} eklendi: ${dayTitle(target)}`, 'info');
+    if (key === date) {
+      if (!(await (type === 'study' ? study : events).add(body))) return false;
+    } else {
+      try {
+        await client.post(`/days/${key}/${type === 'study' ? 'entries' : 'events'}`, body);
+      } catch (err) {
+        notify(errorText(err));
+        if (errorCode(err) === 'plan_read_only') onAccessChanged?.();
+        return false;
+      }
+      onAdded?.();
+      if (dkey(mondayOf(target)) === dkey(monday)) onDataChanged(); // başka haftaya geçince hafta zaten yeniden yüklenir
+      setCurrentDate(target);
+    }
+    notify(`${name} eklendi: ${dayTitle(target)}`, 'info');
     return true;
   }
-  function quickEdit(key, d) {
-    setDraft(d);
+  function quickEdit(key, type, d) {
+    if (type === 'study') setAddForm({ ...EMPTY_ADD_FORM, ...d, open: true });
+    else setDraft(d);
+    setSection(type === 'study' ? 'todo' : 'plan');
     if (key !== date) setCurrentDate(parseKey(key));
   }
-  const quick = { draft, add: quickAdd, edit: quickEdit, clearDraft: () => setDraft(null) };
 
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
   // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
@@ -278,9 +286,11 @@ export default function DayPage({
       <SectionTabs value={section} onChange={setSection} />
       {banner}
 
-      <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
-        {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
-      </h2>
+      <QuickAdd date={date} subjects={subjects} onAdd={quickAdd} onEdit={quickEdit}>
+        <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
+          {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
+        </h2>
+      </QuickAdd>
 
       {section === 'bee' && holidayLine(shown) && (
         <p className={`holstrip ${holidayTone(shown)}`}>{holidayLine(shown)}</p>
@@ -300,7 +310,8 @@ export default function DayPage({
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
             addForm={addForm} setAddForm={setAddForm} />
         ) : section === 'plan' ? (
-          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} quick={quick} isToday={isToday} />
+          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events}
+            draft={draft} onClearDraft={() => setDraft(null)} isToday={isToday} />
         ) : (
           <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
             subjects={subjects} study={study} events={events} />

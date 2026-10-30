@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { kindInfo } from '../utils/events';
 import { dayTitle, formatDuration } from '../utils/format';
 import { parseKey } from '../utils/recurrence';
-import { toMin } from '../utils/timeline';
+import { addMinutes, toMin } from '../utils/timeline';
 import { parseQuickAdd } from '../utils/quickAdd';
 
 // Tarayıcının konuşma tanıması (Chrome, Android, iPhone Safari). Yoksa ya da izin verilmezse kutuya yazılır;
@@ -18,13 +18,15 @@ const SPEECH_ERRORS = {
   'no-speech': 'Ses duyulmadı.',
 };
 
-// Sesle ekleme (Görev 13): Plan kartındaki "+ Aktivite ekle" satırı ve yanındaki 🎤. 🎤 paneli açar ve dinlemeye başlar
-// (tarayıcı dinlemeyi yalnızca dokunuşla başlatır); söylenen ya da yazılan cümle utils/quickAdd ile çözülür ve altında
-// onay kartı çıkar: tür · ad, gün · saat.
-// - Ekle: onAdd(gün, body) — söylenen gün seçili günden farklı olabilir. true dönerse panel kapanır.
-// - Düzenle: onEdit(gün, { kind, title, time, endTime }) ekleme formunu o günde dolu açar.
-// date: seçili gün (tarih söylenmezse kullanılır).
-export default function QuickAdd({ date, onAdd, onEdit }) {
+const STUDY_MINUTES = 40; // ders süresi söylenmezse (kartta görünür, Düzenle'de değişir)
+
+// Sesle ekleme (Görev 13): gün başlığı (children) ve sağ ucunda 🎤; her bölümde (Bee, To-do, Plan) aynı yerde.
+// 🎤 paneli açar ve dinlemeye başlar (tarayıcı dinlemeyi yalnızca dokunuşla başlatır); söylenen ya da yazılan cümle
+// utils/quickAdd ile çözülür ve altında onay kartı çıkar. Cümlede ailenin derslerinden biri geçerse ders (To-do), yoksa aktivite.
+// - Ekle: onAdd(gün, type, body) — type 'study' | 'event'; söylenen gün seçili günden farklı olabilir. true dönerse panel kapanır.
+// - Düzenle: onEdit(gün, type, taslak) ilgili bölümün ekleme formunu o günde dolu açar.
+// date: seçili gün (tarih söylenmezse kullanılır). subjects: ailenin dersleri ({ name }).
+export default function QuickAdd({ date, subjects, onAdd, onEdit, children }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
@@ -64,7 +66,7 @@ export default function QuickAdd({ date, onAdd, onEdit }) {
     }
   }
 
-  // Kart kaldırılınca (gün yükleniyor, bölüm değişti) dinleme durur
+  // Sayfa kaldırılınca dinleme durur
   useEffect(() => () => rec.current?.abort(), []);
 
   function toggle() {
@@ -87,29 +89,37 @@ export default function QuickAdd({ date, onAdd, onEdit }) {
     setText(e.target.value);
   }
 
-  const p = useMemo(() => (text.trim() ? parseQuickAdd(text) : null), [text]);
+  const names = useMemo(() => subjects.map((s) => s.name), [subjects]);
+  const p = useMemo(() => (text.trim() ? parseQuickAdd(text, new Date(), names) : null), [text, names]);
   const key = p?.date ?? date;
-  const info = p ? kindInfo(p.kind) : null;
-  const name = p ? p.title || (info.nameRequired ? '' : info.label) : '';
+  const isStudy = !!p?.subject;
+  const info = p && !isStudy ? kindInfo(p.kind) : null;
+  const minutes = isStudy ? p.minutes || STUDY_MINUTES : 0;
+  const name = !p ? '' : isStudy ? p.subject : p.title || (info.nameRequired ? '' : info.label);
   const canAdd = !!name && !listening && !busy;
 
-  let when = 'saati yok';
+  // Kartın saat bölümü: ders başlangıç + süre, aktivite başlangıç–bitiş
+  let when = <>saati yok{isStudy && <> · {formatDuration(minutes)}</>}</>;
   if (p?.time) {
-    const s = toMin(p.time), e = toMin(p.endTime);
+    const end = isStudy ? addMinutes(p.time, minutes) : p.endTime;
+    const s = toMin(p.time), e = toMin(end);
     when = e == null ? <b>{p.time}</b>
-      : <><b>{p.time}–{p.endTime}</b> · {formatDuration((e - s + 1440) % 1440)}{e < s && ' · ↷ ertesi gün biter'}</>;
+      : <><b>{p.time}–{end}</b> · {formatDuration(isStudy ? minutes : (e - s + 1440) % 1440)}{e < s && ' · ↷ ertesi gün biter'}</>;
   }
 
   async function add() {
     if (!canAdd) return;
     setBusy(true);
-    const ok = await onAdd(key, { kind: p.kind, title: name, time: p.time, endTime: p.endTime, note: '' });
+    const ok = isStudy
+      ? await onAdd(key, 'study', { subject: p.subject, topic: p.topic, minutes, startTime: p.time })
+      : await onAdd(key, 'event', { kind: p.kind, title: name, time: p.time, endTime: p.endTime, note: '' });
     setBusy(false);
     if (ok) close();
   }
 
   function edit() {
-    onEdit(key, { kind: p.kind, title: p.title, time: p.time, endTime: p.endTime });
+    if (isStudy) onEdit(key, 'study', { subject: p.subject, topic: p.topic, minutes: String(minutes), startTime: p.time });
+    else onEdit(key, 'event', { kind: p.kind, title: p.title, time: p.time, endTime: p.endTime });
     close();
   }
 
@@ -119,8 +129,8 @@ export default function QuickAdd({ date, onAdd, onEdit }) {
 
   return (
     <>
-      <div className="add-head">
-        <div className="sub-lb add-lb" aria-hidden="true">+ Aktivite ekle</div>
+      <div className="dayhead-row">
+        {children}
         <button type="button" ref={micRef} className={`micbtn${open ? ' on' : ''}`} aria-label="Sesle ekle" aria-expanded={open} onClick={toggle}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
@@ -142,11 +152,16 @@ export default function QuickAdd({ date, onAdd, onEdit }) {
             placeholder="ör. 1 Kasım 13:00–15:00 voleybol maçı"
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
           {problem && <p className="qa-hint" role="alert">{problem} Yazabilir ya da klavyedeki 🎤 ile söyleyebilirsin.</p>}
+          {!p && !problem && <p className="qa-hint">Ders adı geçerse ders (To-do), geçmezse aktivite (Plan) olarak eklenir.</p>}
 
           {p && !listening && (
             <>
               <div className="qa-card">
-                <div className="qa-what"><span className="ai" aria-hidden="true">{info.icon}</span><b>{name || '—'}</b><small>{info.label}</small></div>
+                <div className="qa-what">
+                  <span className="ai" aria-hidden="true">{isStudy ? '📚' : info.icon}</span>
+                  <b>{name || '—'}{isStudy && p.topic && <span className="qa-topic"> · {p.topic}</span>}</b>
+                  <small>{isStudy ? 'Ders' : info.label}</small>
+                </div>
                 <div className="qa-when">{dayTitle(parseKey(key))}{!p.date && ' (seçili gün)'} · {when}</div>
               </div>
               {!name && <div className="inline-error" role="alert">Ne ekleneceğini anlayamadım. Aktivitenin adını da söyle ya da yaz.</div>}
