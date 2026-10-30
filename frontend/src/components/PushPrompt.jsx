@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNotice } from '../context/NoticeContext';
 import { decidePrompt, permission, promptDecided, pushConfig, requestPermission, subscribeDevice } from '../utils/push';
 
-// "Aileden haberdar ol": bildirim izni bu cihazda bir kez önerilir. "Şimdi değil" denirse bir daha gösterilmez;
-// bildirimler sonra ad menüsündeki Bildirimler sayfasından açılabilir. Desteklenmeyen ortamda hiç görünmez.
+// Bildirim izni bandı: bu cihazda ilk kayıt eklendikten sonra bir kez önerilir (PlanShell). "Şimdi değil" (×) denirse
+// bir daha gösterilmez; bildirimler sonra ad menüsündeki Bildirimler sayfasından açılabilir. Desteklenmeyen ortamda hiç görünmez.
 export default function PushPrompt() {
   const { notify } = useNotice();
   const [show, setShow] = useState(false);
@@ -46,14 +46,9 @@ export default function PushPrompt() {
   return (
     <div className="push-prompt" role="region" aria-label="Bildirimler">
       <span className="pp-icon" aria-hidden="true">🔔</span>
-      <div>
-        <b>Aileden haberdar ol</b>
-        <p>Biri ders ya da aktivite eklediğinde bu cihaza bildirim gelsin mi?</p>
-        <div className="pp-actions">
-          <button className="pp-yes" onClick={enable} disabled={busy}>Bildirimleri aç</button>
-          <button className="pp-no" onClick={later} disabled={busy}>Şimdi değil</button>
-        </div>
-      </div>
+      <p>Ailen kayıt ekleyince bu cihaza bildirim gelsin mi?</p>
+      <button className="pp-yes" onClick={enable} disabled={busy} aria-label="Bildirimleri aç">Aç</button>
+      <button className="pp-no" onClick={later} disabled={busy} aria-label="Şimdi değil" title="Şimdi değil">×</button>
     </div>
   );
 }

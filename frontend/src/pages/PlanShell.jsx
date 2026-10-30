@@ -11,7 +11,7 @@ import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
 import NotificationsCard from '../components/NotificationsCard';
 import DeleteAccountForm from '../components/DeleteAccountForm';
-import { syncPush } from '../utils/push';
+import { markPromptReady, promptReady, syncPush } from '../utils/push';
 
 // Önceki sürümlerin görünüm tercihleri (Gün / Hafta Planı sekmesi, Tablo / Liste). Artık okunmaz; silinir.
 function dropLegacyPrefs() {
@@ -86,6 +86,9 @@ export default function PlanShell() {
   // Bildirim aboneliği seçili profile bağlanır (uygulama açılınca ve profil değişince).
   const profileId = user.profile.id;
   useEffect(() => { syncPush(); }, [profileId]);
+  // Bildirim izni bandı bu cihazda ilk kayıt eklendikten sonra önerilir: kullanıcı önce uygulamanın işini görür
+  const [pushReady, setPushReady] = useState(promptReady);
+  const onAdded = useCallback(() => { markPromptReady(); setPushReady(true); }, []);
 
   // Bildirimden gelen tarih adresten silinir (yenileyince yeniden o güne atlamasın); uygulama açıkken
   // dokunulan bildirim service worker'dan mesajla gelir.
@@ -199,16 +202,21 @@ export default function PlanShell() {
     setTimeout(() => document.getElementById('delete-account-open')?.focus(), 0);
   }
 
+  // Plan ekranında başlık siyah hafta alanının içinde durur (DayPage), diğer sayfalarda en üstte
+  const header = (
+    <header className="top">
+      <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
+      <div className="top-right">
+        <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
+          onFamily={() => changeView('family')} onNotifications={hasOthers ? () => changeView('notifications') : undefined} onLogout={logout} />
+      </div>
+    </header>
+  );
+
   return (
     <AuditContext.Provider value={auditSettings}>
       <div className="wrap">
-        <header className="top">
-          <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
-          <div className="top-right">
-            <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
-              onFamily={() => changeView('family')} onNotifications={hasOthers ? () => changeView('notifications') : undefined} onLogout={logout} />
-          </div>
-        </header>
+        {view !== 'plan' && header}
 
         {/* Ailem ve Bildirimler ad menüsünden açılır; nerede olunduğu başlıkla belirtilir */}
         {(view === 'family' || view === 'notifications') && (
@@ -224,8 +232,6 @@ export default function PlanShell() {
           </div>
         )}
 
-        {view === 'plan' && hasOthers && <PushPrompt />}
-
         {familyError && !family && (
           <div className="load-error" role="alert">
             <p>Aile bilgisi yüklenemedi: {familyError}</p>
@@ -235,6 +241,9 @@ export default function PlanShell() {
 
         {view === 'plan' && (
           <DayPage
+            top={header}
+            banner={hasOthers && pushReady ? <PushPrompt /> : null}
+            onAdded={onAdded}
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
             weekDays={weekDays}

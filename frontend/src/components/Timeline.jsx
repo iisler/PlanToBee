@@ -27,7 +27,7 @@ const BREAK = (
 );
 
 // Bee (Ajanda): günün dersleri ve aktiviteleri saat çizelgesi olarak (Görev 09 + Görev 10): üstte "Saati yok" şeridi ve 07:00 öncesi satırları, ortada
-// 07:00–22:00 çizelgesi (22:00'yi aşan ya da sonra başlayan kayıt varsa onun bitişine uzar; kümeler + boşluklar üst üste; uzun boşluk sıkıştırılır), altta 22:00 sonrası satırları.
+// 07:00–22:00 çizelgesi (22:00'yi aşan ya da sonra başlayan kayıt varsa onun bitişine uzar; kümeler + boşluklar üst üste; uzun boşluk ve tek başına uzun kayıt sıkıştırılır), altta 22:00 sonrası satırları.
 // Aktivite bir düğmedir: onOpen(öğe, düğme) ⋯ menüsünü açar. Ders (öğe.isStudy) iki düğmedir: daire onCycle(ders) ile
 // durumu değiştirir, kalan alan ⋯ menüsünü açar. Boşluk düğmesi onGap(start, end) ile ekleme sayfasını açar; boş günde
 // "+ Ekle" onGap(null, null). events: utils/timeline agendaItems (dersler + aktiviteler). data-id = itemKey.
@@ -159,23 +159,32 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
                     </div>
                   </li>
                 );
-                const { r, n, lane } = it;
-                const level = n === 1 ? 1 : n === 2 ? 2 : 3;
-                const cls = `tl-blk ${kindClass(r.ev)} n${n}${r.noEnd ? ' noend' : ''}${r.cutTop ? ' cut-top' : ''}${r.cutBot ? ' cut-bot' : ''}${r.ev.isStudy && r.ev.status === 'done' ? ' done' : ''}`;
-                const style = { ...pos, left: `calc(${lane} * (100% + 4px) / ${n})`, width: `calc((100% - ${(n - 1) * 4}px) / ${n})` };
+                const { r, n, lane, cascade, squeezed } = it;
+                // Girintili çakışmada alttaki kayıt tam genişliktedir; tek kayıt gibi çizilir
+                const solo = n === 1 || cascade === 'base';
+                const level = solo ? 1 : n === 2 ? 2 : 3;
+                const cls = `tl-blk ${kindClass(r.ev)} n${solo ? 1 : n}${cascade === 'top' ? ' over' : ''}${r.noEnd ? ' noend' : ''}${r.cutTop ? ' cut-top' : ''}${r.cutBot ? ' cut-bot' : ''}${r.ev.isStudy && r.ev.status === 'done' ? ' done' : ''}`;
+                const style = cascade === 'base' ? { ...pos, left: 0, width: '100%' }
+                  : cascade === 'top' ? { ...pos, left: '44%', width: '56%', zIndex: 1 }
+                    : { ...pos, left: `calc(${lane} * (100% + 4px) / ${n})`, width: `calc((100% - ${(n - 1) * 4}px) / ${n})` };
                 const cut = r.cutTop ? ', 07:00 öncesinden başlar' : '';
+                // Sıkıştırılmış uzun kaydın ortasındaki kırılma işareti (eksen bu aralıkta doğrusal değil)
+                const squeezeMark = squeezed && (
+                  <svg className="tl-sq" viewBox="0 0 16 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">{BREAK}</svg>
+                );
                 if (r.ev.isStudy) return (
                   <li key={it.key} style={style}>
                     <div className={cls}>
                       {stBtn(r.ev)}
                       <button {...common(r.ev)} className="tl-op" aria-label={`${ariaEvent(r)}${cut}${st(r.ev)}${who(r.ev)}: seçenekler`}>
                         <span className="tx">
-                          <span className="nm">{r.ev.subject}{n === 1 && <AuditTag entry={r.ev} myId={myId} />}</span>
+                          <span className="nm">{r.ev.subject}{solo && <AuditTag entry={r.ev} myId={myId} />}</span>
                           {/* Tamamlanan derste süre yazılmaz; dar blokta "✓ tamam" kırpılmasın */}
-                          <span className="tm">{timeText(r, r.ev.status === 'done' && n === 1 ? 2 : level)}{r.ev.status === 'done' && n === 1 && <span className="ok"> · ✓ tamam</span>}</span>
+                          <span className="tm">{timeText(r, r.ev.status === 'done' && solo ? 2 : level)}{r.ev.status === 'done' && solo && <span className="ok"> · ✓ tamam</span>}</span>
                         </span>
-                        {n === 1 && <span className="mo" aria-hidden="true">⋯</span>}
+                        {solo && <span className="mo" aria-hidden="true">⋯</span>}
                       </button>
+                      {squeezeMark}
                     </div>
                   </li>
                 );
@@ -184,10 +193,11 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
                     <button {...common(r.ev)} className={cls} aria-label={`${ariaEvent(r)}${cut}${who(r.ev)}: seçenekler`}>
                       <span className="ic" aria-hidden="true">{iconOf(r.ev)}</span>
                       <span className="tx">
-                        <span className="nm">{eventLabel(r.ev)}<RepeatMark entry={r.ev} />{n === 1 && <AuditTag entry={r.ev} myId={myId} />}</span>
+                        <span className="nm">{eventLabel(r.ev)}<RepeatMark entry={r.ev} />{solo && <AuditTag entry={r.ev} myId={myId} />}</span>
                         <span className="tm">{timeText(r, level)}</span>
                       </span>
-                      {n === 1 && <span className="mo" aria-hidden="true">⋯</span>}
+                      {solo && <span className="mo" aria-hidden="true">⋯</span>}
+                      {squeezeMark}
                     </button>
                   </li>
                 );

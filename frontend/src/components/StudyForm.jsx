@@ -64,12 +64,17 @@ export default function StudyForm({
 
   return (
     <form className="sform" onSubmit={submit} noValidate>
-      <select ref={subjectRef} aria-label="Ders" value={subject} onChange={set('subject')}
-        aria-invalid={error === 'Ders seç.' ? true : undefined}>
-        {!edit && <option value="">Ders seç</option>}
-        {options.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-      <input aria-label="Konu" placeholder="Konu (isteğe bağlı)" maxLength={200} value={value.topic} onChange={set('topic')} />
+      <label className="fl">Ders
+        <select ref={subjectRef} value={subject} onChange={set('subject')}
+          aria-invalid={error === 'Ders seç.' ? true : undefined}>
+          {!edit && <option value="">Ders seç</option>}
+          {options.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </label>
+      <label className="fl">
+        <span>Konu <span className="opt">(isteğe bağlı)</span></span>
+        <input placeholder="ör. Paragraf soruları" maxLength={200} value={value.topic} onChange={set('topic')} />
+      </label>
 
       <div className="fl">
         <span aria-hidden="true">Süre</span>

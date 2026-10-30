@@ -32,14 +32,16 @@ function restoreSeries({ truncated, series: s }) {
 
 const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
 
-// Tek ekran plan: üstte siyah hafta alanı (aralık, ‹ › hafta okları, "📅 Hafta" paneli, şerit), altında bölüm seçici
+// Tek ekran plan: üstte siyah hafta alanı (top: logo ve ad menüsü; aralık, ‹ › hafta okları, "Hafta" paneli, şerit), altında bölüm seçici
 // (Plan · To-do · Bee, Görev 10), gün başlığı ve seçili bölümün tek kartı: Bee = saat çizelgesi (dersler + aktiviteler),
 // To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm (PlanShell'de; açılışta Bee). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
 // weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null), weekError: hafta ayrıntısı hata metni.
 // layerReset değişince (bildirimden gün açıldı) açık Hafta paneli ve ⋯ menüleri kapanır.
+// banner: bölüm seçicinin altında gösterilecek bant (bildirim izni); onAdded: ders ya da aktivite eklendi.
 export default function DayPage({
   currentDate, setCurrentDate, weekDays, weekError, onRetryWeek, onDayChanged, myId,
   subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged, layerReset, section, setSection,
+  top, banner, onAdded,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -103,6 +105,7 @@ export default function DayPage({
     async add(body) {
       let created = null;
       const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/entries`, body)).data; });
+      if (ok) onAdded?.();
       return ok ? created ?? {} : null;
     },
     save(entry, body) {
@@ -114,7 +117,7 @@ export default function DayPage({
       return mutate(d => removeEntry(d, 'studyEntries', entry.id), (cfg) => client.delete(`/days/${date}/entries/${entry.id}`, cfg),
         { undo: `${entry.subject} kaydı silindi` });
     },
-  }), [date, mutate]);
+  }), [date, mutate, onAdded]);
   const { notify } = useNotice();
   const events = useMemo(() => ({
     // body.repeat varsa (Görev 11) seri eklenir; dönüş, seri bu güne düşüyorsa bugünkü tekrarın anahtar alanları
@@ -125,6 +128,7 @@ export default function DayPage({
         const sr = (await client.post('/series', { ...body, ...repeat })).data;
         created = repeat.daysOfWeek.includes(isoDay(date)) ? { id: 0, seriesId: sr.id, occurrenceDate: date } : {};
       });
+      if (ok) onAdded?.();
       return ok ? created ?? {} : null;
     },
     // scope: yok (tek aktivite) · 'one' (o günü seriden ayır) · 'all' (kuralı düzenle). Dönüş: kaydın itemKey'i ya da null.
@@ -164,7 +168,7 @@ export default function DayPage({
         });
       });
     },
-  }), [date, mutate, notify]);
+  }), [date, mutate, notify, onAdded]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
@@ -229,12 +233,17 @@ export default function DayPage({
   return (
     <>
       <section className="dayhero">
+        {top}
         <div className="weekhead">
           <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
           <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>‹</button>
           <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>›</button>
-          <button type="button" ref={weekBtnRef} className="weekbtn" aria-haspopup="dialog" aria-label="Haftanın tamamını gör"
-            onClick={() => setWeekOpen(true)}><span aria-hidden="true">📅</span>Hafta</button>
+          <button type="button" ref={weekBtnRef} className="weekbtn" aria-haspopup="dialog" aria-label="Hafta: haftanın tamamını gör"
+            onClick={() => setWeekOpen(true)}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" />
+            </svg>Hafta
+          </button>
         </div>
 
         <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays} />
@@ -242,6 +251,7 @@ export default function DayPage({
       </section>
 
       <SectionTabs value={section} onChange={setSection} />
+      {banner}
 
       <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
         {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
@@ -265,7 +275,7 @@ export default function DayPage({
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
             addForm={addForm} setAddForm={setAddForm} />
         ) : section === 'plan' ? (
-          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} isToday={isToday} dayName={dayName} />
+          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} isToday={isToday} />
         ) : (
           <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
             subjects={subjects} study={study} events={events} />
