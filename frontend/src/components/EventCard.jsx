@@ -20,11 +20,11 @@ export function sortEvents(events) {
 // Satırın saat metni: "09:00–13:00", bitişsiz "15:00", gece aşımı "21:00–00:30 ↷"; saatsiz null
 const whenText = (r) => (r.noEnd ? r.start : `${r.start}–${r.end}${r.night ? ' ↷' : ''}`);
 
-// Plan (Aktiviteler, Görev 10): üstte aktivite türü ikonları (dokununca ekleme formu altında açılır), altında günün
-// aktiviteleri liste olarak. Satır: tür ikonu · ad · saat aralığı ya da "saati yok" · ⋯ menüsü (Düzenle / Sil).
+// Plan (Aktiviteler, Görev 10): üstte "+ Aktivite ekle" ve tür ikonları (dokununca ekleme formu altında açılır), altında
+// günün aktiviteleri liste olarak. Satır: tür ikonu · ad · saat aralığı ya da "saati yok" · ⋯ menüsü (Düzenle / Sil).
 // Düzenleme formu satırın yerinde açılır. Bu kartta çizelge ve boşluk yok.
 // items: Bee öğeleri (çakışma uyarısı dersleri de görsün). actions: DayPage'deki aktivite işlemleri (add, save, remove).
-export default function EventCard({ date, events, items, actions, myId, menuReset, isToday, dayName, panel }) {
+export default function EventCard({ date, events, items, actions, myId, menuReset, isToday, panel }) {
   const { hideInitials } = useAuditSettings();
   const [editing, setEditing] = useState(null); // düzenlenen kayıt: { key, scope } (scope: tekrarlanan kayıtta 'one' | 'all')
   const [busy, setBusy] = useState(false);
@@ -88,16 +88,17 @@ export default function EventCard({ date, events, items, actions, myId, menuRese
     const m = hideInitials ? null : creatorMark(ev, myId);
     return `${repeatAria(ev)}${m ? `, ${m.text}` : ''}`;
   };
-  const summary = !events.length ? 'Aktivite yok' : `${events.length} ${isToday ? 'bugün' : 'aktivite'}`;
+  const summary = !events.length ? 'Aktivite yok' : `${isToday ? 'Bugün ' : ''}${events.length} aktivite`;
   return (
     <div className="card" ref={cardRef} {...panel}>
       <div className="card-head">
         <h2 className="sumh" ref={headingRef} tabIndex={-1}>{summary}</h2>
       </div>
 
-      <EventForm key="add" mode="add" onSubmit={add} busy={busy} events={items} date={date} />
+      {/* Tür ikonları ekleme düğmesidir (süzgeç değil); ekran okuyucu bunu ikon grubunun adından duyar */}
+      <div className="sub-lb add-lb" aria-hidden="true">+ Aktivite ekle</div>
+      <EventForm key="add" mode="add" onSubmit={add} busy={busy} events={items} date={date} kindsLabel="Aktivite ekle" />
 
-      <div className="sub-lb">{isToday ? 'Bugün' : dayName}</div>
       {rows.length === 0 ? <div className="empty-note">Bu gün için aktivite yok.</div> : rows.map(({ ev, r }) => {
         const key = itemKey(ev);
         return editing?.key === key ? (

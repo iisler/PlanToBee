@@ -13,11 +13,24 @@ export const SECTIONS = [
 export const tabId = (id) => `sect-tab-${id}`;
 export const panelId = (id) => `sect-panel-${id}`;
 
-const HEX = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-    <path d="M12 3l7.5 4.3v9.4L12 21l-7.5-4.3V7.3z" /><path d="M12 8.5l3 1.7v3.6l-3 1.7-3-1.7v-3.6z" />
-  </svg>
-);
+// Bölüm ikonları: Plan bayrak, To-do işaretli liste, Bee petek
+const ICONS = {
+  plan: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 21V4" /><path d="M6 4h11l-2.5 4L17 12H6" />
+    </svg>
+  ),
+  todo: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l2 2 3.5-3.5" /><path d="M4 15l2 2 3.5-3.5" /><path d="M13 8h7M13 16h7" />
+    </svg>
+  ),
+  bee: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+      <path d="M12 3l7.5 4.3v9.4L12 21l-7.5-4.3V7.3z" /><path d="M12 8.5l3 1.7v3.6l-3 1.7-3-1.7v-3.6z" />
+    </svg>
+  ),
+};
 
 export default function SectionTabs({ value, onChange }) {
   const refs = useRef({});
@@ -44,7 +57,7 @@ export default function SectionTabs({ value, onChange }) {
           <button key={s.id} ref={el => { refs.current[s.id] = el; }} type="button" role="tab" id={tabId(s.id)}
             aria-selected={on} aria-controls={on ? panelId(s.id) : undefined} tabIndex={on ? 0 : -1}
             aria-label={`${s.name}, ${s.desc}`} onClick={() => onChange(s.id)}>
-            <b>{s.id === 'bee' && HEX}{s.name}</b><span>{s.desc}</span>
+            <b>{ICONS[s.id]}{s.name}</b><span>{s.desc}</span>
           </button>
         );
       })}

@@ -147,11 +147,14 @@ export const K = 32 / 60;     // px/dk (32 px/saat)
 export const MIN_BLOCK = 44;  // en az blok yüksekliği (dokunma alanı)
 export const GAP_MIN_H = 48;
 export const GAP_MAX_H = 96;  // 3 saatten uzun boşluk sıkıştırılır
+export const LONG_MAX_H = 104; // tek başına uzun kayıt (ör. Okul 08:00–15:00) bu yüksekliğe sıkıştırılır
+const CASCADE_MIN = 40;       // çakışan ikinci kayıt en az bu kadar aşağıdan başlıyorsa girintili çizilir
 const LIST_ROW = 44, LIST_HEAD = 30;
 
 // Çizelge yerleşimi: kümeler ve boşluklar üst üste dizilir (eksen doğrusal değil).
 // Dönen: { items: [{ type: 'gap'|'blk'|'list', top, height, ... }], labels: [{ y, text, now }], breaks: [y],
 //          nowY, height, end }. items kronolojik sıradadır (DOM sırası = okuma sırası).
+// Blok öğesinde squeezed: uzun kayıt sıkıştırıldı (ortası kırılır); cascade: 'base' (tam genişlik) | 'top' (girintili, üstte).
 export function layoutDay(inw, nowMin = null) {
   const items = [], labels = [], breaks = [];
   let y = 0, nowY = null;
@@ -188,23 +191,32 @@ export function layoutDay(inw, nowMin = null) {
       return { r, ry, rh, lane };
     });
     const n = lanes.length;
+    // Tek, uzun kayıt boşluklar gibi sıkıştırılır: okul günü, okul sonrası ilk ekrana sığsın
+    const squeeze = c.items.length === 1 && placed[0].rh > LONG_MAX_H;
+    // İki kayıt çakışıyor ve ikincisi yeterince aşağıdan başlıyorsa ilki tam genişlik kalır, adı kırpılmaz
+    const first = n === 2 && placed.length === 2 && Math.abs(placed[1].ry - placed[0].ry) >= CASCADE_MIN
+      ? (placed[1].ry < placed[0].ry ? placed[1] : placed[0]) : null;
     let H;
     if (n >= 4) {
       // 4+ yan yana okunmaz: liste kümesi
       H = LIST_HEAD + LIST_ROW * c.items.length + 6;
       items.push({ type: 'list', key: `l${itemKey(c.items[0].ev)}`, top: y, height: H, a: cs, b: c.end, rows: c.items });
+    } else if (squeeze) {
+      H = LONG_MAX_H;
+      items.push({ type: 'blk', key: itemKey(placed[0].r.ev), top: y, height: H, lane: 0, n: 1, r: placed[0].r, squeezed: true });
     } else {
       H = Math.max(...lanes);
       for (const p of placed) {
-        items.push({ type: 'blk', key: itemKey(p.r.ev), top: y + p.ry, height: p.rh, lane: p.lane, n, r: p.r });
+        const cascade = first ? (p === first ? 'base' : 'top') : undefined;
+        items.push({ type: 'blk', key: itemKey(p.r.ev), top: y + p.ry, height: p.rh, lane: p.lane, n, r: p.r, cascade });
       }
     }
     labels.push({ y, text: hm(cs), p: 1 });
-    if (n < 4) {
+    if (n < 4 && !squeeze) {
       for (let hh = (Math.floor(cs / 60) + 1) * 60; hh < c.end; hh += 60) labels.push({ y: y + (hh - cs) * K, text: hm(hh), p: 2 });
     }
     if (nowMin != null && nowMin >= cs && nowMin < c.end) {
-      nowY = n >= 4 ? y + ((nowMin - cs) / (c.end - cs)) * H : y + (nowMin - cs) * K;
+      nowY = n >= 4 || squeeze ? y + ((nowMin - cs) / (c.end - cs)) * H : y + (nowMin - cs) * K;
     }
     y += H;
   }

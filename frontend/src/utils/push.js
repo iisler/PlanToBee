@@ -6,6 +6,7 @@ import client, { TOKEN_KEY } from '../api/client';
 const DECISION_KEY = 'plantobee:push-decision'; // 'later' | 'done': izin kartı bu cihazda bir daha gösterilmez
 const SUB_ID_KEY = 'plantobee:push-sub-id';     // cihaz listesinde "Bu cihaz"ı işaretlemek için
 const SERVER_KEY = 'plantobee:push-key';        // abone olunan sunucu anahtarı (değişirse yeniden abone olunur)
+const READY_KEY = 'plantobee:push-ready';       // '1': bu cihazda ilk kayıt eklendi; izin bandı ancak bundan sonra önerilir
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -28,6 +29,8 @@ export function pushConfig() {
 
 export const promptDecided = () => !!store.get(DECISION_KEY);
 export const decidePrompt = (value) => store.set(DECISION_KEY, value);
+export const promptReady = () => !!store.get(READY_KEY);
+export const markPromptReady = () => store.set(READY_KEY, '1');
 export const thisDeviceId = () => Number(store.get(SUB_ID_KEY)) || null;
 
 // Cihaz listesinde görünen ad: "iPhone · Safari", "Windows · Chrome". Kişisel bilgi içermez.

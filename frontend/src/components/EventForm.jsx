@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import TimeInput from './TimeInput';
 import { ACTIVITY_KINDS, eventLabel, isTraining, kindInfo } from '../utils/events';
 import { formatDuration } from '../utils/format';
@@ -57,9 +57,10 @@ function repeatError(rep, start) {
 // Görev 11: date (yyyy-AA-gg) verilirse eklemede "↻ Her hafta tekrarla" bölümü çıkar; açıksa body.repeat =
 // { daysOfWeek, startDate: date, untilDate }. scope (tekrarlanan kaydı düzenlerken): 'one' = yalnızca o gün (tekrar
 // bölümü yok, bilgi satırı), 'all' = bütün tekrarlar (bölüm açık ve dolu; body.repeat yine gönderilir).
+// kindsLabel: tür ikonları grubunun erişilebilir adı (Plan kartında "Aktivite ekle").
 export default function EventForm({
   mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill, hidePre = false, onTimeChange,
-  date, scope,
+  date, scope, kindsLabel = 'Aktivite türü',
 }) {
   const [kind, setKind] = useState(mode === 'edit' ? initial?.kind : null);
   const [f, setF] = useState(() => initialState(mode === 'edit' ? initial : null));
@@ -101,6 +102,14 @@ export default function EventForm({
   }
   const setEnd = (v) => { setF((s) => ({ ...s, endTime: v })); setError(''); };
   const chip = (mins) => setEnd(addMinutes(f.time, mins));
+
+  // Ad alanında klavyenin tuşu "İleri"dir: Enter formu göndermez (yarım aktivite eklenmesin), Başlangıç'a geçer
+  const startRef = useRef(null);
+  function nextOnEnter(e) {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    startRef.current?.focus();
+  }
 
   function pick(k) {
     setError('');
@@ -190,7 +199,7 @@ export default function EventForm({
         </div>
       )}
       {mode === 'add' && (
-        <div className="acts" role="group" aria-label="Aktivite türü">
+        <div className="acts" role="group" aria-label={kindsLabel}>
           {ACTIVITY_KINDS.map((k) => (
             <button key={k.kind} type="button" className={kind === k.kind ? 'on' : ''} aria-pressed={kind === k.kind} onClick={() => pick(k.kind)}>
               <span className="ai" aria-hidden="true">{k.icon}</span>{k.label}
@@ -203,14 +212,15 @@ export default function EventForm({
         <form className="evfields" onSubmit={submit} noValidate>
           {scope === 'one' && <p className="repinfo">Yalnızca {dayMonth(initial.occurrenceDate)} değişir, diğer günler aynı kalır.</p>}
           {scope === 'all' && <p className="repinfo">Ayrı düzenlediğin günler değişmez.</p>}
-          <div className="evrow">
-            <input className="grow" aria-label={`${info.label} adı`} placeholder={info.placeholder} maxLength={150}
+          <label className="fl">
+            <span>Ad {!info.nameRequired && <span className="opt">(boş kalırsa “{info.label}” yazılır)</span>}</span>
+            <input placeholder={info.placeholder} maxLength={150} enterKeyHint="next" onKeyDown={nextOnEnter}
               value={f.title} onChange={setE('title')} aria-invalid={error ? true : undefined} autoFocus={mode === 'add' && !prefill} />
-          </div>
+          </label>
 
           <div className="evtimes">
             <label>Başlangıç
-              <TimeInput value={f.time} onChange={setStart} label="Başlangıç" />
+              <TimeInput ref={startRef} value={f.time} onChange={setStart} label="Başlangıç" />
             </label>
             <span className="dash" aria-hidden="true">–</span>
             <label>Bitiş (isteğe bağlı)
@@ -251,9 +261,10 @@ export default function EventForm({
             </>
           )}
 
-          <div className="evrow">
-            <input className="grow" aria-label="Not" placeholder="Not (isteğe bağlı)" maxLength={500} value={f.note} onChange={setE('note')} />
-          </div>
+          <label className="fl">
+            <span>Not <span className="opt">(isteğe bağlı)</span></span>
+            <input placeholder="ör. Adres, yanına alınacaklar" maxLength={500} value={f.note} onChange={setE('note')} />
+          </label>
 
           {error && <div className="inline-error" role="alert">{error}</div>}
 
