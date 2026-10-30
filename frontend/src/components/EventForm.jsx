@@ -25,6 +25,8 @@ function initialState(initial) {
   };
 }
 
+const fromDraft = (d) => ({ ...initialState(null), title: d.title, time: d.time, endTime: d.endTime });
+
 // Tekrar bölümü (Görev 11): kapalı başlar, gün olarak eklenen günün hafta günü seçili; "Tüm tekrarları düzenle"de kuraldan dolar.
 function initialRepeat(scope, initial, date) {
   if (scope === 'all' && initial?.recurring) {
@@ -58,12 +60,14 @@ function repeatError(rep, start) {
 // { daysOfWeek, startDate: date, untilDate }. scope (tekrarlanan kaydı düzenlerken): 'one' = yalnızca o gün (tekrar
 // bölümü yok, bilgi satırı), 'all' = bütün tekrarlar (bölüm açık ve dolu; body.repeat yine gönderilir).
 // kindsLabel: tür ikonları grubunun erişilebilir adı (Plan kartında "Aktivite ekle").
+// Görev 13: draft ({ kind, title, time, endTime }) sesle eklemedeki "Düzenle"den gelir; tür seçili, alanlar dolu açılır.
+// Form kapanınca (İptal ya da başarılı ekleme) onClearDraft.
 export default function EventForm({
   mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill, hidePre = false, onTimeChange,
-  date, scope, kindsLabel = 'Aktivite türü',
+  date, scope, kindsLabel = 'Aktivite türü', draft, onClearDraft,
 }) {
-  const [kind, setKind] = useState(mode === 'edit' ? initial?.kind : null);
-  const [f, setF] = useState(() => initialState(mode === 'edit' ? initial : null));
+  const [kind, setKind] = useState(mode === 'edit' ? initial?.kind : draft?.kind ?? null);
+  const [f, setF] = useState(() => (draft ? fromDraft(draft) : initialState(mode === 'edit' ? initial : null)));
   const [error, setError] = useState('');
   const [rep, setRep] = useState(() => initialRepeat(scope, initial, date));
   const [repErr, setRepErr] = useState('');
@@ -80,6 +84,12 @@ export default function EventForm({
   if (date !== lastDate) {
     setLastDate(date);
     if (!rep.on && mode === 'add') setRep(initialRepeat(null, null, date));
+  }
+
+  const [lastDraft, setLastDraft] = useState(draft);
+  if (draft !== lastDraft) {
+    setLastDraft(draft);
+    if (draft) { setKind(draft.kind); setF(fromDraft(draft)); setError(''); }
   }
 
   const [lastPrefill, setLastPrefill] = useState(prefill);
@@ -126,6 +136,7 @@ export default function EventForm({
     setRep(initialRepeat(null, null, date));
     setRepErr('');
     onClearPrefill?.();
+    onClearDraft?.();
   }
 
   async function submit(e) {
