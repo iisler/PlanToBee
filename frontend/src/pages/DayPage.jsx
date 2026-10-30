@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
-import { errorText } from '../api/errors';
+import { errorCode, errorText } from '../api/errors';
 import useMutation, { patchEntry, removeEntry } from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import WeekSheet from '../components/WeekSheet';
@@ -11,7 +11,7 @@ import SectionTabs, { panelId, tabId } from '../components/SectionTabs';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
 import { addMinutes, agendaItems, itemKey } from '../utils/timeline';
-import { dayMonth, isOccurrence, isoDay } from '../utils/recurrence';
+import { dayMonth, isOccurrence, isoDay, parseKey } from '../utils/recurrence';
 import { useNotice } from '../context/NoticeContext';
 import { holidayLine, holidayTone } from '../utils/holidays';
 import Loading from '../components/Loading';
@@ -171,6 +171,31 @@ export default function DayPage({
   }), [date, mutate, notify, onAdded]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
+  // Sesle ekleme (Görev 13). Söylenen gün seçili günden farklıysa kayıt o güne eklenir ve o gün açılır.
+  // "Düzenle" ekleme formunu o günde dolu açar; taslak burada tutulur (başka haftaya geçerken kart yeniden yüklenir).
+  const [draft, setDraft] = useState(null);
+  async function quickAdd(key, body) {
+    if (key === date) return !!(await events.add(body));
+    try {
+      await client.post(`/days/${key}/events`, body);
+    } catch (err) {
+      notify(errorText(err));
+      if (errorCode(err) === 'plan_read_only') onAccessChanged?.();
+      return false;
+    }
+    onAdded?.();
+    const target = parseKey(key);
+    if (dkey(mondayOf(target)) === dkey(monday)) onDataChanged(); // başka haftaya geçince hafta zaten yeniden yüklenir
+    setCurrentDate(target);
+    notify(`${body.title} eklendi: ${dayTitle(target)}`, 'info');
+    return true;
+  }
+  function quickEdit(key, d) {
+    setDraft(d);
+    if (key !== date) setCurrentDate(parseKey(key));
+  }
+  const quick = { draft, add: quickAdd, edit: quickEdit, clearDraft: () => setDraft(null) };
+
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
   // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
   const lastReset = useRef(layerReset);
@@ -275,7 +300,7 @@ export default function DayPage({
             subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
             addForm={addForm} setAddForm={setAddForm} />
         ) : section === 'plan' ? (
-          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} isToday={isToday} />
+          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events} quick={quick} isToday={isToday} />
         ) : (
           <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
             subjects={subjects} study={study} events={events} />
