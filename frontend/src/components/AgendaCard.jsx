@@ -28,7 +28,7 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
   const pendingFocus = useRef(null);
   const keyed = useMemo(() => items.map(x => ({ id: itemKey(x) })), [items]);
   const focusAfterDelete = useFocusAfterDelete(keyed, cardRef, () => headingRef.current);
-  const { bind, bodyRef, hint } = useDaySwipe(onStep, date);
+  const { bodyRef, hint } = useDaySwipe(cardRef, onStep, date);
 
   // Menü ve sayfa, açıldıkları andaki menuReset değeriyle tutulur: bildirimden gün açılınca kendiliğinden kapanır
   const menuEntry = menu && menu.reset === menuReset ? menu.entry : null;
@@ -64,7 +64,7 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
   }
 
   return (
-    <div className="card swipe" ref={cardRef} {...panel} {...bind}>
+    <div className="card swipe" ref={cardRef} {...panel}>
       {hint && (
         <span className={`swipe-hint ${hint.dir > 0 ? 'next' : 'prev'}${hint.ready ? ' ready' : ''}`} style={{ top: hint.y }} aria-hidden="true">
           {hint.dir > 0 ? `${stepLabel(date, 1)} ›` : `‹ ${stepLabel(date, -1)}`}
