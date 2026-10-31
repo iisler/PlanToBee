@@ -7,6 +7,7 @@ import DayPage from './DayPage';
 import FamilyPage from './FamilyPage';
 import UserMenu from '../components/UserMenu';
 import { addDays, dkey, mondayOf } from '../utils/format';
+import { parseKey } from '../utils/recurrence';
 import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
 import NotificationsCard from '../components/NotificationsCard';
@@ -41,6 +42,15 @@ function weekDaysFrom(data, mondayKey) {
     return byDate.get(k) ?? { date: k, studyEntries: [], events: [] };
   });
 }
+// Hafta haritasına bir hafta yazar (entry: eski kayıttan yenisi). Yalnızca seçili hafta (center) ve iki komşusu tutulur;
+// uzaktaki haftanın geç gelen yanıtı yazılmaz.
+function putWeek(weeks, key, center, entry) {
+  const keep = [-7, 0, 7].map(n => dkey(addDays(parseKey(center), n)));
+  if (!keep.includes(key)) return weeks;
+  const next = Object.fromEntries(Object.entries(weeks).filter(([k]) => keep.includes(k)));
+  next[key] = entry(weeks[key]);
+  return next;
+}
 
 // Profil seçilmiş aile hesabının ana ekranı. Gün ve hafta planı ailenin ortak planıdır;
 // her profil görür ve ekler, kayıtlarda ekleyen profil görünür.
@@ -56,8 +66,8 @@ export default function PlanShell() {
   // Gün ekranının bölümü (Görev 10): 'bee' (Ajanda) | 'todo' (Dersler) | 'plan' (Aktiviteler). Açılışta ve bildirimden
   // gelince herkes için Bee; oturum içinde (gün değişince, Ailem'e gidip dönünce) korunur, kalıcı saklanmaz.
   const [section, setSection] = useState('bee');
-  // Seçili haftanın ayrıntısı: { key: pazartesi, days: 7 DayDto | null, error }
-  const [week, setWeek] = useState({ key: '', days: null, error: '' });
+  // Hafta ayrıntıları pazartesiye göre: { [pzt]: { days: 7 DayDto | null, error } }; seçili hafta ve iki komşusu
+  const [weeks, setWeeks] = useState({});
   // Bildirimden gün açılınca artar: açık Hafta paneli ve ⋯ menüleri kapanır
   const [layerReset, setLayerReset] = useState(0);
   const [subjects, setSubjects] = useState([]);
@@ -122,32 +132,47 @@ export default function PlanShell() {
   const hideInitials = user.profile.role === 'Child';
   const auditSettings = useMemo(() => ({ hideInitials }), [hideInitials]);
 
-  // Seçili haftanın ayrıntısı (şerit ve Hafta paneli), tek istek. Her ekleme, değiştirme, silme ve durum
-  // değişikliğinden sonra yeniden çekilir. Yalnızca en son isteğin yanıtı yazılır: ‹ › hızlıca basılınca önceki
-  // haftanın geç gelen yanıtı ekrandaki haftanın üzerine yazılmaz; gösterilen veri her zaman seçili haftanındır.
-  const weekReq = useRef(0);
+  // Seçili haftanın ayrıntısı (şerit, Hafta paneli ve gün kartı), hafta başına tek istek. Her ekleme, değiştirme, silme ve
+  // durum değişikliğinden sonra yeniden çekilir. Bir haftaya yalnızca onun en son isteğinin yanıtı yazılır; seçili haftadan
+  // uzaklaşılmışsa yanıt atılır. Seçili hafta yüklenince önceki ve sonraki hafta da sessizce çekilir: gün kaydırırken (Bee)
+  // ya da ‹ › ile hafta değişince yeni hafta beklemeden açılır, ardından sunucudan yenilenir.
+  const weekReq = useRef({});
   const weekKey = dkey(mondayOf(currentDate));
   const weekKeyRef = useRef(weekKey);
-  const loadWeek = useCallback(async () => {
-    const key = weekKeyRef.current;
-    const id = ++weekReq.current;
+  const fetchWeek = useCallback(async (key, quiet = false) => {
+    const id = (weekReq.current[key] ?? 0) + 1;
+    weekReq.current[key] = id;
     try {
       const res = await client.get(`/days/week/${key}/details`);
-      if (id === weekReq.current) setWeek({ key, days: weekDaysFrom(res.data, key), error: '' });
+      if (weekReq.current[key] === id) setWeeks(w => putWeek(w, key, weekKeyRef.current, () => ({ days: weekDaysFrom(res.data, key), error: '' })));
     } catch (err) {
-      // Aynı haftanın önceki verisi varsa korunur; yoksa şerit boş sayaçlarla kalır, panel "Tekrar dene" gösterir
-      if (id === weekReq.current) setWeek(w => ({ key, days: w.key === key ? w.days : null, error: errorText(err) }));
+      // Aynı haftanın önceki verisi varsa korunur; yoksa şerit boş sayaçlarla kalır, panel "Tekrar dene" gösterir.
+      // Komşu haftanın (quiet) hatası yazılmaz: o haftaya geçilince yeniden istenir.
+      if (weekReq.current[key] === id && !quiet) {
+        setWeeks(w => putWeek(w, key, weekKeyRef.current, (old) => ({ days: old?.days ?? null, error: errorText(err) })));
+      }
     }
   }, []);
-  useEffect(() => { weekKeyRef.current = weekKey; loadWeek(); }, [weekKey, loadWeek]);
+  const loadWeek = useCallback(() => fetchWeek(weekKeyRef.current), [fetchWeek]);
+  useEffect(() => {
+    weekKeyRef.current = weekKey;
+    loadWeek().then(() => {
+      if (weekKeyRef.current !== weekKey) return;
+      const mon = parseKey(weekKey);
+      fetchWeek(dkey(addDays(mon, 7)), true);
+      fetchWeek(dkey(addDays(mon, -7)), true);
+    });
+  }, [weekKey, loadWeek, fetchWeek]);
   // Gün kartındaki iyimser değişiklik (silme, durum) haftalık veriye de uygulanır: şerit ve panel beklemeden güncellenir,
   // "Geri al" ya da hata olursa aynı yoldan eski haline döner. Sonraki yenileme sunucudaki veriyle değiştirir.
   const replaceWeekDay = useCallback((day) => {
-    setWeek(w => (w.days && w.days.some(d => d.date === day.date)
-      ? { ...w, days: w.days.map(d => (d.date === day.date ? day : d)) } : w));
+    setWeeks(w => {
+      const key = Object.keys(w).find(k => w[k].days?.some(d => d.date === day.date));
+      return key ? { ...w, [key]: { ...w[key], days: w[key].days.map(d => (d.date === day.date ? day : d)) } } : w;
+    });
   }, []);
-  const weekDays = week.key === weekKey ? week.days : null;
-  const weekError = week.key === weekKey ? week.error : '';
+  const weekDays = weeks[weekKey]?.days ?? null;
+  const weekError = weeks[weekKey]?.error ?? '';
 
   const loadSubjects = useCallback(async () => {
     try {

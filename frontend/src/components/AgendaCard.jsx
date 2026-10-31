@@ -5,11 +5,21 @@ import Timeline from './Timeline';
 import EntryMenu from './EntryMenu';
 import AgendaSheet from './AgendaSheet';
 import useFocusAfterDelete from '../hooks/useFocusAfterDelete';
+import useDaySwipe from '../hooks/useDaySwipe';
+import { addDays, dkey, WEEKDAYS } from '../utils/format';
+import { parseKey } from '../utils/recurrence';
+
+// Kaydırırken açılan kenardaki gün: "Paz 1", bugünse "Bugün"
+function stepLabel(date, dir) {
+  const d = addDays(parseKey(date), dir);
+  return dkey(d) === dkey(new Date()) ? 'Bugün' : `${WEEKDAYS[(d.getDay() + 6) % 7]} ${d.getDate()}`;
+}
 
 // Bee (Ajanda, Görev 10): dersler ve aktiviteler tek saat çizelgesinde (components/Timeline). Üstte yalnızca boş süre
 // özeti. Kartta ekleme formu yok: boşluktaki "+ Ekle" alt sayfayı (AgendaSheet) açar; ⋯ → Düzenle de alt sayfada.
 // Ders dairesi durumu değiştirir (To-do ile aynı işlem: study.cycle). items: agendaItems (DayPage).
-export default function AgendaCard({ date, items, isToday, myId, menuReset, subjects, study, events, dateLabel, panel }) {
+// Kart sola çekilince ertesi güne, sağa çekilince önceki güne geçer (hooks/useDaySwipe); onStep(+1 | -1) günü değiştirir.
+export default function AgendaCard({ date, items, isToday, myId, menuReset, subjects, study, events, dateLabel, panel, onStep }) {
   const [menu, setMenu] = useState(null); // açık ⋯ menüsü: { entry, reset }
   const [sheet, setSheet] = useState(null); // açık alt sayfa: { mode, start, end, entry, reset }
   const openerRef = useRef(null);
@@ -18,6 +28,7 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
   const pendingFocus = useRef(null);
   const keyed = useMemo(() => items.map(x => ({ id: itemKey(x) })), [items]);
   const focusAfterDelete = useFocusAfterDelete(keyed, cardRef, () => headingRef.current);
+  const { bind, bodyRef, hint } = useDaySwipe(onStep, date);
 
   // Menü ve sayfa, açıldıkları andaki menuReset değeriyle tutulur: bildirimden gün açılınca kendiliğinden kapanır
   const menuEntry = menu && menu.reset === menuReset ? menu.entry : null;
@@ -53,17 +64,24 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
   }
 
   return (
-    <div className="card" ref={cardRef} {...panel}>
-      <div className="card-head">
-        <h2 className="sumh" ref={headingRef} tabIndex={-1}>{freeSummary(items)}</h2>
-      </div>
+    <div className="card swipe" ref={cardRef} {...panel} {...bind}>
+      {hint && (
+        <span className={`swipe-hint ${hint.dir > 0 ? 'next' : 'prev'}${hint.ready ? ' ready' : ''}`} style={{ top: hint.y }} aria-hidden="true">
+          {hint.dir > 0 ? `${stepLabel(date, 1)} ›` : `‹ ${stepLabel(date, -1)}`}
+        </span>
+      )}
+      <div className="swipe-body" ref={bodyRef}>
+        <div className="card-head">
+          <h2 className="sumh" ref={headingRef} tabIndex={-1}>{freeSummary(items)}</h2>
+        </div>
 
-      <Timeline events={items} isToday={isToday} myId={myId} onCycle={e => study.cycle(e)}
-        onOpen={(ev, el) => { openerRef.current = el; setMenu({ entry: ev, reset: menuReset }); }}
-        onGap={(start, end, el) => {
-          openerRef.current = el;
-          setSheet({ mode: 'add', start, end, reset: menuReset });
-        }} />
+        <Timeline events={items} isToday={isToday} myId={myId} onCycle={e => study.cycle(e)}
+          onOpen={(ev, el) => { openerRef.current = el; setMenu({ entry: ev, reset: menuReset }); }}
+          onGap={(start, end, el) => {
+            openerRef.current = el;
+            setSheet({ mode: 'add', start, end, reset: menuReset });
+          }} />
+      </div>
 
       {menuEntry && (
         <EntryMenu kind={menuEntry.isStudy ? 'study' : 'event'} entry={menuEntry} myId={myId} returnFocusRef={openerRef}
