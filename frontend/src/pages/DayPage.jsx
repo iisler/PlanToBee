@@ -314,7 +314,7 @@ export default function DayPage({
             draft={draft} onClearDraft={() => setDraft(null)} isToday={isToday} />
         ) : (
           <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
-            subjects={subjects} study={study} events={events} />
+            subjects={subjects} study={study} events={events} onStep={(n) => setCurrentDate(d => addDays(d, n))} />
         )
       )}
       <span className="sr-only" aria-live="polite">{announce}</span>
