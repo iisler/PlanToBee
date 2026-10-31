@@ -85,7 +85,11 @@ header.top .tag .av { width: 24px; height: 24px; flex-shrink: 0; border-radius: 
 /* Dar ekranda (360 px: satır 304 px) başlık küçülür, düğmeler küçülmez (şeritte yıl yazılmaz). Yine sığmayan aralıkta
    DayPage yazıyı en çok 13 px'e kadar küçültür. */
 @media (max-width: 374px) { .weekhead .range { font-size: 16px; } }
-.today-btn { display: block; margin: 8px auto 2px; min-height: 44px; padding: 0 18px; border: none; border-radius: var(--radius-sm); background: var(--honey); color: var(--ink); font-size: 13.5px; font-weight: 700; }
+/* "Bugüne dön": başka haftadayken şeridin sağ altında (Pazar'ın altında) küçük bağlantı. Dokunma alanı ::before ile 44 px;
+   yukarıda şerit hücrelerine taşmaz, aşağıda hero'nun alt boşluğuna uzanır (hero yüksekliği artmaz). */
+.today-btn { position: relative; display: block; width: fit-content; margin: 6px 2px 0 auto; padding: 2px 4px; border: none; background: none; color: var(--honey); font-size: 13px; font-weight: 600; line-height: 18px; text-decoration: underline; text-underline-offset: 3px; }
+.today-btn::before { content: ''; position: absolute; inset: -6px -10px -16px; }
+.today-btn:focus-visible { outline: 2px solid var(--honey); outline-offset: 2px; border-radius: 4px; }
 
 /* Şerit: 7 eşit hücre (minmax(0, 1fr): içerik genişleyince hücreler eşitsizleşip taşmasın) */
 .trail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
