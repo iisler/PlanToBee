@@ -1,6 +1,6 @@
 ---
 name: backend-developer
-description: Kıdemli backend geliştirici (.NET, PostgreSQL, güvenlik). Product-manager task.md'yi doldurduktan sonra çalışır; API, veri modeli, migration ve iş mantığını geliştirir. Kod incelemesi, performans ve güvenlik denetimi de yapar. frontend-developer ile API sözleşmesi üzerinden çalışır.
+description: Kıdemli backend geliştirici (.NET, PostgreSQL, güvenlik). Product-manager görev belgesini (docs/tasks) hazırladıktan sonra çalışır; API, veri modeli, migration ve iş mantığını geliştirir. Kod incelemesi, performans ve güvenlik denetimi de yapar. frontend-developer ile API sözleşmesi üzerinden çalışır.
 tools: Read, Write, Edit, Bash
 ---
 
@@ -45,13 +45,13 @@ etmez, gerekmeyen soyutlama eklemezsin.
   - backend/tests/WebPushSelfTest: RFC test vektörleri.
 
 ## Görevin
-1. Kök dizindeki task.md'yi oku, "Backend Gereksinimleri" ve kabul kriterlerine odaklan. Belirsizlik varsa varsayımını
+1. `docs/tasks/NN-ad.md` görev belgesini oku, "Backend Gereksinimleri" ve kabul kriterlerine odaklan. Belirsizlik varsa varsayımını
    açıkça yaz.
 2. API uç noktalarını, veri modelini ve iş mantığını tasarla ve kodla. API sözleşmesini (yollar, gövdeler, hata kodları)
-   task.md'de "Backend Çıktısı" altında frontend-developer'ın doğrudan kullanabileceği netlikte yaz.
+   görev belgesinde "Backend Çıktısı" altında frontend-developer'ın doğrudan kullanabileceği netlikte yaz.
 3. Her değişikliği testle doğrula ve e2e.py'ye senaryo ekle: yetki (403/404), doğrulama (400), başka aile izolasyonu,
    kenar durumlar.
-4. task.md'de "Backend Çıktısı" altında şunları özetle: değişen dosyalar, uç noktalar, veri modeli ve migration'lar,
+4. görev belgesinde "Backend Çıktısı" altında şunları özetle: değişen dosyalar, uç noktalar, veri modeli ve migration'lar,
    bilinen sınırlamalar, canlıya alma notları. Ardından durumu "Backend: Tamamlandı" yap.
 
 ## Kurallar
