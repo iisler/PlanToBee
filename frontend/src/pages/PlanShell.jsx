@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNotice } from '../context/NoticeContext';
 import DayPage from './DayPage';
 import FamilyPage from './FamilyPage';
-import UserMenu from '../components/UserMenu';
+import TabBar from '../components/TabBar';
+import ProfileSheet from '../components/ProfileSheet';
 import { addDays, dkey, mondayOf } from '../utils/format';
 import { parseKey } from '../utils/recurrence';
 import { AuditContext } from '../context/AuditContext';
@@ -70,10 +71,20 @@ export default function PlanShell() {
   const [weeks, setWeeks] = useState({});
   // Bildirimden gün açılınca artar: açık Hafta paneli ve ⋯ menüleri kapanır
   const [layerReset, setLayerReset] = useState(0);
+  // Hafta paneli (alt menüdeki Hafta), açıldığı andaki layerReset değeriyle tutulur: bildirimden gün açılınca kendiliğinden kapanır
+  const [weekOpenAt, setWeekOpenAt] = useState(null);
+  const weekOpen = weekOpenAt === layerReset;
+  const setWeekOpen = useCallback((open) => setWeekOpenAt(open ? layerReset : null), [layerReset]);
+  // Alt menüdeki + → Plan / To-do: Gün ekranına iletilen ekleme isteği ({ type: 'event' | 'study' }); işlenince silinir
+  const [addRequest, setAddRequest] = useState(null);
+  const clearAddRequest = useCallback(() => setAddRequest(null), []);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const weekBtnRef = useRef(null);
+  const profileBtnRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const familyHeadingRef = useRef(null);
 
-  // Ailem ad menüsünden açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
+  // Ailem (alt menü) ya da Bildirimler (Profil paneli) açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
   useEffect(() => {
     if (view === 'family' || view === 'notifications' || view === 'delete-account') familyHeadingRef.current?.focus();
   }, [view]);
@@ -116,6 +127,7 @@ export default function PlanShell() {
       if (!d) return;
       // Önce açık katman kapanır, sonra plan görünümünde o gün seçilir (şerit o günün haftasını gösterir)
       setLayerReset(n => n + 1);
+      setProfileOpen(false);
       setView('plan');
       setSection('bee');
       setCurrentDate(d);
@@ -219,6 +231,22 @@ export default function PlanShell() {
   function changeView(v) {
     setView(v);
     if (v === 'family') loadFamily();
+    window.scrollTo(0, 0);
+  }
+
+  // Alt menü (Görev 14). Bugün: Bee ana ekranı; zaten oradaysa bugüne döner.
+  function goToday() {
+    if (view === 'plan' && section === 'bee') setCurrentDate(new Date());
+    else { setView('plan'); setSection('bee'); }
+    window.scrollTo(0, 0);
+  }
+  function openWeek() {
+    setView('plan');
+    setWeekOpen(true);
+  }
+  function requestAdd(type) {
+    setView('plan');
+    setAddRequest({ type });
   }
 
   // Hesap silme sayfasından Vazgeç: Ailem'e dönülür ve odak silme düğmesine verilir.
@@ -227,23 +255,24 @@ export default function PlanShell() {
     setTimeout(() => document.getElementById('delete-account-open')?.focus(), 0);
   }
 
-  // Plan ekranında başlık siyah hafta alanının içinde durur (DayPage), diğer sayfalarda en üstte
+  // Üst başlık (Görev 14): solda logo ve PlanToBee, sağda "Hoş geldin, [ad]" (eşit boyutta). Profil menüsü alt menüdedir.
+  const name = user.profile.displayName;
   const header = (
     <header className="top">
       <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
-      <div className="top-right">
-        <UserMenu name={user.profile.displayName} onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
-          onFamily={() => changeView('family')} onNotifications={hasOthers ? () => changeView('notifications') : undefined} onLogout={logout} />
-      </div>
+      <p className="hello">Hoş geldin, <b>{name}</b></p>
     </header>
   );
+  const active = profileOpen ? 'profile'
+    : view === 'plan' ? (weekOpen ? 'week' : section === 'bee' ? 'today' : null)
+    : view === 'notifications' ? 'profile' : 'family';
 
   return (
     <AuditContext.Provider value={auditSettings}>
       <div className="wrap">
-        {view !== 'plan' && header}
+        {header}
 
-        {/* Ailem ve Bildirimler ad menüsünden açılır; nerede olunduğu başlıkla belirtilir */}
+        {/* Ailem alt menüden, Bildirimler Profil panelinden açılır; nerede olunduğu başlıkla belirtilir */}
         {(view === 'family' || view === 'notifications') && (
           <div className="pagehead">
             <button className="btn-ghost small" onClick={() => changeView('plan')}>‹ Plana dön</button>
@@ -266,7 +295,11 @@ export default function PlanShell() {
 
         {view === 'plan' && (
           <DayPage
-            top={header}
+            weekOpen={weekOpen}
+            setWeekOpen={setWeekOpen}
+            weekBtnRef={weekBtnRef}
+            addRequest={addRequest}
+            onAddHandled={clearAddRequest}
             banner={hasOthers && pushReady ? <PushPrompt /> : null}
             onAdded={onAdded}
             currentDate={currentDate}
@@ -300,6 +333,16 @@ export default function PlanShell() {
             onCancel={cancelDelete} onDeleted={accountDeleted} />
         )}
       </div>
+
+      <TabBar active={active} name={name} weekRef={weekBtnRef} profileRef={profileBtnRef}
+        onToday={goToday} onWeek={openWeek} onAdd={requestAdd} onFamily={() => changeView('family')}
+        onProfile={() => setProfileOpen(true)} />
+      {profileOpen && (
+        <ProfileSheet name={name} role={user.profile.role} familyName={family?.name ?? user.family?.name}
+          onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
+          onNotifications={hasOthers ? () => changeView('notifications') : undefined} onLogout={logout}
+          onClose={() => setProfileOpen(false)} returnFocusRef={profileBtnRef} />
+      )}
     </AuditContext.Provider>
   );
 }
