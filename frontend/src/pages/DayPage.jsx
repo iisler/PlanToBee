@@ -8,7 +8,6 @@ import StudyCard from '../components/StudyCard';
 import EventCard from '../components/EventCard';
 import AgendaCard from '../components/AgendaCard';
 import QuickAdd from '../components/QuickAdd';
-import SectionTabs, { panelId, tabId } from '../components/SectionTabs';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
 import { addMinutes, agendaItems, itemKey } from '../utils/timeline';
@@ -31,30 +30,27 @@ function restoreSeries({ truncated, series: s }) {
     : client.post('/series', { ...rule, kind: s.kind, startDate: s.startDate, exceptions: s.exceptions ?? [] });
 }
 
+const SECTION_NAMES = { bee: 'Ajanda', todo: 'Dersler', plan: 'Aktiviteler' };
 const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
 
-// Tek ekran plan: üstte siyah hafta alanı (top: logo ve ad menüsü; aralık, ‹ › hafta okları, "Hafta" paneli, şerit), altında bölüm seçici
-// (Plan · To-do · Bee, Görev 10), gün başlığı ve seçili bölümün tek kartı: Bee = saat çizelgesi (dersler + aktiviteler),
-// To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm (PlanShell'de; açılışta Bee). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
+// Tek ekran plan: üstte siyah hafta alanı (aralık, ‹ › hafta okları, şerit), gün başlığı ve seçili bölümün tek kartı:
+// Bee = saat çizelgesi (dersler + aktiviteler), To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm
+// (PlanShell'de; açılışta Bee). Görev 14: bölüm seçici kalktı; Plan ve To-do alt menüdeki + ile açılır (addRequest), dönüş
+// "‹ Bugün" ya da alt menüdeki Bugün ile. Hafta paneli alt menüden açılır (weekOpen / setWeekOpen, weekBtnRef PlanShell'de). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
 // weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null), weekError: hafta ayrıntısı hata metni.
-// layerReset değişince (bildirimden gün açıldı) açık Hafta paneli ve ⋯ menüleri kapanır.
-// banner: bölüm seçicinin altında gösterilecek bant (bildirim izni); onAdded: ders ya da aktivite eklendi.
+// layerReset değişince (bildirimden gün açıldı) açık ⋯ menüleri kapanır.
+// banner: hafta alanının altında gösterilecek bant (bildirim izni); onAdded: ders ya da aktivite eklendi.
 export default function DayPage({
   currentDate, setCurrentDate, weekDays, weekError, onRetryWeek, onDayChanged, myId,
   subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged, layerReset, section, setSection,
-  top, banner, onAdded,
+  weekOpen, setWeekOpen, weekBtnRef, addRequest, onAddHandled, banner, onAdded,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
-  // Hafta paneli, açıldığı andaki layerReset değeriyle tutulur (bildirimden gün açılınca kendiliğinden kapanır)
-  const [weekOpenAt, setWeekOpenAt] = useState(null);
-  const weekOpen = weekOpenAt === layerReset;
-  const setWeekOpen = (open) => setWeekOpenAt(open ? layerReset : null);
   // "+ Ders ekle" formu gün değişince de açık kalır (D1): durumu burada tutulur
   const [addForm, setAddForm] = useState(EMPTY_ADD_FORM);
   const headingRef = useRef(null);
-  const weekBtnRef = useRef(null);
   const focusHeading = useRef(false);
   const date = dkey(currentDate);
   const today = new Date();
@@ -204,6 +200,30 @@ export default function DayPage({
     if (key !== date) setCurrentDate(parseKey(key));
   }
 
+  // Alt menüdeki + → Plan / To-do (Görev 14): ilgili bölüm açılır, ekleme formu seçili gün için hazırlanır ve odak formun
+  // ilk öğesine (aktivite türü ikonları / ders seçimi) gider. Ders formu açık tutulur (addForm); aktivite formu kartta hep açıktır.
+  // İstek işlenince onAddHandled ile silinir (Ailem'den gelince Gün ekranı istekle birlikte kurulur).
+  const focusForm = useRef(null); // odak bekleyen bölüm: 'todo' | 'plan'
+  useEffect(() => {
+    if (!addRequest) return;
+    if (addRequest.type === 'study') setAddForm(f => (f.open ? f : { ...EMPTY_ADD_FORM, open: true }));
+    setSection(addRequest.type === 'study' ? 'todo' : 'plan');
+    focusForm.current = addRequest.type === 'study' ? 'todo' : 'plan';
+    onAddHandled();
+  }, [addRequest, setSection, onAddHandled]);
+  const ready = !!shown;
+  useEffect(() => {
+    if (focusForm.current !== section || !ready || (section === 'todo' && !addForm.open)) return;
+    focusForm.current = null;
+    requestAnimationFrame(() => {
+      const panelEl = document.getElementById('day-panel');
+      const target = panelEl?.querySelector(section === 'todo' ? '.sform select, .sform input, .sform button, .subject-onboard button' : '.acts button');
+      if (!target) return;
+      target.scrollIntoView({ block: 'center' });
+      target.focus({ preventScroll: true });
+    });
+  }, [section, ready, addForm.open, addRequest]); // addRequest: bölüm ve form zaten hazırsa da odak taşınsın
+
   // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
   // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
   const lastReset = useRef(layerReset);
@@ -235,7 +255,6 @@ export default function DayPage({
     requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
   }
 
-  const ready = !!shown;
   const range = weekRangeLabel(monday);
 
   // Hafta aralığı başlık satırına sığmazsa (360 px'te "24 – 30 Ağustos") yazı 0,5 px adımlarla en çok 13 px'e küçülür;
@@ -261,30 +280,28 @@ export default function DayPage({
   const dayName = WEEKDAYS_FULL[(currentDate.getDay() + 6) % 7];
   const dateLabel = `${dayName} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]}`;
   const common = { date, myId, menuReset: layerReset };
-  const panel = { role: 'tabpanel', id: panelId(section), 'aria-labelledby': tabId(section), tabIndex: -1 };
+  const panel = { role: 'region', id: 'day-panel', 'aria-label': SECTION_NAMES[section], tabIndex: -1 };
 
   return (
     <>
       <section className="dayhero">
-        {top}
         <div className="weekhead">
           <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
           <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>‹</button>
           <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>›</button>
-          <button type="button" ref={weekBtnRef} className="weekbtn" aria-haspopup="dialog" aria-label="Hafta: haftanın tamamını gör"
-            onClick={() => setWeekOpen(true)}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" />
-            </svg>Hafta
-          </button>
         </div>
 
         <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays} />
         {!isThisWeek && <button type="button" className="today-btn" onClick={goToday}>Bugüne dön</button>}
       </section>
 
-      <SectionTabs value={section} onChange={setSection} />
       {banner}
+      {section !== 'bee' && (
+        <div className="secthead">
+          <button type="button" className="btn-ghost small" onClick={() => setSection('bee')}>‹ Bugün</button>
+          <span className="secthead-tx"><b>{section === 'todo' ? 'To-do' : 'Plan'}</b> · {SECTION_NAMES[section]}</span>
+        </div>
+      )}
 
       <QuickAdd date={date} subjects={subjects} onAdd={quickAdd} onEdit={quickEdit}>
         <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
