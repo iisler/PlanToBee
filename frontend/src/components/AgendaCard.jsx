@@ -16,12 +16,12 @@ function stepLabel(date, dir) {
 }
 
 // Bee (Ajanda, Görev 10): dersler ve aktiviteler tek saat çizelgesinde (components/Timeline). Üstte yalnızca boş süre
-// özeti. Kartta ekleme formu yok: boşluktaki "+ Ekle" alt sayfayı (AgendaSheet) açar; ⋯ → Düzenle de alt sayfada.
+// özeti. Kartta ekleme yok (ekleme alt menüdeki + ile, Görev 14b); ⋯ → Düzenle alt sayfada (AgendaSheet).
 // Ders dairesi durumu değiştirir (To-do ile aynı işlem: study.cycle). items: agendaItems (DayPage).
 // Kart sola çekilince ertesi güne, sağa çekilince önceki güne geçer (hooks/useDaySwipe); onStep(+1 | -1) günü değiştirir.
 export default function AgendaCard({ date, items, isToday, myId, menuReset, subjects, study, events, dateLabel, panel, onStep }) {
   const [menu, setMenu] = useState(null); // açık ⋯ menüsü: { entry, reset }
-  const [sheet, setSheet] = useState(null); // açık alt sayfa: { mode, start, end, entry, reset }
+  const [sheet, setSheet] = useState(null); // açık düzenleme sayfası: { mode, entry, scope, reset }
   const openerRef = useRef(null);
   const cardRef = useRef(null);
   const headingRef = useRef(null);
@@ -76,11 +76,7 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
         </div>
 
         <Timeline events={items} isToday={isToday} myId={myId} onCycle={e => study.cycle(e)}
-          onOpen={(ev, el) => { openerRef.current = el; setMenu({ entry: ev, reset: menuReset }); }}
-          onGap={(start, end, el) => {
-            openerRef.current = el;
-            setSheet({ mode: 'add', start, end, reset: menuReset });
-          }} />
+          onOpen={(ev, el) => { openerRef.current = el; setMenu({ entry: ev, reset: menuReset }); }} />
       </div>
 
       {menuEntry && (
@@ -89,7 +85,7 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
           onEditAll={() => edit(menuEntry, 'all')} onDelete={() => remove(menuEntry)} onDeleteAll={() => remove(menuEntry, true)} />
       )}
       {openSheet && (
-        <AgendaSheet sheet={openSheet} date={date} items={items} subjects={subjects} study={study} events={events} dateLabel={dateLabel}
+        <AgendaSheet sheet={openSheet} items={items} subjects={subjects} study={study} events={events} dateLabel={dateLabel}
           returnFocusRef={openerRef} onClose={() => setSheet(null)} onDone={onDone} />
       )}
     </div>
