@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { initial } from '../utils/format';
 
-// Alt sabit menü (Görev 14): Bugün · Hafta · + · Ailem · Profil. Plan ekranında ve Ailem / Bildirimler sayfalarında görünür.
-// - Bugün: Bee (ajanda) ana ekranı; zaten oradaysa bugüne döner. Hafta: haftanın tamamı paneli. Ailem: aile sayfası.
+// Alt sabit menü (Görev 14): Gün · Hafta · + · Ailem · Profil. Plan ekranında ve Ailem / Bildirimler sayfalarında görünür.
+// - Gün: Bee (ajanda) ana ekranı; zaten oradaysa bugüne döner. Hafta: haftanın tamamı paneli. Ailem: aile sayfası.
 // - +: düğmenin üstünde küçük menü açar (Plan = aktivite ekle, To-do = ders ekle); açıkken + işareti × olur.
 // - Profil: profil paneli (Profil değiştir, Bildirimler, Çıkış yap).
 // active: 'today' | 'week' | 'family' | 'profile' | null. weekRef / profileRef: panel kapanınca odağın döneceği düğmeler.
@@ -97,7 +97,7 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen
       {addOpen && <div className="addpop-dim" onClick={() => setAddOpen(false)} />}
       <nav className="tabbar" aria-label="Ana menü">
         <div className="tabbar-in">
-          {tab('today', 'Bugün', onToday)}
+          {tab('today', 'Gün', onToday)}
           {tab('week', 'Hafta', onWeek, weekRef)}
           <div className="tab-addwrap"
             onBlur={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setAddOpen(false); }}>
