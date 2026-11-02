@@ -1,56 +1,25 @@
 import { useId, useRef, useState } from 'react';
 import Sheet from './Sheet';
-import StudyForm, { EMPTY_STUDY, studyDraft } from './StudyForm';
+import StudyForm, { studyDraft } from './StudyForm';
 import EventForm from './EventForm';
-import { itemKey, studyItem, toMin } from '../utils/timeline';
+import { itemKey, studyItem } from '../utils/timeline';
 
-const KINDS = [{ id: 'study', label: 'Ders' }, { id: 'event', label: 'Aktivite' }];
-
-// Bee (Ajanda) alt sayfası (Görev 10). sheet:
-// - { mode: 'add', start, end }: boşluktan "+ Ekle" ("13:00–15:00 arasına ekle"); boş günde start/end null ("Ekle").
-//   Üstte Ders / Aktivite seçimi (varsayılan Ders). Ders: ders formu, başlangıç boşluğun başıyla, süre boşluk kadar
-//   (en çok 60 dk) dolu. Aktivite: tür
-//   ikonları, türe dokununca aktivite formu saatler dolu açılır. Geçişte girilen başlangıç korunur.
+// Bee (Ajanda) düzenleme sayfası (Görev 10). ⋯ → Düzenle ile açılır. sheet:
 // - { mode: 'study', entry }: "Dersi düzenle" (ders formu + Durum).
-// - { mode: 'event', entry }: "Aktiviteyi düzenle" (aktivite formu).
+// - { mode: 'event', entry, scope }: "Aktiviteyi düzenle" (tekrarlanan kayıtta scope 'one' | 'all').
+// Ajandadan ekleme yok (Görev 14b): ekleme alt menüdeki + ile Plan / To-do bölümünde yapılır.
 // onDone(itemKey): başarılı kayıttan sonra; sayfa kapanır, odak o öğeye gider (AgendaCard).
-export default function AgendaSheet({ sheet, date, items, subjects, study, events, dateLabel, onClose, onDone, returnFocusRef }) {
+export default function AgendaSheet({ sheet, items, subjects, study, events, dateLabel, onClose, onDone, returnFocusRef }) {
   const titleId = useId();
-  const [tab, setTab] = useState('study');
-  const [draft, setDraft] = useState(() => {
-    if (sheet.mode === 'study') return studyDraft(sheet.entry);
-    const gapMins = sheet.start && sheet.end ? toMin(sheet.end) - toMin(sheet.start) : 0;
-    return { ...EMPTY_STUDY, startTime: sheet.start ?? '', minutes: gapMins > 0 ? String(Math.min(gapMins, 60)) : '' };
-  });
-  const [evPrefill, setEvPrefill] = useState(null);
+  const [draft, setDraft] = useState(() => (sheet.mode === 'study' ? studyDraft(sheet.entry) : null));
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const segRefs = useRef({});
   const names = subjects.map(s => s.name);
 
-  const gap = sheet.mode === 'add' && sheet.start ? `${sheet.start}–${sheet.end}` : null;
-  const title = sheet.mode === 'study' ? 'Dersi düzenle' : sheet.mode === 'event' ? (sheet.scope === 'all' ? 'Tüm tekrarları düzenle' : 'Aktiviteyi düzenle')
-    : gap ? `${gap} arasına ekle` : 'Ekle';
-
-  function pick(id) {
-    setTab(id);
-    if (id === 'event') {
-      // Aktivite formu, ders formunda girilen (ya da boşluğun) başlangıcıyla dolar; bitiş boşluğun sonu (başlangıçtan sonraysa)
-      const start = draft.startTime || sheet.start || '';
-      const end = sheet.end && toMin(sheet.end) > toMin(start) ? sheet.end : '';
-      setEvPrefill(start ? { start, end } : null);
-    }
-  }
-  function onSegKey(e) {
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
-    e.preventDefault();
-    const id = tab === 'study' ? 'event' : 'study';
-    pick(id);
-    segRefs.current[id]?.focus();
-  }
+  const title = sheet.mode === 'study' ? 'Dersi düzenle' : sheet.scope === 'all' ? 'Tüm tekrarları düzenle' : 'Aktiviteyi düzenle';
 
   async function run(fn) {
-    if (busyRef.current) return false; // hızlı çift dokunuş iki kayıt eklemesin
+    if (busyRef.current) return false; // hızlı çift dokunuş iki kez kaydetmesin
     busyRef.current = true;
     setBusy(true);
     const key = await fn();
@@ -59,41 +28,16 @@ export default function AgendaSheet({ sheet, date, items, subjects, study, event
     if (key) onDone(key);
     return !!key;
   }
-  const addStudy = (body) => run(async () => { const c = await study.add(body); return c && (c.id ? `s${c.id}` : 'x'); });
-  const addEvent = (body) => run(async () => { const c = await events.add(body); return c && (c.id || c.seriesId ? itemKey(c) : 'x'); });
   const saveStudy = (body) => run(async () => ((await study.save(sheet.entry, body)) ? `s${sheet.entry.id}` : null));
   const saveEvent = (body) => run(() => events.save(sheet.entry, body, sheet.scope));
-  const studyForm = (mode) => (
-    <>
-      {names.length === 0 && mode === 'add' && (
-        <p className="evsum">Ders listesi boş. To-do bölümünde “+ Ders ekle” ile ders ekleyebilirsin.</p>
-      )}
-      <StudyForm mode={mode} value={draft} onChange={p => setDraft(d => ({ ...d, ...p }))} subjects={names} items={items}
-        excludeKey={mode === 'edit' ? itemKey(studyItem(sheet.entry)) : null} busy={busy}
-        submitLabel={`${dateLabel} gününe ekle`} onSubmit={mode === 'edit' ? saveStudy : addStudy} onCancel={onClose} />
-    </>
-  );
 
-  let body;
-  if (sheet.mode === 'study') body = studyForm('edit');
-  else if (sheet.mode === 'event') {
-    body = <EventForm mode="edit" initial={sheet.entry} events={items} scope={sheet.scope} onSubmit={saveEvent} onCancel={onClose} />;
-  } else {
-    body = (
-      <>
-        <div className="seg" role="radiogroup" aria-label="Ne eklemek istersin?" onKeyDown={onSegKey}>
-          {KINDS.map(k => (
-            <button key={k.id} ref={el => { segRefs.current[k.id] = el; }} type="button" role="radio" aria-checked={tab === k.id}
-              tabIndex={tab === k.id ? 0 : -1} className={tab === k.id ? 'active' : ''} onClick={() => pick(k.id)}>{k.label}</button>
-          ))}
-        </div>
-        {tab === 'study' ? studyForm('add') : (
-          <EventForm mode="add" events={items} busy={busy} onSubmit={addEvent} prefill={evPrefill} hidePre date={date}
-            onTimeChange={v => setDraft(d => ({ ...d, startTime: v }))} />
-        )}
-      </>
-    );
-  }
+  const body = sheet.mode === 'study' ? (
+    <StudyForm mode="edit" value={draft} onChange={p => setDraft(d => ({ ...d, ...p }))} subjects={names} items={items}
+      excludeKey={itemKey(studyItem(sheet.entry))} busy={busy}
+      submitLabel={`${dateLabel} gününe ekle`} onSubmit={saveStudy} onCancel={onClose} />
+  ) : (
+    <EventForm mode="edit" initial={sheet.entry} events={items} scope={sheet.scope} onSubmit={saveEvent} onCancel={onClose} />
+  );
 
   return (
     <Sheet className="addsheet" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>

@@ -29,9 +29,9 @@ const BREAK = (
 // Bee (Ajanda): günün dersleri ve aktiviteleri saat çizelgesi olarak (Görev 09 + Görev 10): üstte "Saati yok" şeridi ve 07:00 öncesi satırları, ortada
 // 07:00–22:00 çizelgesi (22:00'yi aşan ya da sonra başlayan kayıt varsa onun bitişine uzar; kümeler + boşluklar üst üste; uzun boşluk ve tek başına uzun kayıt sıkıştırılır), altta 22:00 sonrası satırları.
 // Aktivite bir düğmedir: onOpen(öğe, düğme) ⋯ menüsünü açar. Ders (öğe.isStudy) iki düğmedir: daire onCycle(ders) ile
-// durumu değiştirir, kalan alan ⋯ menüsünü açar. Boşluk düğmesi onGap(start, end) ile ekleme sayfasını açar; boş günde
-// "+ Ekle" onGap(null, null). events: utils/timeline agendaItems (dersler + aktiviteler). data-id = itemKey.
-export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle }) {
+// durumu değiştirir, kalan alan ⋯ menüsünü açar. Boşluklar yalnızca bilgi satırıdır ("13:00–15:00 boş · 2 sa"); ekleme alt
+// menüdeki + ile yapılır (Görev 14b). events: utils/timeline agendaItems (dersler + aktiviteler). data-id = itemKey.
+export default function Timeline({ events, isToday, myId, onOpen, onCycle }) {
   const { hideInitials } = useAuditSettings();
   const rawNow = useNow(isToday);
   const { untimed, before, after, inw } = useMemo(() => classify(events, 1440), [events]);
@@ -109,10 +109,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
       {before.length > 0 && <div className="tl-out">{before.map(r => outRow(r, 'b'))}</div>}
 
       {inw.length === 0 ? (
-        <>
-          <div className="tl-empty">{isToday ? 'Bugün' : 'Bu gün'} saatli ders ya da aktivite yok · <b>tüm gün boş</b></div>
-          <button type="button" className="add-study" onClick={(e) => onGap(null, null, e.currentTarget)}>+ Ekle</button>
-        </>
+        <div className="tl-empty">{isToday ? 'Bugün' : 'Bu gün'} saatli ders ya da aktivite yok · <b>tüm gün boş</b></div>
       ) : (
         <div className="tl" style={{ height: lay.height + 8 }}>
           <div aria-hidden="true">
@@ -129,11 +126,10 @@ export default function Timeline({ events, isToday, myId, onOpen, onGap, onCycle
                 const pos = { top: Math.round(it.top), height: Math.round(it.height) };
                 if (it.type === 'gap') return (
                   <li key={it.key} style={pos}>
-                    <button type="button" className="tl-gap" onClick={(e) => onGap(hm(it.a), hm(it.b), e.currentTarget)}
-                      aria-label={`${hm(it.a)}–${hm(it.b)} boş, ${durationLong(it.d)}. Bu aralığa ders ya da aktivite ekle`}>
-                      <span className="gt"><b>{hm(it.a)}–{hm(it.b)}</b><span className="gw"> boş</span> · {formatDuration(it.d)}</span>
-                      <span className="pl" aria-hidden="true">+<span className="pl-t">&nbsp;Ekle</span></span>
-                    </button>
+                    <div className="tl-gap">
+                      <span className="sr-only">{hm(it.a)}–{hm(it.b)} boş, {durationLong(it.d)}</span>
+                      <span className="gt" aria-hidden="true"><b>{hm(it.a)}–{hm(it.b)}</b> boş · {formatDuration(it.d)}</span>
+                    </div>
                   </li>
                 );
                 if (it.type === 'list') return (

@@ -489,11 +489,9 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .tl-blk .tl-sq { position: absolute; left: 50%; top: 62%; width: 22px; height: 18px; transform: translateX(-50%); color: var(--event); pointer-events: none; }
 .tl-blk.study .tl-sq { color: var(--study); }
 .tl-blk.sport .tl-sq { color: var(--sport); }
-.tl-gap { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 0 6px 0 12px; border: 1.5px dashed var(--line-strong); border-radius: 10px; background: none; color: var(--ink-soft); font-size: 13px; text-align: left; }
-.tl-gap::before { content: ''; position: absolute; inset: -4px 0; }
+/* Boşluk: yalnızca bilgi satırı (Görev 14b: ajandada "+ Ekle" yok, ekleme alt menüdeki + ile) */
+.tl-gap { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 12px; border: 1.5px dashed var(--line-strong); border-radius: 10px; background: none; color: var(--ink-soft); font-size: 13px; text-align: left; }
 .tl-gap b { font-family: var(--f-mono); font-weight: 600; font-size: 12.5px; color: var(--ink); }
-.tl-gap .pl { min-height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 13px; white-space: nowrap; }
-@media (hover: hover) { .tl-gap:hover .pl { background: var(--honey-soft); } }
 /* Şu an çizgisi blokların arkasında: blok içinde metni üstü çizili (tamamlandı) gibi göstermesin; eksende ve boşlukta görünür */
 .tl-now { position: absolute; left: -2px; right: 0; border-top: 2px solid var(--ink); z-index: 0; pointer-events: none; }
 .tl-now::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
@@ -557,11 +555,7 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .tl-list .tl-blk { inset: 0; width: 100%; }
 .tl-list .tl-gap { inset: 3px 0; }
 .tl-gap .gt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Dar ekranda (360–400 px) boşluk metni tek satıra sığsın: "boş" sözcüğü düşer (kesik çerçeve ve ekran okuyucu adı
-   boşluğu zaten söyler), 380 px altında "+ Ekle" düğmesi "+" olarak kısalır */
-@media (max-width: 400px) { .tl-gap .gw { display: none; } }
-@media (max-width: 380px) { .tl-gap .pl-t { display: none; } .tl-gap .pl { min-width: 36px; padding: 0; justify-content: center; font-size: 16px; } }
-.tl-blk:focus-visible, .tl-gap:focus-visible, .tl-row:focus-visible { outline-offset: -2px; }
+.tl-blk:focus-visible, .tl-row:focus-visible { outline-offset: -2px; }
 .tl-row .ic { width: 20px; text-align: center; flex-shrink: 0; }
 .tl-row.edit { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 10px; }
 .tl-row .audit-initial, .tl-blk .audit-initial { vertical-align: 0; }
@@ -621,7 +615,6 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .srow .nm.done, .srow .t1.done { text-decoration: line-through; color: var(--ink-soft); }
 .srow .mn { font-family: var(--f-mono); font-size: 12.5px; color: var(--study); font-weight: 500; white-space: nowrap; }
 .srow.two .tl-op > .nm { display: flex; flex-direction: column; white-space: normal; }
-.tl-empty + .add-study { margin: 0 0 4px; }
 /* To-do */
 .prog { height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: -6px 0 4px; }
 .prog i { display: block; height: 100%; background: var(--study); border-radius: 6px; }

@@ -14,6 +14,10 @@ Durum: Frontend: Tamamlandı · QA: Ana oturum (aşağıda), telefonda denenmedi
 - Sesle ekleme (🎤) gün başlığının sağında, yerinde kalır.
 - Koyu hafta alanındaki "Hafta" düğmesi alt menüye taşındı.
 
+- **14b (kullanıcı, 02.11):** Ajandadaki "+ Ekle" düğmeleri kaldırıldı: boş aralıklar yalnızca bilgi satırı
+  ("07:00–16:00 boş · 9 sa"), boş günde de düğme yok. Ekleme yalnızca alt menüdeki + ile. Ajandanın alt sayfası (AgendaSheet)
+  artık yalnızca ⋯ → Düzenle içindir.
+
 ## Davranış
 - **Bugün:** Bee (ajanda) ana ekranı. Zaten Bee'deyken basılırsa bugüne döner. Ailem / Bildirimler sayfasından plana döner.
 - **Hafta:** haftanın tamamı paneli (WeekSheet). Başka sayfadayken plana döner ve paneli açar.
@@ -42,4 +46,5 @@ Sahte API ile gerçek uygulamada (Chromium, 390 ve 360 px) denendi; konsolda hat
 - [x] "‹ Bugün" Bee'ye döner; Bugün sekmesi Bee'deyken bugünü seçer.
 - [x] Hafta paneli, Profil paneli ve Ailem sayfası alt menüden açılır.
 - [x] Sayfa sonundaki son kayıt menünün altında kalmaz.
+- [x] 14b: ajandada "+ Ekle" yok (boşluklar ve boş gün); ⋯ → Düzenle çalışır (390 ve 360 px).
 - [ ] iPhone'da ana ekrana eklenmiş uygulamada alt boşluk ve klavye davranışı denenmeli.
