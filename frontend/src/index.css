@@ -43,6 +43,8 @@
   --f-display: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
   --f-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Alt menü yüksekliği (Görev 14): üst çizgi + 6 px + 52 px düğme + alt boşluk (iPhone alt çizgisi) */
+  --tabbar-h: calc(59px + max(8px, env(safe-area-inset-bottom)));
 }
 
 * { box-sizing: border-box; }
@@ -403,6 +405,11 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 
 /* Hafta paneli (components/WeekSheet.jsx): üstten 90 px boşluk, içerik kendi içinde kayar */
 .weeksheet { top: 90px; }
+/* Alt menünün üstünde biten katman (Hafta paneli, Görev 14c): menü görünür kalır. Ortadaki + menünün 22 px üstüne taşar. */
+.sheet-layer.keep-tabbar { bottom: var(--tabbar-h); }
+.keep-tabbar .sheet { padding-bottom: 28px; }
+/* Hafta paneli açıkken alt menü katmanın üstünde: ortadaki + kesilmez */
+body:has(.keep-tabbar) .tabbar { z-index: 46; }
 .sheet-head { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 5px 3px; }
 .sheet-head h3 { font-size: 18px; font-weight: 800; }
 .sheet-close { min-height: 44px; min-width: 44px; padding: 0 6px; border: none; background: none; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); }

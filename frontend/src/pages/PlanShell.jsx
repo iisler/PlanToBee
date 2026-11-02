@@ -235,12 +235,15 @@ export default function PlanShell() {
   }
 
   // Alt menü (Görev 14). Bugün: Bee ana ekranı; zaten oradaysa bugüne döner.
+  // Hafta paneli açıkken alt menü görünür kalır (Görev 14c); başka bir düğmeye basınca panel kapanır, Hafta'ya basınca kapanır.
   function goToday() {
+    setWeekOpen(false);
     if (view === 'plan' && section === 'bee') setCurrentDate(new Date());
     else { setView('plan'); setSection('bee'); }
     window.scrollTo(0, 0);
   }
   function openWeek() {
+    if (weekOpen) { setWeekOpen(false); return; }
     setView('plan');
     setWeekOpen(true);
   }
@@ -335,8 +338,9 @@ export default function PlanShell() {
       </div>
 
       <TabBar active={active} name={name} weekRef={weekBtnRef} profileRef={profileBtnRef}
-        onToday={goToday} onWeek={openWeek} onAdd={requestAdd} onFamily={() => changeView('family')}
-        onProfile={() => setProfileOpen(true)} />
+        onToday={goToday} onWeek={openWeek} onAdd={requestAdd} onAddOpen={() => setWeekOpen(false)}
+        onFamily={() => { setWeekOpen(false); changeView('family'); }}
+        onProfile={() => { setWeekOpen(false); setProfileOpen(true); }} />
       {profileOpen && (
         <ProfileSheet name={name} role={user.profile.role} familyName={family?.name ?? user.family?.name}
           onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}

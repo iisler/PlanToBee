@@ -8,7 +8,8 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
 // - Esc, katmana dokunmak ve içerideki Kapat/Vazgeç (onClose) kapatır.
 // - Açıkken arka plan kaymaz ve uygulama kökü etkisizdir (inert); kapanınca odak açan düğmeye döner.
 //   iPhone Safari dokunulan düğmeye odak vermediği için açan düğme returnFocusRef ile verilir.
-export default function Sheet({ labelledBy, onClose, returnFocusRef, className = '', children }) {
+// layerClassName 'keep-tabbar': katman alt menünün üstünde biter, alt menü görünür ve dokunulabilir kalır (Hafta paneli, Görev 14c).
+export default function Sheet({ labelledBy, onClose, returnFocusRef, className = '', layerClassName = '', children }) {
   const ref = useRef(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -55,7 +56,7 @@ export default function Sheet({ labelledBy, onClose, returnFocusRef, className =
   }
 
   return createPortal(
-    <div className="sheet-layer" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={`sheet-layer ${layerClassName}`} role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={ref} className={`sheet ${className}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} onKeyDown={onKeyDown}>
         <div className="sheet-grab" aria-hidden="true" />
         {children}
