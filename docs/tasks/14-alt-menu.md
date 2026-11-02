@@ -21,8 +21,7 @@ Durum: Frontend: Tamamlandı · QA: Ana oturum (aşağıda), telefonda denenmedi
 - **14c (kullanıcı, 02.11):** Alt menü Hafta paneli açıkken ve + → To-do ile ders formu açılınca kaybolmasın.
   - Hafta paneli alt menünün üstünde biter; menü görünür ve dokunulabilir kalır (Hafta seçili). Hafta'ya yeniden basmak
     paneli kapatır; Bugün, +, Ailem ya da Profil paneli kapatıp kendi işini yapar.
-  - Menü yalnızca ekran klavyesi gerçekten açıkken gizlenir (yazı alanı odakta ve görünür alan en az 150 px daraldı).
-    Ders seçimi (açılır liste) odaktayken görünür kalır.
+  - Menü hiçbir durumda gizlenmez: ders formu ve klavye açıkken de görünür (önceki "klavye açıkken gizle" kuralı kaldırıldı).
 
 ## Davranış
 - **Bugün:** Bee (ajanda) ana ekranı. Zaten Bee'deyken basılırsa bugüne döner. Ailem / Bildirimler sayfasından plana döner.

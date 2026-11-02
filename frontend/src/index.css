@@ -734,8 +734,6 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 
 /* ===== Alt menü (Görev 14, components/TabBar.jsx): Bugün · Hafta · + · Ailem · Profil ===== */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -12px rgba(30, 26, 20, .25); padding: 6px 8px max(8px, env(safe-area-inset-bottom)); }
-/* Yazı alanı odaktayken (telefonda klavye açık) gizlenir */
-.tabbar.hidden { display: none; }
 .tabbar-in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; }
 .tab { min-height: 52px; min-width: 0; border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border-radius: 12px; color: var(--ink-soft); font-size: 11.5px; font-weight: 600; }
 .tab .ic { width: 46px; height: 28px; border-radius: 999px; display: grid; place-items: center; }
