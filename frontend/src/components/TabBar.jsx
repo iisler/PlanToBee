@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { initial } from '../utils/format';
 
 // Alt sabit menü (Görev 14): Bugün · Hafta · + · Ailem · Profil. Plan ekranında ve Ailem / Bildirimler sayfalarında görünür.
@@ -6,7 +7,9 @@ import { initial } from '../utils/format';
 // - +: düğmenin üstünde küçük menü açar (Plan = aktivite ekle, To-do = ders ekle); açıkken + işareti × olur.
 // - Profil: profil paneli (Profil değiştir, Bildirimler, Çıkış yap).
 // active: 'today' | 'week' | 'family' | 'profile' | null. weekRef / profileRef: panel kapanınca odağın döneceği düğmeler.
-// Telefonda bir yazı alanı odaktayken (klavye açık) menü gizlenir: iPhone'da sabit menü klavyenin üstüne binmesin.
+// Telefonda yalnızca ekran klavyesi gerçekten açıkken (yazı alanı odakta ve görünür alan klavye kadar daraldı) gizlenir;
+// ders seçimi gibi açılır listeye odak gelince ya da Hafta paneli açıkken görünür kalır (Görev 14c).
+// Menü #root dışına (body) çizilir: alt sayfalar kökü etkisiz (inert) yaptığında da Hafta paneli açıkken dokunulabilir kalır.
 // React Native'de alt sekme çubuğu (Tab.Navigator) ve ortadaki eylem düğmesi karşılığıdır.
 
 const ICONS = {
@@ -48,24 +51,33 @@ const ADD_ITEMS = [
   { type: 'study', name: 'To-do', desc: 'Ders ekle', icon: ICONS.todo, cls: 'study' },
 ];
 
+const TEXT_FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"]';
+const KEYBOARD_MIN = 150; // görünür alan bu kadar (px) daralınca ekran klavyesi açık sayılır
+
 function useKeyboardOpen() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    if (!window.matchMedia?.('(pointer: coarse)').matches) return undefined;
-    const typing = (el) => el?.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=button]), textarea, select, [contenteditable="true"]');
-    const onIn = (e) => setOpen(typing(e.target));
-    const onOut = () => setOpen(false);
-    document.addEventListener('focusin', onIn);
-    document.addEventListener('focusout', onOut);
+    const vv = window.visualViewport;
+    if (!vv || !window.matchMedia?.('(pointer: coarse)').matches) return undefined;
+    const check = () => {
+      const typing = !!document.activeElement?.matches?.(TEXT_FIELD);
+      setOpen(typing && window.innerHeight - vv.height > KEYBOARD_MIN);
+    };
+    const later = () => setTimeout(check, 0);
+    vv.addEventListener('resize', check);
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', later);
     return () => {
-      document.removeEventListener('focusin', onIn);
-      document.removeEventListener('focusout', onOut);
+      vv.removeEventListener('resize', check);
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', later);
     };
   }, []);
   return open;
 }
 
-export default function TabBar({ active, name, onToday, onWeek, onAdd, onFamily, onProfile, weekRef, profileRef }) {
+// onAddOpen: + menüsü açılırken (açık Hafta paneli kapanır).
+export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen, onFamily, onProfile, weekRef, profileRef }) {
   const [addOpen, setAddOpen] = useState(false);
   const addBtnRef = useRef(null);
   const listRef = useRef(null);
@@ -88,6 +100,14 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onFamily,
     return () => window.removeEventListener('keydown', onKey);
   }, [addOpen]);
 
+  // Açarken önce açık Hafta paneli kapanır (onAddOpen); menü bir sonraki adımda açılır: panel kapanırken odağı Hafta düğmesine
+  // geri verir, menü o anda açık olsaydı bu odak değişimi menüyü kapatırdı.
+  function openOrClose() {
+    if (addOpen) { setAddOpen(false); return; }
+    onAddOpen?.();
+    setTimeout(() => setAddOpen(true), 0);
+  }
+
   function choose(type) {
     setAddOpen(false);
     onAdd(type);
@@ -99,7 +119,7 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onFamily,
     </button>
   );
 
-  return (
+  return createPortal(
     <>
       {addOpen && <div className="addpop-dim" onClick={() => setAddOpen(false)} />}
       <nav className={`tabbar${keyboard ? ' hidden' : ''}`} aria-label="Ana menü">
@@ -121,7 +141,8 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onFamily,
               </ul>
             )}
             <button type="button" ref={addBtnRef} className={`tab-add${addOpen ? ' open' : ''}`} aria-haspopup="menu" aria-expanded={addOpen}
-              aria-label={addOpen ? 'Ekle menüsünü kapat' : 'Ekle: Plan (aktivite) ya da To-do (ders)'} onClick={() => setAddOpen(o => !o)}>
+              aria-label={addOpen ? 'Ekle menüsünü kapat' : 'Ekle: Plan (aktivite) ya da To-do (ders)'}
+              onClick={openOrClose}>
               {ICONS.plus}
             </button>
           </div>
@@ -132,6 +153,7 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onFamily,
           </button>
         </div>
       </nav>
-    </>
+    </>,
+    document.body,
   );
 }

@@ -115,7 +115,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
   }
 
   return (
-    <Sheet className="weeksheet" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>
+    <Sheet className="weeksheet" layerClassName="keep-tabbar" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>
       <div className="sheet-head">
         <h3 id={titleId} tabIndex={-1}>{isThisWeek ? `Bu hafta · ${range}` : range}</h3>
         <button type="button" className="sheet-close" onClick={onClose}>Kapat</button>
