@@ -483,8 +483,15 @@ Program yükleme (Excel, CSV, fotoğraf; Görev 15) yalnızca `EventSeries` tabl
 (`uuid`) sütunu ve indeksi ekler (`SeriesImportId` migration'ı); mevcut satırlara dokunmaz. Yüklenen programlar normal
 seri satırlarıdır: eski sürümde de görünür, düzenlenir ve silinir. Eski kod sütunu yazmaz, NULL kalır.
 
-Geri dönüşte veritabanında bir şey yapmak gerekmez; kod geri alınır. Sütunu kaldırmak gerekirse (yüklemelerin "Geri al"
-bağı kaybolur, seriler kalır) Neon > SQL Editor:
+Yayından önceki hal git'te `rollback-oncesi-program-yukleme` etiketiyle saklanır. Geri dönüşte veritabanında bir şey
+yapmak gerekmez; kod geri alınır:
+
+```bash
+git revert --no-edit rollback-oncesi-program-yukleme..main
+git push origin main
+```
+
+Sütunu kaldırmak gerekirse (yüklemelerin "Geri al" bağı kaybolur, seriler kalır) Neon > SQL Editor:
 
 ```sql
 DROP INDEX "IX_EventSeries_ImportId";

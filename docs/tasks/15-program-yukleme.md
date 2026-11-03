@@ -26,6 +26,14 @@ Durum: Tasarım: Onaylandı · Backend: Tamamlandı · Frontend: Tamamlandı · 
   - Aralık bir haftadan kısaysa aralığa düşmeyen günün kayıtları soluk görünür ("Seçilen tarihlerde Pazartesi yok ·
     eklenmez") ve eklenmez.
 
+- **15d (kullanıcı, 03.11):** Aynı program iki kez yüklenince kayıtlar çift olmasın: **"Zaten planda"** uyarısı.
+  - Önizleme açılınca (ve başlangıç değişince) başlangıçtan itibaren 7 günün planı okunur (`GET /days/week/{pzt}/details`,
+    en çok iki hafta; tekrarlar dahil). Aynı hafta günü + aynı başlangıç saati + aynı ad (büyük-küçük harf ve Türkçe karakter
+    farkı yok sayılır) varsa satır soluk görünür, "✓ Zaten planda" yazar ve **eklenmez**.
+  - Satırın yanındaki **Ekle** ile yine de eklenir. Hepsi plandaysa üstte yeşil bilgi kutusu, düğme "Eklenecek kayıt yok".
+  - Kontrol sürerken "Ekle" düğmesi kısa süre devre dışı; plan okunamazsa uyarı gösterilmez (ekleme engellenmez).
+  - Özet: "✓ N zaten planda"; alt satır: "Zaten planda olan N kayıt eklenmez".
+
 ## Kullanıcı hikâyeleri
 - Veli olarak, okulun verdiği ders programı Excel'ini yükleyip bütün yılın okul saatlerini tek seferde eklemek istiyorum.
 - Öğrenci olarak, kâğıda yazdığım haftalık programın fotoğrafını çekip uygulamaya aktarmak istiyorum.
@@ -153,6 +161,9 @@ Yerel PostgreSQL + API + Vite, Chromium (390 ve 360 px, dokunmatik). Konsolda uy
 - [x] Fotoğraf (el yazısı benzeri satır listesi, gün başlıkları ayrı satırda): 4 kaydın 4'ü doğru; biri "kontrol et".
 - [x] Sorunlu satır düzenlenip eklendi; "Geri al" yüklemeyi sildi, şerit sayıları geri döndü.
 - [x] 360 px'te yatay kaydırma yok.
+- [x] 15d: liste eklendikten sonra yeniden yüklenince 4/4 "Zaten planda", düğme "Eklenecek kayıt yok"; bir satırda Ekle →
+      "1 kaydı ekle"; başlangıç Temmuz 2027'ye alınınca yeniden kontrol, 4/4 eklenebilir. Okul programı: 25/25 planda.
+      360 px'te ad bölünmüyor.
 - [x] 15c: varsayılan 3–9 Kasım; 5–7 Kasım seçilince Pzt/Sal/Çar kayıtları "eklenmez" (12 / 25); 5–18 Kasım "2 hafta,
       her hafta tekrar", 25 seri `StartDate 2026-11-05`, `UntilDate 2026-11-18` ile eklendi.
 - [ ] iPhone Safari'de kamera/galeri seçimi, gerçek kâğıt ve gerçek el yazısı fotoğrafı denenmeli (el yazısında başarı
@@ -200,4 +211,4 @@ yeni kayıt, tarih dışı, uyarılı ve hatalı satır, klavye odağı, eklendi
     kaynak ekranında "program bulunamadı" uyarısı çıkar.
 
 Kontrast: uyarı metni (--warn) sarı zeminde ~5:1, soluk satır (--ink-faint) yüzeyde ~5:1. Yatay kaydırma yok.
-Açık kalan (öneri): aynı program iki kez yüklenirse kayıtlar çift olur; önizlemede "zaten planda" uyarısı düşünülebilir.
+Açık kalan öneri ("zaten planda" uyarısı) 15d ile yapıldı.

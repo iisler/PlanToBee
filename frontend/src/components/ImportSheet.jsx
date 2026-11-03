@@ -6,10 +6,10 @@ import BusyLabel from './BusyLabel';
 import client from '../api/client';
 import { errorCode, errorText } from '../api/errors';
 import { ACTIVITY_KINDS, kindInfo } from '../utils/events';
-import { addDays, dkey, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
+import { addDays, dkey, mondayOf, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
 import { isoDay, parseKey, plusYear } from '../utils/recurrence';
 import { readSheetFile, SheetFileError } from '../utils/sheetFile';
-import { checkRow, dayOf, matchName, mergeConsecutive, parseSchedule, toSeriesItems } from '../utils/importSchedule';
+import { checkRow, dayOf, matchName, mergeConsecutive, norm, parseSchedule, toSeriesItems } from '../utils/importSchedule';
 
 // Program yükleme (Görev 15): + menüsü → "Program yükle". Excel/CSV ya da fotoğraf cihazda okunur, sunucuya gitmez.
 // Adımlar: kaynak seç → (fotoğrafta) okunuyor → önizleme. Önizlemede satırlar düzenlenir ya da kaldırılır; "N kaydı ekle"
@@ -96,6 +96,23 @@ function rangeText(start, until) {
   return `${w} hafta${d ? ` ${d} gün` : ''}${days > 7 ? ' · her hafta tekrar eder' : ''}`;
 }
 
+// Planda zaten olanlar: başlangıçtan itibaren 7 günün (en çok iki takvim haftası) aktiviteleri, tekrarlar dahil.
+// Anahtar "haftaGünü|SS:dd|ad" (ad sadeleştirilmiş: büyük-küçük harf, Türkçe karakter). Saatsiz aktivite karşılaştırılmaz.
+async function loadExisting(start) {
+  const first = parseKey(start);
+  const last = dkey(addDays(first, 6));
+  const mondays = [...new Set([0, 6].map((n) => dkey(mondayOf(addDays(first, n)))))];
+  const res = await Promise.all(mondays.map((m) => client.get(`/days/week/${m}/details`)));
+  const keys = new Set();
+  for (const r of res) {
+    for (const day of r.data?.days ?? []) {
+      if (day.date < start || day.date > last) continue;
+      for (const ev of day.events ?? []) if (ev.time && ev.title) keys.add(`${isoDay(day.date)}|${ev.time}|${norm(ev.title)}`);
+    }
+  }
+  return keys;
+}
+
 const timeText = (r) => (r.start ? (r.end ? `${r.start}–${r.end}` : r.start) : '--:--');
 
 export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef }) {
@@ -121,11 +138,22 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
     if (!untilTouched && v) setUntilDate(oneWeek(v));
   }
   const [editing, setEditing] = useState(null); // düzenlenen satırın taslağı
+  // Planda zaten olanlar ({ start, keys }); başlangıç değişince yeniden yüklenir. Yüklenemezse uyarı gösterilmez.
+  const [existing, setExisting] = useState(null);
+  const checking = step === 'preview' && !!startDate && existing?.start !== startDate;
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const names = useMemo(() => subjects.map((s) => s.name), [subjects]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
+  useEffect(() => {
+    if (step !== 'preview' || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return undefined;
+    let alive = true;
+    loadExisting(startDate)
+      .then((keys) => { if (alive) setExisting({ start: startDate, keys }); })
+      .catch(() => { if (alive) setExisting({ start: startDate, keys: new Set() }); });
+    return () => { alive = false; };
+  }, [step, startDate]);
   useEffect(() => () => { if (source?.url) URL.revokeObjectURL(source.url); }, [source]);
   // Adım değişince odak başlığa (ekran okuyucu yeni içeriği okur)
   useEffect(() => { document.getElementById(titleId)?.focus({ preventScroll: true }); }, [step, titleId]);
@@ -220,9 +248,13 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
   // Aralık bir haftadan kısaysa bazı günler hiç düşmez: o günün kayıtları eklenmez (gün başlığında yazar)
   const inRange = useMemo(() => (dateError ? null : daysInRange(startDate, untilDate)), [dateError, startDate, untilDate]);
   const outOfRange = (r) => !r.issue && r.day && inRange && !inRange.has(r.day);
-  const ready = rows.filter((r) => !r.issue && !outOfRange(r));
+  // Aynı gün, aynı saat ve aynı adla planda zaten var: varsayılan olarak eklenmez ("Yine de ekle" ile eklenir)
+  const inPlan = (r) => !r.issue && !outOfRange(r) && !r.allowDup && !checking
+    && !!existing?.keys.has(`${r.day}|${r.start}|${norm(r.title)}`);
+  const ready = rows.filter((r) => !r.issue && !outOfRange(r) && !inPlan(r));
   const skipped = rows.filter(outOfRange).length;
-  const blocked = rows.length - ready.length - skipped;
+  const dups = rows.filter(inPlan).length;
+  const blocked = rows.length - ready.length - skipped - dups;
   const warned = rows.filter((r) => r.issue || r.hint).length;
 
   const groups = useMemo(() => {
@@ -237,7 +269,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
   }, [rows]);
 
   async function submit() {
-    if (busyRef.current || !ready.length || dateError) return;
+    if (busyRef.current || !ready.length || dateError || checking) return;
     busyRef.current = true;
     setBusy(true);
     const items = toSeriesItems(ready, { startDate, untilDate, defaultKind });
@@ -357,7 +389,11 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
             <span className="pill">{source?.kind === 'photo' ? '📷' : '📄'} {source?.name}</span>
             <span className="pill">{rows.length} kayıt</span>
             {warned > 0 && <span className="pill warn">⚠ {warned} kontrol et</span>}
+            {dups > 0 && <span className="pill">✓ {dups} zaten planda</span>}
           </div>
+          {dups > 0 && !ready.length && !blocked && (
+            <p className="imp-info">Bu program zaten planında. Yine de eklemek istediğin kaydın yanındaki “Ekle”ye dokun.</p>
+          )}
           {truncated && <p className="imp-error">En fazla 200 kayıt yüklenebilir; ilk 200 kayıt gösteriliyor.</p>}
           {error && <p className="imp-error" role="alert">{error}</p>}
           <div className="imp-set">
@@ -391,7 +427,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                 <small>{dayOff ? 'Seçilen tarihlerde yok · eklenmez' : `${list.length} kayıt`}</small></h4>
               <ul className="imp-rows">
                 {list.map((r) => (
-                  <li key={r.id} className={`imp-row${r.issue ? ' bad' : outOfRange(r) ? ' off' : r.hint ? ' check' : ''}`}>
+                  <li key={r.id} className={`imp-row${r.issue ? ' bad' : outOfRange(r) || inPlan(r) ? ' off' : r.hint ? ' check' : ''}`}>
                     {editing?.id === r.id ? rowEditor(editing) : (
                       <>
                         <button type="button" className="imp-main" onClick={() => setEditing({ id: r.id, day: r.day ?? '', start: r.start, end: r.end, title: r.title, kind: r.kind })}
@@ -406,10 +442,15 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                               </small>
                             )}
                             {r.issue ? <small className="why">⚠ {r.issue} · dokunup düzelt</small>
+                              : inPlan(r) ? <small className="why dup">✓ Zaten planda</small>
                               : r.hint && !outOfRange(r) ? <small className="why">⚠ {r.hint}</small> : null}
                           </span>
                         </button>
-                        {r.suggest && !r.issue && (
+                        {inPlan(r) && (
+                          <button type="button" className="btn-ghost small imp-fix" aria-label={`${r.title} zaten planda, yine de ekle`}
+                            onClick={() => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, allowDup: true } : x)))}>Ekle</button>
+                        )}
+                        {r.suggest && !r.issue && !inPlan(r) && (
                           <button type="button" className="btn-ghost small imp-fix" aria-label={`Adı ${r.suggest} yap`}
                             onClick={() => applySuggest(r)}>Evet</button>
                         )}
@@ -431,13 +472,14 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
         <div className="imp-foot">
           <div className="acts">
             <button type="button" className="btn-ghost" onClick={close}>Vazgeç</button>
-            <button type="button" className="go" onClick={submit} disabled={busy || !ready.length || !!dateError}>
-              <BusyLabel busy={busy} text={`${ready.length} kaydı ekle`} busyText="Ekleniyor…" />
+            <button type="button" className="go" onClick={submit} disabled={busy || checking || !ready.length || !!dateError}>
+              <BusyLabel busy={busy} text={ready.length ? `${ready.length} kaydı ekle` : 'Eklenecek kayıt yok'} busyText="Ekleniyor…" />
             </button>
           </div>
           <p>
-            {blocked + skipped > 0
-              ? [blocked > 0 && `eksik bilgili ${blocked}`, skipped > 0 && `tarih dışında ${skipped}`].filter(Boolean).join(', ')
+            {blocked + skipped + dups > 0
+              ? [blocked > 0 && `eksik bilgili ${blocked}`, skipped > 0 && `tarih dışında ${skipped}`, dups > 0 && `zaten planda olan ${dups}`]
+                .filter(Boolean).join(', ')
                 .replace(/^./, (c) => c.toLocaleUpperCase('tr')) + ' kayıt eklenmez'
               : 'Ekledikten sonra “Geri al” ile hepsi birden silinebilir'}
           </p>

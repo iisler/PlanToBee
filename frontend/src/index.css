@@ -832,7 +832,7 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .imp-row + .imp-row { border-top: 1px solid var(--line); }
 .imp-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 4px 6px 12px; border: none; background: none; text-align: left; color: var(--ink); }
 .imp-row .tm { font-family: var(--f-mono); font-size: 12.5px; width: 96px; flex-shrink: 0; color: var(--ink-soft); }
-.imp-row .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.imp-row .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: break-word; hyphens: auto; }
 .imp-row .nm small { display: block; font-weight: 600; font-size: 12px; }
 .imp-row .nm .sub { color: var(--ink-soft); font-weight: 500; }
 .imp-row .nm .why { color: var(--warn); }
@@ -872,3 +872,6 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .imp-dlbtn svg { width: 16px; height: 16px; flex-shrink: 0; }
 /* Odak halkası satırın içinde: liste kutusu (overflow: hidden) kırpmasın */
 .imp-main:focus-visible, .imp-row .x:focus-visible, .imp-row .imp-fix:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; border-radius: 12px; }
+/* Planda zaten olan kayıt (aynı gün, saat, ad): soluk, "Yine de ekle" ile eklenir */
+.imp-row .nm .why.dup { color: var(--sport-deep); }
+.imp-info { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--sport-soft); color: var(--sport-deep); font-size: 13px; font-weight: 600; }
