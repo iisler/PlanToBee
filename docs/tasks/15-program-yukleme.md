@@ -34,6 +34,16 @@ Durum: Tasarım: Onaylandı · Backend: Tamamlandı · Frontend: Tamamlandı · 
   - Kontrol sürerken "Ekle" düğmesi kısa süre devre dışı; plan okunamazsa uyarı gösterilmez (ekleme engellenmez).
   - Özet: "✓ N zaten planda"; alt satır: "Zaten planda olan N kayıt eklenmez".
 
+- **15e (03.11, test görselleri):** Kullanıcıya verilecek örnek programlar denenirken fotoğraf okumada iki hata bulundu:
+  - Kalın kenarlı, gri başlıklı basılı tablo: Tesseract çizgiler yüzünden hücrelerin çoğunu kaçırıyordu (25 dersten 7'si).
+  - Gölgeli, sarı ışıkta ve 2,5° eğik çekilmiş fotoğraf: tek eşikle siyah-beyaz yapılınca yazı bozuluyor, eğiklik yüzünden
+    tablonun sağ ucu bir satır yukarı kayıp satırlar karışıyordu.
+  - Düzeltme (`utils/ocr.js`): bölgesel (Bradley) eşikleme (%25: defterin açık mavi çizgileri yazı sayılmaz), eğikliğe
+    dayanıklı tablo çizgisi silme, Tesseract `rotateAuto` (eğikliği düzeltir). Gün adında tek harf hatası tanınır
+    ("Perşembz" → Perşembe). Listenin başındaki saatsiz başlık satırı ("Deniz'in Haftalık Programı") kayıt sayılmaz.
+  - Sonuç (tarayıcıda, gerçek akış): basılı tablo 25/25, telefon benzetimli tablo fotoğrafı 25/25 (temiz görüntüyle
+    birebir aynı), defter listesi 6/6, telefon benzetimli defter 6/6, önceki test fotoğrafları 16/16 ve 4/4.
+
 ## Kullanıcı hikâyeleri
 - Veli olarak, okulun verdiği ders programı Excel'ini yükleyip bütün yılın okul saatlerini tek seferde eklemek istiyorum.
 - Öğrenci olarak, kâğıda yazdığım haftalık programın fotoğrafını çekip uygulamaya aktarmak istiyorum.

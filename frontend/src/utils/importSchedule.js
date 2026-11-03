@@ -38,6 +38,8 @@ export function dayOf(text) {
   if (!n) return null;
   if (DAY_BY_ALIAS.has(n)) return DAY_BY_ALIAS.get(n);
   for (const [name, d] of FULL_DAYS) if (n.startsWith(name) && n.length - name.length <= 4) return d;
+  // Fotoğrafta tek harfi yanlış okunan uzun gün adı ("Perşembz", "Carsamha"): 1 harf fark
+  if (n.length >= 6) for (const [name, d] of FULL_DAYS) if (name.length >= 6 && levenshtein(n, name) <= 1) return d;
   return null;
 }
 
@@ -223,6 +225,8 @@ function parseList(rows) {
     if (!r) continue;
     if (marked.some((c) => isLow(c) && withoutTimes(unmark(c)))) r.lowConfidence = true; // yalnızca saat olan hücre değil
     if (r.onlyDay) { carry = r.onlyDay; continue; }
+    // İlk günden önceki saatsiz satır başlıktır ("Deniz'in Haftalık Programı", "5-A Ders Programı"): atlanır
+    if (!r.day && !carry && !r.start) continue;
     carry = r.day ?? carry;
     out.push(r);
   }
