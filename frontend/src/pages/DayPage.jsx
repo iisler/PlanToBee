@@ -89,6 +89,18 @@ export default function DayPage({
   }, [onDayChanged]);
   const mutate = useMutation({ state: shown, setState: setShown, reload, onAccessChanged });
 
+  // To-do ya da Plan bölümünde (alt menüdeki + ile açılır) ekleme başarılı olunca Gün ekranına (Bee) dönülür:
+  // ders formu kapanır, sayfa en üste kayar ve odak gün başlığına gider. Bee'deki eklemede bir şey değişmez.
+  const sectionRef = useRef(section);
+  useEffect(() => { sectionRef.current = section; });
+  const backToDay = useCallback(() => {
+    if (sectionRef.current === 'bee') return;
+    setAddForm(EMPTY_ADD_FORM);
+    setSection('bee');
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
+  }, [setSection]);
+
   // Ders ve aktivite işlemleri tek yerde: Bee ve To-do aynı gün verisini (shown) değiştirir; durum iki bölümde senkron.
   // add() başarılıysa sunucunun döndürdüğü kaydı (odak için), aksi halde null döner.
   const [announce, setAnnounce] = useState('');
@@ -102,7 +114,7 @@ export default function DayPage({
     async add(body) {
       let created = null;
       const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/entries`, body)).data; });
-      if (ok) onAdded?.();
+      if (ok) { onAdded?.(); backToDay(); }
       return ok ? created ?? {} : null;
     },
     save(entry, body) {
@@ -114,7 +126,7 @@ export default function DayPage({
       return mutate(d => removeEntry(d, 'studyEntries', entry.id), (cfg) => client.delete(`/days/${date}/entries/${entry.id}`, cfg),
         { undo: `${entry.subject} kaydı silindi` });
     },
-  }), [date, mutate, onAdded]);
+  }), [date, mutate, onAdded, backToDay]);
   const { notify } = useNotice();
   const events = useMemo(() => ({
     // body.repeat varsa (Görev 11) seri eklenir; dönüş, seri bu güne düşüyorsa bugünkü tekrarın anahtar alanları
@@ -125,7 +137,7 @@ export default function DayPage({
         const sr = (await client.post('/series', { ...body, ...repeat })).data;
         created = repeat.daysOfWeek.includes(isoDay(date)) ? { id: 0, seriesId: sr.id, occurrenceDate: date } : {};
       });
-      if (ok) onAdded?.();
+      if (ok) { onAdded?.(); backToDay(); }
       return ok ? created ?? {} : null;
     },
     // scope: yok (tek aktivite) · 'one' (o günü seriden ayır) · 'all' (kuralı düzenle). Dönüş: kaydın itemKey'i ya da null.
@@ -165,7 +177,7 @@ export default function DayPage({
         });
       });
     },
-  }), [date, mutate, notify, onAdded]);
+  }), [date, mutate, notify, onAdded, backToDay]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
   // Sesle ekleme (Görev 13): gün başlığının sağındaki 🎤, her bölümde. type 'study' (ders, To-do) | 'event' (aktivite, Plan).

@@ -55,6 +55,15 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen
   const [addOpen, setAddOpen] = useState(false);
   const addBtnRef = useRef(null);
   const listRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  // Menü dışına dokununca kapanır. Mobil Safari'de dokunulan düğme odak almadığı için yalnızca onBlur'a güvenilmez.
+  useEffect(() => {
+    if (!addOpen) return undefined;
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setAddOpen(false); };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [addOpen]);
 
   useEffect(() => {
     if (!addOpen) return undefined;
@@ -87,7 +96,8 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen
   }
 
   const tab = (id, label, onClick, ref) => (
-    <button type="button" ref={ref} className={`tab${active === id ? ' on' : ''}`} aria-current={active === id ? 'page' : undefined} onClick={onClick}>
+    <button type="button" ref={ref} className={`tab${active === id ? ' on' : ''}`} aria-current={active === id ? 'page' : undefined}
+      onClick={() => { setAddOpen(false); onClick(); }}>
       <span className="ic">{ICONS[id]}</span><span className="lbl">{label}</span>
     </button>
   );
@@ -99,7 +109,7 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen
         <div className="tabbar-in">
           {tab('today', 'Gün', onToday)}
           {tab('week', 'Hafta', onWeek, weekRef)}
-          <div className="tab-addwrap"
+          <div className="tab-addwrap" ref={wrapRef}
             onBlur={e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) setAddOpen(false); }}>
             {addOpen && (
               <ul className="addpop" role="menu" aria-label="Ekle" ref={listRef}>
@@ -121,7 +131,7 @@ export default function TabBar({ active, name, onToday, onWeek, onAdd, onAddOpen
           </div>
           {tab('family', 'Ailem', onFamily)}
           <button type="button" ref={profileRef} className={`tab${active === 'profile' ? ' on' : ''}`} aria-haspopup="dialog"
-            aria-label={`Profil: ${name}`} onClick={onProfile}>
+            aria-label={`Profil: ${name}`} onClick={() => { setAddOpen(false); onProfile(); }}>
             <span className="pav" aria-hidden="true">{initial(name)}</span><span className="lbl">Profil</span>
           </button>
         </div>
