@@ -125,6 +125,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.HasOne(e => e.Family).WithMany().HasForeignKey(e => e.FamilyId).OnDelete(DeleteBehavior.Cascade);
             // Gün/hafta okuması: FamilyId = x AND StartDate <= bitiş AND UntilDate >= başlangıç.
             b.HasIndex(e => new { e.FamilyId, e.UntilDate });
+            // Program yüklemesinin "Geri al"ı (DELETE /api/series/bulk/{importId})
+            b.HasIndex(e => e.ImportId);
             b.HasMany(e => e.Exceptions).WithOne(x => x.Series!).HasForeignKey(x => x.SeriesId).OnDelete(DeleteBehavior.Cascade);
         });
         // Aynı gün iki kez ayrılamaz/atlanamaz; eşzamanlı iki "yalnızca bu gün" isteğinden biri bu indekse takılır.

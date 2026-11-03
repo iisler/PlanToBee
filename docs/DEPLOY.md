@@ -477,6 +477,34 @@ git push origin main
   DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_EventSeries';
   ```
 
+### 6.6 Geri dönüş: "Program yükleme" sürümünden önceki sürüme
+
+Program yükleme (Excel, CSV, fotoğraf; Görev 15) yalnızca `EventSeries` tablosuna **boş bırakılabilir** `ImportId`
+(`uuid`) sütunu ve indeksi ekler (`SeriesImportId` migration'ı); mevcut satırlara dokunmaz. Yüklenen programlar normal
+seri satırlarıdır: eski sürümde de görünür, düzenlenir ve silinir. Eski kod sütunu yazmaz, NULL kalır.
+
+Yayından önceki `main`: `167af0c`. Geri dönüşte veritabanında bir şey yapmak gerekmez; programı getiren birleştirme
+(merge) commit'i geri alınır:
+
+```bash
+git revert --no-edit -m 1 $(git log main --merges --format=%H -1 --grep "claude/jolly-johnson-x4mwfe")
+git push origin main
+```
+
+Sütunu kaldırmak gerekirse (yüklemelerin "Geri al" bağı kaybolur, seriler kalır) Neon > SQL Editor:
+
+```sql
+DROP INDEX "IX_EventSeries_ImportId";
+ALTER TABLE "EventSeries" DROP COLUMN "ImportId";
+DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_SeriesImportId';
+```
+
+- Site Render'dan önce yayına çıkarsa `/api/series/bulk` eski API'de 404 alır ("Program yükle" hata gösterir); API yayına
+  çıkınca düzelir.
+- Fotoğraf okuma dosyaları (`/ocr/`, ~14 MB) sitenin kendisiyle yayınlanır; ilk fotoğrafta yalnızca biri (~4 MB çekirdek)
+  ve Türkçe dil verisi (~2 MB) indirilir. Yeni ortam değişkeni yok. İsteğe bağlı: `RateLimits__Import` (kullanıcı başına
+  dakikada toplu yükleme, varsayılan 10).
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

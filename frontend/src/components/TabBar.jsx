@@ -4,7 +4,7 @@ import { initial } from '../utils/format';
 
 // Alt sabit menü (Görev 14): Gün · Hafta · + · Ailem · Profil. Plan ekranında ve Ailem / Bildirimler sayfalarında görünür.
 // - Gün: Bee (ajanda) ana ekranı; zaten oradaysa bugüne döner. Hafta: haftanın tamamı paneli. Ailem: aile sayfası.
-// - +: düğmenin üstünde küçük menü açar (Plan = aktivite ekle, To-do = ders ekle); açıkken + işareti × olur.
+// - +: düğmenin üstünde küçük menü açar (Plan = aktivite ekle, To-do = ders ekle, Program yükle); açıkken + işareti × olur.
 // - Profil: profil paneli (Profil değiştir, Bildirimler, Çıkış yap).
 // active: 'today' | 'week' | 'family' | 'profile' | null. weekRef / profileRef: panel kapanınca odağın döneceği düğmeler.
 // Menü hiçbir durumda gizlenmez: form açıkken, klavye açıkken ve Hafta paneli açıkken de görünür (kullanıcı kararı, Görev 14c).
@@ -38,6 +38,11 @@ const ICONS = {
       <path d="M4 7l2 2 3.5-3.5" /><path d="M4 15l2 2 3.5-3.5" /><path d="M13 8h7M13 16h7" />
     </svg>
   ),
+  upload: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 15V4" /><path d="M7.5 8.5L12 4l4.5 4.5" /><path d="M4.5 14v4.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V14" />
+    </svg>
+  ),
   plus: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
@@ -48,6 +53,8 @@ const ICONS = {
 const ADD_ITEMS = [
   { type: 'event', name: 'Plan', desc: 'Aktivite ekle', icon: ICONS.plan, cls: 'evt' },
   { type: 'study', name: 'To-do', desc: 'Ders ekle', icon: ICONS.todo, cls: 'study' },
+  // Program yükleme (Görev 15): Excel, CSV ya da fotoğraftan haftalık program
+  { type: 'import', name: 'Program yükle', desc: 'Excel, CSV ya da fotoğraf', icon: ICONS.upload, cls: 'imp' },
 ];
 
 // onAddOpen: + menüsü açılırken (açık Hafta paneli kapanır).

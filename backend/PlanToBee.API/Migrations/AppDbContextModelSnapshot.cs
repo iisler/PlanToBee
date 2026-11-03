@@ -285,6 +285,9 @@ namespace PlanToBee.API.Migrations
                     b.Property<int>("FamilyId")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ImportId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsImported")
                         .HasColumnType("boolean");
 
@@ -323,6 +326,8 @@ namespace PlanToBee.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("ImportId");
 
                     b.HasIndex("UpdatedByMemberId");
 

@@ -11,6 +11,7 @@ public static class RateLimitPolicies
     public const string Pin = "pin";                    // profil seçimi (PIN denemesi): hesap başına
     public const string Session = "session";            // oturum bilgisi (/auth/me): kullanıcı başına geniş sınır
     public const string Api = "api";                    // plan ve aile uç noktaları: kullanıcı başına geniş sınır
+    public const string Import = "import";              // program yükleme (toplu seri ekleme): kullanıcı başına dar sınır
 
     // Varsayılan sınırlar RateLimits:Auth / Pin / Session / Api ayarlarıyla değiştirilebilir.
     public static IServiceCollection AddPlanToBeeRateLimiting(this IServiceCollection services, IConfiguration config)
@@ -19,6 +20,7 @@ public static class RateLimitPolicies
         var pinLimit = config.GetValue("RateLimits:Pin", 20);                   // hesap başına / 5 dakika
         var sessionLimit = config.GetValue("RateLimits:Session", 120);          // kullanıcı başına / dakika
         var apiLimit = config.GetValue("RateLimits:Api", 300);                  // kullanıcı başına / dakika
+        var importLimit = config.GetValue("RateLimits:Import", 10);             // kullanıcı başına / dakika
         return services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -50,6 +52,11 @@ public static class RateLimitPolicies
             o.AddPolicy(Api, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 "api:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = apiLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // Program yükleme tek istekte 200 seri yazabilir; normal kullanımda dakikada birkaç kez çağrılır.
+            o.AddPolicy(Import, ctx => RateLimitPartition.GetFixedWindowLimiter(
+                "import:" + (ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Ip(ctx)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = importLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
     }
 

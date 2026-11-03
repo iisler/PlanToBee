@@ -48,3 +48,18 @@ public record DetachSeriesDateDto(
 // alanlarıyla PUT /api/series/{id}). false: seri tamamen silindi ("Geri al" = Series'in alanlarıyla POST /api/series).
 // Series her iki durumda da silmeden önceki hâldir.
 public record DeleteSeriesResultDto(bool Truncated, SeriesDto Series);
+
+// Program yükleme (Görev 15): ayrıştırma istemcide yapılır, sunucuya yalnızca seriler gelir. Her öğe POST /api/series ile
+// aynı kurallarla doğrulanır; biri bile hatalıysa hiçbiri eklenmez. Exceptions burada kullanılmaz.
+public record BulkAddSeriesDto(
+    [MaxLength(200, ErrorMessage = "En fazla 200 kayıt yüklenebilir")] List<AddSeriesDto>? Items);
+
+// Başarılı toplu ekleme. ImportId: "Geri al" için DELETE /api/series/bulk/{importId}.
+public record BulkAddSeriesResultDto(Guid ImportId, List<SeriesDto> Series);
+
+// Hatalı toplu ekleme (400, code "bulk_invalid"): Index gönderilen listedeki sıradır (0'dan).
+public record BulkItemErrorDto(int Index, string Message);
+public record BulkErrorDto(string Code, string Message, List<BulkItemErrorDto> Items);
+
+// "Geri al" cevabı: silinen seri sayısı.
+public record BulkDeleteResultDto(int Deleted);

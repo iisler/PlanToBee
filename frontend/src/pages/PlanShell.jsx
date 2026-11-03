@@ -7,6 +7,7 @@ import DayPage from './DayPage';
 import FamilyPage from './FamilyPage';
 import TabBar from '../components/TabBar';
 import ProfileSheet from '../components/ProfileSheet';
+import ImportSheet from '../components/ImportSheet';
 import { addDays, dkey, mondayOf } from '../utils/format';
 import { parseKey } from '../utils/recurrence';
 import { AuditContext } from '../context/AuditContext';
@@ -79,6 +80,8 @@ export default function PlanShell() {
   const [addRequest, setAddRequest] = useState(null);
   const clearAddRequest = useCallback(() => setAddRequest(null), []);
   const [profileOpen, setProfileOpen] = useState(false);
+  // Program yükleme paneli (+ → Program yükle, Görev 15)
+  const [importOpen, setImportOpen] = useState(false);
   const weekBtnRef = useRef(null);
   const profileBtnRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
@@ -249,7 +252,30 @@ export default function PlanShell() {
   }
   function requestAdd(type) {
     setView('plan');
+    if (type === 'import') { setImportOpen(true); return; }
     setAddRequest({ type });
+  }
+
+  // Program yüklendi: hafta yenilenir; "Geri al" o yüklemede eklenen bütün serileri siler.
+  function imported({ importId, count }) {
+    setImportOpen(false);
+    onAdded();
+    loadWeek();
+    notify(`${count} kayıt eklendi`, 'info', {
+      duration: 10000,
+      action: {
+        label: 'Geri al',
+        onClick: async () => {
+          try {
+            await client.delete(`/series/bulk/${importId}`);
+            notify('Program geri alındı', 'info');
+          } catch (err) {
+            notify(errorText(err));
+          }
+          loadWeek();
+        },
+      },
+    });
   }
 
   // Hesap silme sayfasından Vazgeç: Ailem'e dönülür ve odak silme düğmesine verilir.
@@ -341,6 +367,9 @@ export default function PlanShell() {
         onToday={goToday} onWeek={openWeek} onAdd={requestAdd} onAddOpen={() => setWeekOpen(false)}
         onFamily={() => { setWeekOpen(false); changeView('family'); }}
         onProfile={() => { setWeekOpen(false); setProfileOpen(true); }} />
+      {importOpen && (
+        <ImportSheet subjects={subjects} onClose={() => setImportOpen(false)} onDone={imported} />
+      )}
       {profileOpen && (
         <ProfileSheet name={name} role={user.profile.role} familyName={family?.name ?? user.family?.name}
           onSwitchProfile={(family?.profiles.length ?? 2) > 1 ? startSwitch : undefined}
