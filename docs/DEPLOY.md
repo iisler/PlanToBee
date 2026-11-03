@@ -483,11 +483,11 @@ Program yükleme (Excel, CSV, fotoğraf; Görev 15) yalnızca `EventSeries` tabl
 (`uuid`) sütunu ve indeksi ekler (`SeriesImportId` migration'ı); mevcut satırlara dokunmaz. Yüklenen programlar normal
 seri satırlarıdır: eski sürümde de görünür, düzenlenir ve silinir. Eski kod sütunu yazmaz, NULL kalır.
 
-Yayından önceki hal git'te `rollback-oncesi-program-yukleme` etiketiyle saklanır. Geri dönüşte veritabanında bir şey
-yapmak gerekmez; kod geri alınır:
+Yayından önceki `main`: `167af0c`. Geri dönüşte veritabanında bir şey yapmak gerekmez; programı getiren birleştirme
+(merge) commit'i geri alınır:
 
 ```bash
-git revert --no-edit rollback-oncesi-program-yukleme..main
+git revert --no-edit -m 1 $(git log main --merges --format=%H -1 --grep "claude/jolly-johnson-x4mwfe")
 git push origin main
 ```
 
