@@ -11,7 +11,79 @@ const MAX_SIDE = 2000;
 
 export class PhotoError extends Error {}
 
-// Fotoğraf küçültülür, griye çevrilir ve kontrastı artırılır (EXIF yönü uygulanır).
+// Bölgesel (uyarlanır) eşikleme: her piksel çevresindeki pencerenin ortalamasından %25 koyuysa yazıdır (Bradley). %25:
+// defterin açık mavi çizgileri (~%20 koyu) yazı sayılmaz; çizgiyi silerken üstüne oturan harfler bozulmaz.
+// Telefon fotoğrafında yandan gelen gölge ve sarı ışık tek eşikle yazıyı siler ya da kâğıdı karartır (Görev 15e).
+// g: gri tonlar (0-255) → koyu maske (1 = yazı/çizgi).
+export function adaptiveDark(g, w, h, t = 0.25) {
+  const win = Math.max(15, Math.round(Math.max(w, h) / 16)) | 1;
+  const r = win >> 1;
+  const W = w + 1;
+  const ii = new Uint32Array(W * (h + 1));
+  for (let y = 0; y < h; y += 1) {
+    let row = 0;
+    for (let x = 0; x < w; x += 1) {
+      row += g[y * w + x];
+      ii[(y + 1) * W + x + 1] = ii[y * W + x + 1] + row;
+    }
+  }
+  const dark = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x += 1) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1);
+      const sum = ii[y1 * W + x1] - ii[y0 * W + x1] - ii[y1 * W + x0] + ii[y0 * W + x0];
+      const mean = sum / ((y1 - y0) * (x1 - x0));
+      dark[y * w + x] = g[y * w + x] < mean * (1 - t) ? 1 : 0;
+    }
+  }
+  return dark;
+}
+
+// Tablo çizgilerini siler: yatayda ya da dikeyde uzun (genişliğin/yüksekliğin %4'ü, en az 50 px) kesintisiz koyu
+// pikseller çizgidir, harf değildir. Eğik fotoğrafta çizgi satır atlar: koşu ararken bir alt/üst satır da sayılır
+// (komşu satıra kayan çizgi kopmaz), silinen yalnızca gerçekten koyu pikseller (1 px payla). Kalın kenarlı tabloda
+// Tesseract'ın sayfa bölümlemesi çizgiler yüzünden hücreleri kaçırıyordu (Görev 15e). dark yerinde değişir.
+export function removeLines(dark, w, h) {
+  const minH = Math.max(50, Math.round(w * 0.04)), minV = Math.max(50, Math.round(h * 0.04));
+  const line = new Uint8Array(w * h);
+  const at = (x, y) => (y >= 0 && y < h && x >= 0 && x < w ? dark[y * w + x] : 0);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w;) {
+      const on = (k) => at(k, y) || at(k, y - 1) || at(k, y + 1);
+      if (!on(x)) { x += 1; continue; }
+      let e = x;
+      while (e < w && on(e)) e += 1;
+      if (e - x >= minH) for (let k = x; k < e; k += 1) line[y * w + k] = 1;
+      x = e;
+    }
+  }
+  for (let x = 0; x < w; x += 1) {
+    for (let y = 0; y < h;) {
+      const on = (k) => at(x, k) || at(x - 1, k) || at(x + 1, k);
+      if (!on(y)) { y += 1; continue; }
+      let e = y;
+      while (e < h && on(e)) e += 1;
+      if (e - y >= minV) for (let k = y; k < e; k += 1) line[k * w + x] = 1;
+      y = e;
+    }
+  }
+  let removed = 0;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = y * w + x;
+      if (!dark[i]) continue;
+      if (line[i] || (x > 0 && line[i - 1]) || (x < w - 1 && line[i + 1]) || (y > 0 && line[i - w]) || (y < h - 1 && line[i + w])) {
+        dark[i] = 0;
+        removed += 1;
+      }
+    }
+  }
+  return removed;
+}
+
+// Fotoğraf küçültülür, griye çevrilir, bölgesel eşikle siyah-beyaz yapılır ve tablo çizgileri silinir (EXIF yönü
+// uygulanır). Eğiklik Tesseract'ta düzeltilir (rotateAuto).
 async function prepare(file) {
   let bitmap;
   try {
@@ -28,22 +100,11 @@ async function prepare(file) {
   bitmap.close?.();
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
-  // Gri ton + basit kontrast germe (en koyu ve en açık %2 dışında)
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < d.length; i += 4) {
-    const g = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0;
-    d[i] = g; hist[g] += 1;
-  }
-  const total = w * h;
-  const cut = total * 0.02;
-  let lo = 0, hi = 255;
-  for (let acc = hist[0]; lo < 255 && acc < cut; acc += hist[lo]) lo += 1;
-  for (let acc = hist[255]; hi > 0 && acc < cut; acc += hist[hi]) hi -= 1;
-  const span = Math.max(1, hi - lo);
-  for (let i = 0; i < d.length; i += 4) {
-    const v = Math.max(0, Math.min(255, ((d[i] - lo) * 255) / span));
-    d[i] = d[i + 1] = d[i + 2] = v;
-  }
+  const g = new Uint8Array(w * h);
+  for (let i = 0, p = 0; i < d.length; i += 4, p += 1) g[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  const dark = adaptiveDark(g, w, h);
+  removeLines(dark, w, h);
+  for (let i = 0, p = 0; i < d.length; i += 4, p += 1) d[i] = d[i + 1] = d[i + 2] = dark[p] ? 0 : 255;
   ctx.putImageData(img, 0, 0);
   return canvas;
 }
@@ -142,7 +203,8 @@ export async function readPhoto(file, { onProgress, signal, dayOf } = {}) {
     if (signal?.aborted) throw new DOMException('Vazgeçildi', 'AbortError');
     // Otomatik sayfa bölümleme (PSM 3): tablo ve satır listesi için en iyisi. tesseract.js varsayılanı tek blok (6), tabloyu karıştırır.
     await worker.setParameters({ tessedit_pageseg_mode: '3', preserve_interword_spaces: '1' });
-    const { data } = await worker.recognize(canvas, {}, { blocks: true });
+    // rotateAuto: Tesseract'ın bulduğu eğiklik kadar döndürülür; eğik çekilmiş tabloda satırlar karışmaz
+    const { data } = await worker.recognize(canvas, { rotateAuto: true }, { blocks: true });
     if (signal?.aborted) throw new DOMException('Vazgeçildi', 'AbortError');
     const lines = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.map((l) => l.words)));
     return wordsToTable(lines, dayOf ?? (() => null));
