@@ -278,6 +278,15 @@ function kindOf(words) {
   return 'Event';
 }
 
+// Metindeki tür anahtar kelimesi (program yükleme, Görev 15): bulunamazsa null.
+export function guessKind(text) {
+  const words = tokenize(text ?? '').map((t) => t.w);
+  for (const [kind, stems] of KIND_WORDS) {
+    if (words.some((w) => stems.some((s) => kindWord(w, s)))) return kind;
+  }
+  return null;
+}
+
 export function parseQuickAdd(text, today = new Date(), subjects = []) {
   const toks = tokenize(text ?? '');
   const used = toks.map(() => false);

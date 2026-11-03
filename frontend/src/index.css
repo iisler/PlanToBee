@@ -775,3 +775,82 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .secthead { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
 .secthead-tx { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
 .secthead-tx b { font-family: var(--f-display); font-size: 17px; font-weight: 800; color: var(--ink); }
+
+/* Program yükleme (Görev 15, components/ImportSheet.jsx): + menüsünde üçüncü seçenek, kaynak seçimi, okuma ve önizleme */
+.addpop { width: 236px; }
+.addpop-item .bub.imp { background: var(--honey-soft); color: var(--ink); }
+.impsheet.tall { height: 92vh; padding-bottom: 0; }
+.imp-src { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 12px; }
+.imp-opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); text-align: left; color: var(--ink); }
+.imp-opt:hover { border-color: var(--line-strong); }
+.imp-opt .bub { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex-shrink: 0; }
+.imp-opt .bub svg { width: 24px; height: 24px; }
+.imp-opt .bub.xls { background: var(--sport-soft); color: var(--sport-deep); }
+.imp-opt .bub.cam { background: var(--honey-soft); color: var(--ink); }
+.imp-opt b { display: block; font-family: var(--f-display); font-size: 17px; font-weight: 800; }
+.imp-opt small { display: block; font-size: 13px; color: var(--ink-soft); font-weight: 500; line-height: 1.35; }
+.imp-opt .chev { margin-left: auto; color: var(--ink-faint); font-size: 20px; }
+.imp-priv { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 12px; }
+.imp-error { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger); font-size: 13px; font-weight: 600; }
+.imp-error.inline { margin: 4px 0 8px; }
+.imp-help h4 { font-family: var(--f-display); font-size: 15px; margin: 4px 2px 8px; }
+.imp-grid-wrap { overflow-x: auto; }
+.imp-grid { width: 100%; border-collapse: collapse; font-size: 11.5px; background: var(--surface); border: 1px solid var(--line); }
+.imp-grid th, .imp-grid td { border: 1px solid var(--line); padding: 5px 4px; text-align: center; }
+.imp-grid th { background: var(--surface-2); font-weight: 700; }
+.imp-grid td.t { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-soft); }
+.imp-or { font-size: 12.5px; color: var(--ink-soft); margin: 8px 2px; }
+.mono { font-family: var(--f-mono); }
+.imp-dl { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Okunuyor */
+.imp-read { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px 10px 8px; }
+.imp-photo { max-width: 200px; max-height: 240px; border-radius: 14px; border: 1px solid var(--line-strong); box-shadow: var(--shadow); object-fit: contain; background: var(--surface); }
+.imp-bar { width: 220px; max-width: 100%; height: 8px; border-radius: 8px; background: var(--line); margin: 18px 0 10px; overflow: hidden; }
+.imp-bar i { display: block; height: 100%; background: var(--honey); transition: width .3s; }
+.imp-bar i.wait { width: 30% !important; animation: imp-wait 1.2s ease-in-out infinite alternate; }
+@keyframes imp-wait { from { transform: translateX(-30%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { .imp-bar i.wait { animation: none; } }
+.imp-read h4 { font-family: var(--f-display); font-size: 18px; margin: 0; }
+.imp-read p { font-size: 13px; color: var(--ink-soft); margin: 8px 0 0; max-width: 300px; }
+/* Önizleme */
+.imp-body { padding-bottom: 12px; }
+.imp-sum { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 2px 10px; }
+.pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; background: var(--surface); border: 1px solid var(--line); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.imp-set { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 12px; margin-bottom: 12px; }
+.imp-set .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; }
+.imp-set .row + .row { border-top: 1px solid var(--line); }
+.imp-set .row > span { font-size: 13.5px; font-weight: 600; }
+.imp-set input[type="date"] { border: 1px solid var(--line-field); border-radius: 10px; padding: 7px 10px; min-height: 40px; font-size: 16px; background: var(--surface); color: var(--ink); max-width: 170px; }
+.imp-set .seg { padding: 2px; margin: 0; }
+.imp-set .seg button { min-height: 40px; padding: 6px 12px; white-space: nowrap; }
+.imp-day h4 { font-family: var(--f-display); font-size: 15px; margin: 8px 2px 6px; display: flex; justify-content: space-between; align-items: baseline; }
+.imp-day h4 small { font-family: var(--f-body); font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.imp-rows { list-style: none; margin: 0 0 10px; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.imp-row { display: flex; align-items: center; gap: 4px; min-height: 52px; padding-right: 2px; }
+.imp-row + .imp-row { border-top: 1px solid var(--line); }
+.imp-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 4px 6px 12px; border: none; background: none; text-align: left; color: var(--ink); }
+.imp-row .tm { font-family: var(--f-mono); font-size: 12.5px; width: 96px; flex-shrink: 0; color: var(--ink-soft); }
+.imp-row .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.imp-row .nm small { display: block; font-weight: 600; font-size: 12px; }
+.imp-row .nm .sub { color: var(--ink-soft); font-weight: 500; }
+.imp-row .nm .why { color: var(--warn); }
+.imp-row .x { width: 44px; height: 44px; flex-shrink: 0; border: none; background: none; color: var(--ink-soft); font-size: 20px; border-radius: 10px; }
+.imp-row .x:hover { background: var(--surface-2); color: var(--danger); }
+.imp-row .imp-fix { flex-shrink: 0; min-height: 36px; padding: 4px 10px; font-size: 12px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imp-row.bad, .imp-row.check { background: var(--warn-soft); }
+.imp-row.bad .tm { color: var(--warn); font-weight: 700; }
+.imp-add { display: block; margin: 2px auto 0; }
+.imp-edit { flex: 1; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
+.imp-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.imp-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); min-width: 0; }
+.imp-edit .opt { font-weight: 500; color: var(--ink-faint); }
+.imp-edit input, .imp-edit select { border: 1px solid var(--line-field); border-radius: var(--radius-sm); padding: 8px 10px; min-height: 44px; font-size: 16px; background: var(--surface-2); color: var(--ink); width: 100%; min-width: 0; }
+.imp-edit input:focus, .imp-edit select:focus { outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px var(--honey-soft); }
+.imp-edit .frm-act .go { background: var(--honey); color: var(--ink); }
+.imp-foot { flex-shrink: 0; margin: 0 -9px; background: var(--bg); border-top: 1px solid var(--line); padding: 10px 14px max(14px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; }
+.imp-foot .acts { display: flex; gap: 8px; }
+.imp-foot .acts .go { flex: 1; background: var(--honey); color: var(--ink); border: none; border-radius: var(--radius-sm); min-height: 48px; font-weight: 800; font-size: 15px; }
+.imp-foot .acts .go:disabled { opacity: .6; cursor: not-allowed; }
+.imp-foot .acts .btn-ghost { min-height: 48px; }
+.imp-foot p { margin: 0; font-size: 12px; color: var(--ink-soft); text-align: center; }

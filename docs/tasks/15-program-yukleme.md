@@ -2,7 +2,7 @@
 
 Önceki görev: `docs/tasks/14-alt-menu.md`.
 
-Durum: Tasarım: Önizleme hazır, onay bekliyor · Backend: Başlamadı · Frontend: Başlamadı · QA: Başlamadı
+Durum: Tasarım: Onaylandı · Backend: Tamamlandı · Frontend: Tamamlandı · QA: Ana oturum (aşağıda), telefonda denenmedi
 
 ## Karar (kullanıcı, 03.11)
 - Öğrenci ya da velinin Excel'de ya da kâğıtta hazırladığı haftalık program uygulamaya **toplu** yüklenir.
@@ -12,6 +12,11 @@ Durum: Tasarım: Önizleme hazır, onay bekliyor · Backend: Başlamadı · Fron
 - Yapay zekâ ile okuma (Claude vision, seçenek B) **şimdi yok**; ileride ücretli pakette isteğe bağlı olarak düşünülebilir.
   Akış buna hazır olmalı: kaynak ne olursa olsun çıktı aynı satır listesi ve aynı önizleme.
 - Bağımlılık istisnası: kullanıcı Tesseract.js'i açıkça onayladı. Excel okuma için paket eklenmez (aşağıda).
+
+- **15b (kullanıcı, 03.11):**
+  - Program yükleme **her profilde** açık (ebeveyn ve çocuk). Yetki tek seri eklemedeki gibi: herkes ekler, çocuk yalnızca
+    kendi eklediğini değiştirir/geri alır.
+  - Okul ders programında **her ders ayrı kayıt** (önizlemedeki gibi). Art arda aynı ders tek kayıt olur ("2 ders saati").
 
 ## Kullanıcı hikâyeleri
 - Veli olarak, okulun verdiği ders programı Excel'ini yükleyip bütün yılın okul saatlerini tek seferde eklemek istiyorum.
@@ -31,8 +36,8 @@ Durum: Tasarım: Önizleme hazır, onay bekliyor · Backend: Başlamadı · Fron
 4. **Önizleme:**
    - Özet: dosya adı · kayıt sayısı · "⚠ N kontrol et".
    - Ayarlar: **Tür** (Okul / Aktivite; ızgarada varsayılan Okul, listede satırdaki tür ya da Aktivite) · **Başlangıç**
-     (varsayılan gelecek pazartesi, bugün pazartesiyse bugün) · **Her hafta, şu tarihe kadar** (varsayılan okul yılı sonu,
-     en fazla başlangıç + 1 yıl) · **Art arda aynı dersi birleştir** (açık).
+     (varsayılan bugün) · **Her hafta, şu tarihe kadar** (varsayılan okul yılı sonu,
+     en fazla başlangıç + 1 yıl). Art arda aynı ders her zaman birleşir.
    - Günlere göre gruplu satırlar: saat aralığı (mono) · ad · × kaldır. Satıra dokununca düzenlenir (gün, başlangıç,
      bitiş, ad).
    - Sorunlu satır sarı zeminde, nedeni yazılı: "Saat okunamadı", "Gün bulunamadı", "'ingilizce' okundu · doğru mu?"
@@ -76,11 +81,12 @@ Bütün kaynaklar aynı ara biçime çevrilir: `{ day: 1..7, start: 'SS:dd' | nu
 ## Backend
 - `POST /api/series/bulk` — gövde `{ items: AddSeriesDto[] }` (en fazla 200).
   - Her öğe `SeriesController.Create` ile aynı kurallarla doğrulanır (ortak doğrulama bir yardımcıya taşınır).
-  - Hepsi tek transaction'da eklenir; bir öğe hatalıysa hiçbiri eklenmez, cevap `400` ve `{ errors: [{ index, message }] }`.
+  - Hepsi tek transaction'da eklenir; bir öğe hatalıysa hiçbiri eklenmez, cevap `400` ve
+    `{ code: "bulk_invalid", message, items: [{ index, message }] }`.
   - Başarıda `{ importId, series: SeriesDto[] }`.
   - Yetki: ekleyebilen profiller (tek aktivite eklemedeki kural); `RequireVerifiedEmail`; hız sınırı (yeni politika, ör.
     dakikada 5 istek).
-- `DELETE /api/series/bulk/{importId}` — "Geri al": o içe aktarmada eklenen ve henüz düzenlenmemiş/ayrılmamış serileri siler.
+- `DELETE /api/series/bulk/{importId}` — "Geri al": o içe aktarmada eklenen ve profilin değiştirebildiği serileri siler.
   - `EventSeries`'e boş bırakılabilir `ImportId` (Guid?) sütunu; migration. Eski kod sütunu yazmaz, NULL kalır.
 - Bildirimler: toplu eklemede her seri için ayrı bildirim gönderilmez; tek özet bildirim ("Deniz 17 aktivite ekledi").
 
@@ -90,10 +96,60 @@ Bütün kaynaklar aynı ara biçime çevrilir: `{ day: 1..7, start: 'SS:dd' | nu
 - PDF, Google Sheets bağlantısı, birden çok Excel sayfası seçimi.
 - Yapay zekâ ile okuma (seçenek B).
 
-## Açık sorular (kullanıcıya)
-1. Okul ders programında her ders ayrı kayıt mı olsun (önizlemedeki gibi), yoksa günde tek "Okul 08:30–15:10" bloğu
-   (dersler notta) mı? Ayrı kayıt ajandayı kalabalıklaştırabilir.
-2. Program yükleme yalnızca ebeveyn profilinde mi açık olsun, çocuk profilinde de mi?
+## Uygulama (tasarımdan sapmalar)
+- **Birleştirme anahtarı yok:** art arda aynı ders her zaman birleşir (ekran sade kalsın; ayrı istenirse satır düzenlenir).
+- **Başlangıç varsayılanı bugün** (gelecek pazartesi değil): hafta ortasında yükleyince haftanın kalan günleri kaçmasın.
+  Bitiş varsayılanı 30 Haziran (okul yılı sonu), en fazla başlangıç + 1 yıl.
+- **Geri al:** o yüklemede eklenen ve profilin değiştirebildiği serilerin hepsi silinir (sonradan düzenlenmiş olsa da).
+  Ayrılmış günler normal aktivite olduğundan kalır.
+- **Tür:** ızgarada satırda tür yoksa önizlemedeki Tür seçimi (Okul / Diğer, varsayılan Okul). Listede: tür sütunu, yoksa
+  bilinen ders adı → Okul, anahtar kelime (yüzme → Spor, piyano → Müzik), o da yoksa Diğer. Satırdan değiştirilebilir.
+- **Sorunlu satır:** "Gün bulunamadı", "Ad yok", "Saat okunamadı", "Bitiş saati başlangıçtan önce" eklenmez (sarı, dokununca
+  düzenlenir). "… okundu · X mi?" ve "Okunuşu belirsiz" eklenir, yalnızca uyarıdır; öneri düğmesi adı düzeltir.
+- **+ Kayıt ekle:** önizlemede elle satır eklenebilir.
+- **Örnek dosyalar** istemcide CSV olarak üretilir (sunucu dosyası yok).
+
+### Dosyalar
+- Backend:
+  - `Controllers/SeriesController.cs`: `POST /api/series/bulk` (en fazla 200, tek transaction, satır bazlı hata
+    `400 { code: "bulk_invalid", message, items: [{ index, message }] }`, yükleme başına tek bildirim),
+    `DELETE /api/series/bulk/{importId}` (`{ deleted }`, idempotent; değiştirilebilen seri yoksa 403).
+  - `Models/EventSeries.cs` `ImportId` (Guid?), indeks; migration `SeriesImportId`.
+  - `Infrastructure/RateLimitPolicies.cs`: `import` politikası (kullanıcı başına dakikada 10, `RateLimits:Import`).
+  - `DTOs/SeriesDtos.cs`: `BulkAddSeriesDto`, `BulkAddSeriesResultDto`, `BulkErrorDto`, `BulkDeleteResultDto`.
+- Frontend:
+  - `components/ImportSheet.jsx` (panel: kaynak seç → okunuyor → önizleme), `components/TabBar.jsx` (+ menüsünde üçüncü
+    seçenek), `pages/PlanShell.jsx` (panel, "N kayıt eklendi · Geri al").
+  - `utils/sheetFile.js`: paketsiz .xlsx (zip + XML; ilk sayfa, paylaşılan metin, saat biçimli hücre, birleştirilmiş hücre)
+    ve CSV (`;` `,` sekme; UTF-8 / Windows-1254).
+  - `utils/importSchedule.js`: ızgara / yan yatmış ızgara / liste tanıma, gün ve saat çözme, ders adı düzeltme (aile listesi
+    + yaygın ders adları, kısaltma, 1–2 harf öneri), birleştirme, satır denetimi, `/series/bulk` gövdesi.
+  - `utils/ocr.js`: Tesseract.js (dinamik import), fotoğraf küçültme + gri ton + kontrast, PSM 3 (otomatik bölümleme),
+    Tesseract satırlarından tablo (eğik fotoğrafta da), gün başlıklarına göre sütun yerleşimi.
+  - `utils/quickAdd.js`: `guessKind` dışa açıldı.
+  - `vite.config.js`: `/ocr/` dosyaları (worker, LSTM çekirdekleri, `tur.traineddata.gz` best_int) node_modules'tan
+    sunulur / `dist/ocr`'a kopyalanır. Yeni paketler: `tesseract.js@7.0.0`, `@tesseract.js-data/tur@1.0.0`.
+  - `index.css`: "Program yükleme" bölümü.
+
+## QA (ana oturum, 03.11)
+Yerel PostgreSQL + API + Vite, Chromium (390 ve 360 px, dokunmatik). Konsolda uygulama hatası yok (Tesseract'ın
+"Estimating resolution" günlüğü dışında).
+- [x] API: hatalı satırda hiçbir şey eklenmez, `items` doğru sıra; boş liste 400; 201 kayıt 400; başarıda hafta okumasında
+      seriler görünür; `DELETE bulk` hepsini siler, ikinci çağrı `deleted: 0`.
+- [x] Okul programı .xlsx (birleştirilmiş başlık, iki saate birleştirilmiş "Matematik" hücresi, "-" ve boş hücre, "Mat",
+      "Fen Bil.", "Bilişim" kısaltmaları): 25 kayıt, kısaltmalar açıldı, art arda dersler birleşti; eklendi, Gün ve hafta
+      şeridinde görünür.
+- [x] Liste .xlsx (Excel saat biçimli hücreler, tür sütunu kısmen boş): türler doğru (Spor, Müzik, Okul).
+- [x] Windows-1254 kodlu, `;` ayırıcılı CSV: Çarşamba / Perşembe doğru.
+- [x] Fotoğraf (1,5° eğik basılı tablo, JPG): 16 kaydın hepsi doğru gün ve saatte; yalnızca kendi sitemizden istek
+      (`/ocr/worker.min.js`, `/ocr/tesseract-core-relaxedsimd-lstm.wasm.js`, `/ocr/tur.traineddata.gz`), API'ye yalnızca
+      `/series/bulk`.
+- [x] Fotoğraf (el yazısı benzeri satır listesi, gün başlıkları ayrı satırda): 4 kaydın 4'ü doğru; biri "kontrol et".
+- [x] Sorunlu satır düzenlenip eklendi; "Geri al" yüklemeyi sildi, şerit sayıları geri döndü.
+- [x] 360 px'te yatay kaydırma yok.
+- [ ] iPhone Safari'de kamera/galeri seçimi, gerçek kâğıt ve gerçek el yazısı fotoğrafı denenmeli (el yazısında başarı
+      düşük olabilir; önizleme düzeltmeye izin verir).
+- [ ] Ana ekrana eklenmiş uygulamada örnek CSV indirme davranışı denenmeli.
 
 ## Kabul kriterleri
 - [ ] + menüsünde "Program yükle" var; panel 390 ve 360 px'te yatay kaydırmasız.
@@ -112,5 +168,5 @@ Bütün kaynaklar aynı ara biçime çevrilir: `{ day: 1..7, start: 'SS:dd' | nu
 - [ ] Dokunma alanları ≥ 44 px, yazı alanları ≥ 16 px, sorun rengi yanında metin var, düğmelerin aria-label'ı var.
 
 ## Önizleme
-Statik maket (repoda değil): 1 · + menüsü, 2 · Kaynak seç, 3 · Fotoğraf okunuyor, 4 · Önizleme ve onay. Kullanıcı onayı
-bekleniyor.
+Statik maket (repoda değil): 1 · + menüsü, 2 · Kaynak seç, 3 · Fotoğraf okunuyor, 4 · Önizleme ve onay. Kullanıcı onayladı
+(03.11).

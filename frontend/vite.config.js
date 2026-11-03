@@ -1,5 +1,6 @@
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
@@ -48,6 +49,40 @@ const guardSpaFallback = {
   },
 }
 
+// Program yükleme (Görev 15): fotoğraf okuma (Tesseract.js) dosyaları sitenin kendi /ocr/ yolundan verilir; dış CDN'e istek
+// atılmaz (gizlilik ve çevrimdışı Capacitor paketi). Geliştirmede node_modules'tan sunulur, derlemede dist/ocr altına kopyalanır.
+// Yalnızca LSTM çekirdekleri (tesseract.js varsayılanı) ve sıkıştırılmış Türkçe dil verisi (best_int, ~2 MB).
+const require = createRequire(import.meta.url)
+const OCR_FILES = {
+  'worker.min.js': () => resolve(dirname(require.resolve('tesseract.js/package.json')), 'dist/worker.min.js'),
+  'tur.traineddata.gz': () => resolve(dirname(require.resolve('@tesseract.js-data/tur/package.json')), '4.0.0_best_int/tur.traineddata.gz'),
+  ...Object.fromEntries(['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-relaxedsimd-lstm.wasm.js']
+    .map((f) => [f, () => resolve(dirname(require.resolve('tesseract.js-core/package.json')), f)])),
+}
+function ocrAssets() {
+  let base = '/'
+  return {
+    name: 'plantobee-ocr-assets',
+    configResolved(config) { base = config.base },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url ?? '').split('?')[0]
+        const prefix = `${base}ocr/`
+        if (!path.startsWith(prefix)) return next()
+        const file = OCR_FILES[path.slice(prefix.length)]
+        if (!file) return next()
+        res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : 'application/octet-stream')
+        res.end(readFileSync(file()))
+      })
+    },
+    generateBundle() {
+      for (const [name, file] of Object.entries(OCR_FILES)) {
+        this.emitFile({ type: 'asset', fileName: `ocr/${name}`, source: readFileSync(file()) })
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 // Sitenin yayınlandığı alt yol. Cloudflare Pages / kendi alan adı: "/" (varsayılan).
 // GitHub Pages: VITE_BASE_PATH=/PlanToBee/app/ (bkz. .github/workflows/pages.yml).
@@ -60,6 +95,6 @@ export default defineConfig(({ command, mode }) => {
   if (command === 'build' && mode === 'production') checkApiUrl(mode)
   return {
     base: basePath(mode),
-    plugins: [react(), guardSpaFallback],
+    plugins: [react(), guardSpaFallback, ocrAssets()],
   }
 })

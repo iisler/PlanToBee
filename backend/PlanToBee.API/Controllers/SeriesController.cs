@@ -174,6 +174,73 @@ public class SeriesController(AppDbContext db, MemberContext members, Notificati
         return Ok(DaysController.Map(ev, me, audit));
     }
 
+    // Program yükleme (Görev 15): bir programın bütün satırları tek istekte, tek SaveChanges'ta (tek transaction) eklenir.
+    // Bir satır bile hatalıysa hiçbiri eklenmez; cevap satır bazlı hatalardır (400 bulk_invalid). Herkes yükleyebilir
+    // (tek seri eklemedeki yetki). Bildirim satır başına değil, yükleme başına bir tanedir.
+    [HttpPost("bulk")]
+    [EnableRateLimiting(RateLimitPolicies.Import)]
+    public async Task<IActionResult> BulkCreate(BulkAddSeriesDto dto)
+    {
+        var items = dto.Items ?? [];
+        if (items.Count == 0) return Err.BadRequest("validation", "Eklenecek kayıt yok.");
+        var importId = Guid.NewGuid();
+        var created = new List<EventSeries>(items.Count);
+        var errors = new List<BulkItemErrorDto>();
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (item == null) { errors.Add(new(i, "Boş kayıt.")); continue; }
+            var kind = item.Kind ?? EventKind.Event;
+            if (!Enum.IsDefined(kind)) { errors.Add(new(i, "Geçersiz kayıt türü.")); continue; }
+            if (!PlanText.TryParseDate(item.StartDate, out var startDate)) { errors.Add(new(i, "Geçersiz başlangıç tarihi.")); continue; }
+            var series = new EventSeries { Kind = kind, StartDate = startDate, ImportId = importId };
+            var error = ApplyRule(series, item.Title, item.Time, item.EndTime, item.Note, item.DaysOfWeek, item.UntilDate);
+            if (error != null) { errors.Add(new(i, (error.Value as ApiError)?.Message ?? "Geçersiz kayıt.")); continue; }
+            created.Add(series);
+        }
+        if (errors.Count > 0)
+        {
+            var first = errors[0];
+            var message = errors.Count == 1 ? $"{first.Index + 1}. kayıt: {first.Message}"
+                : $"{errors.Count} kayıtta sorun var. {first.Index + 1}. kayıt: {first.Message}";
+            return BadRequest(new BulkErrorDto("bulk_invalid", message, errors));
+        }
+
+        var me = await members.GetCurrentAsync();
+        if (me == null) return await members.MissingAsync();
+        foreach (var series in created)
+        {
+            series.FamilyId = me.FamilyId;
+            PlanWrites.StampCreated(series, me);
+        }
+        db.EventSeries.AddRange(created);
+        await db.SaveChangesAsync();
+
+        var names = created.Select(x => NotificationText.Activity(new Event { Kind = x.Kind, Title = x.Title })).Distinct().ToList();
+        var body = string.Join(", ", names.Take(4)) + (names.Count > 4 ? $" ve {names.Count - 4} aktivite daha" : "");
+        await notifications.EnqueueAsync(me, NotificationCategory.ActivityAdded,
+            $"{me.DisplayName} program yükledi ({created.Count} tekrarlayan aktivite)", body, created.Min(x => x.StartDate));
+
+        var audit = await AuditLookup.LoadAsync(db, me.FamilyId, created, me);
+        return Ok(new BulkAddSeriesResultDto(importId, created.Select(x => Map(x, me, audit)).ToList()));
+    }
+
+    // Program yüklemesinin "Geri al"ı: o yüklemede eklenen ve bu profilin değiştirebildiği serilerin hepsi silinir
+    // (istisnaları cascade ile). Seriden ayrılmış günler normal aktivite olduğundan kalır. Hiç kalmadıysa da 200
+    // (Deleted = 0): işlem idempotent. Geri alma bildirim üretmez (tek seri "Geri al"ı gibi).
+    [HttpDelete("bulk/{importId:guid}")]
+    [EnableRateLimiting(RateLimitPolicies.Import)]
+    public async Task<IActionResult> BulkDelete(Guid importId)
+    {
+        var me = await members.GetCurrentAsync();
+        if (me == null) return await members.MissingAsync();
+        var list = await db.EventSeries.Where(x => x.FamilyId == me.FamilyId && x.ImportId == importId).ToListAsync();
+        var mine = list.Where(x => MemberContext.CanEdit(me, x)).Select(x => x.Id).ToList();
+        if (list.Count > 0 && mine.Count == 0) return Err.ReadOnly();
+        var deleted = mine.Count == 0 ? 0 : await db.EventSeries.Where(x => mine.Contains(x.Id)).ExecuteDeleteAsync();
+        return Ok(new BulkDeleteResultDto(deleted));
+    }
+
     // ---------- Yardımcılar ----------
 
     // Seri bulunamazsa ya da başka ailedeyse 404 (varlığı belli edilmez), düzenleme yetkisi yoksa 403.
@@ -244,14 +311,14 @@ public class SeriesController(AppDbContext db, MemberContext members, Notificati
         return today < s.StartDate ? s.StartDate : today > s.UntilDate ? s.UntilDate : today;
     }
 
-    private async Task<SeriesDto> MapOne(EventSeries s, FamilyMember me)
-    {
-        var a = await AuditLookup.LoadAsync(db, me.FamilyId, [s], me);
-        return new SeriesDto(s.Id, s.Kind.ToString(), s.Title, s.Time, PlanText.EndTime(s.Time, s.EndTime), s.Note,
+    private async Task<SeriesDto> MapOne(EventSeries s, FamilyMember me) =>
+        Map(s, me, await AuditLookup.LoadAsync(db, me.FamilyId, [s], me));
+
+    private static SeriesDto Map(EventSeries s, FamilyMember me, AuditLookup a) =>
+        new SeriesDto(s.Id, s.Kind.ToString(), s.Title, s.Time, PlanText.EndTime(s.Time, s.EndTime), s.Note,
             SeriesSchedule.IsoDays(s.DaysOfWeek), PlanText.Format(s.StartDate), PlanText.Format(s.UntilDate),
             s.Exceptions.Select(x => x.Date).Order().Select(PlanText.Format).ToList(),
             MemberContext.CanEdit(me, s), a.Get(s.CreatedByMemberId), s.CreatedAt, a.Get(s.UpdatedByMemberId), s.UpdatedAt);
-    }
 
     private static ObjectResult InvalidDate() =>
         Err.BadRequest("invalid_date", "Geçersiz tarih. Tarih yyyy-AA-gg biçiminde olmalı.");

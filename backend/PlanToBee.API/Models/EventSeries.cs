@@ -20,6 +20,9 @@ public class EventSeries : AuditedEntity
     // Dahil. En fazla StartDate + 1 yıl.
     public DateOnly UntilDate { get; set; }
     public List<EventSeriesException> Exceptions { get; set; } = [];
+    // Program yükleme (Görev 15) ile toplu eklenen serilerin ortak kimliği; "Geri al" bununla hepsini birden siler.
+    // Tek tek eklenen serilerde null. Boş bırakılabilir sütun: eski kod bu alanı hiç yazmaz, NULL kalır.
+    public Guid? ImportId { get; set; }
 }
 
 // Serinin o tarihte görünmediği gün: "yalnızca bu gün" silinmiş ya da seriden ayrılmış (o güne normal Event
