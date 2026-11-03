@@ -178,3 +178,26 @@ Yerel PostgreSQL + API + Vite, Chromium (390 ve 360 px, dokunmatik). Konsolda uy
 ## Önizleme
 Statik maket (repoda değil): 1 · + menüsü, 2 · Kaynak seç, 3 · Fotoğraf okunuyor, 4 · Önizleme ve onay. Kullanıcı onayladı
 (03.11).
+
+## Tasarım İncelemesi (03.11)
+Gerçek uygulamada 360 ve 390 px, bütün durumlar (+ menüsü, kaynak, hata, okunuyor, ızgara / liste önizleme, satır düzenleme,
+yeni kayıt, tarih dışı, uyarılı ve hatalı satır, klavye odağı, eklendi bildirimi) ekran görüntüsüyle incelendi. Düzeltilenler:
+1. **Önizleme başlığı:** "‹ Geri" sağdaydı (kapat düğmesinin yerinde). Geri oku sola alındı; sağdaki düğme kalktı (altta Vazgeç var).
+2. **Tarih dışı günler:** "Seçilen tarihlerde Pazartesi yok · eklenmez" her satırda tekrar ediyordu. Artık gün başlığında bir
+   kez yazar; satırlar soluk.
+3. **Tarih aralığı bilgisi** alt satırdan tarihlerin altına taşındı: "1 hafta", "2 hafta · her hafta tekrar eder", "3 gün ·
+   yalnızca Sal, Çar, Per". Alt satır tek satır kaldı: yalnızca eklenmeyenler ya da "Geri al" ipucu.
+4. **Başlangıç ve Bitiş alanları** farklı genişlikteydi; eşitlendi (168 px), dokunma yüksekliği 44 px, odak halkası eklendi.
+5. **Satır düzenleme:** "Bitiş (isteğe bağlı)" iki satıra bölünüp Bitiş alanını aşağı itiyordu; tek satır. Tür listesindeki
+   "Okul (seçili tür)" dar ekranda kesiliyordu; ayrı seçenek kalktı, liste doğrudan "🏫 Okul" gösterir.
+6. **Hatalı ve uyarılı satır** aynı görünüyordu. Eklenmeyecek satır: sarı zemin + solda koyu sarı şerit. Yalnızca uyarı: zeminsiz.
+7. **Ad önerisi:** "\"ingilizse\" okundu · İngilizce mi?" + "İngilizce" düğmesi dar ekranda 3 satıra taşıyordu. Artık
+   "⚠ İngilizce mi?" + **Evet** (ekran okuyucuda "Adı İngilizce yap").
+8. **Klavye odağı:** satırın odak halkası liste kutusunda kırpılıyordu; halka içe alındı.
+9. **Kaynak ekranı:** örnek satır ("Salı · 17:00 · 18:30 · Yüzme") ortadan bölünmüyor; indirme düğmelerinde ⬇ yerine çizgi ikon.
+10. **Okunuyor:** indirme boyutu yanlıştı (~2 MB → yaklaşık 6 MB); yüzde düz rakamla (mono "0" Ø gibi görünüyordu).
+11. **Program olmayan dosya** (günü ve saati olmayan satırlar) önizlemeye bütünüyle hatalı satırlarla geliyordu; artık
+    kaynak ekranında "program bulunamadı" uyarısı çıkar.
+
+Kontrast: uyarı metni (--warn) sarı zeminde ~5:1, soluk satır (--ink-faint) yüzeyde ~5:1. Yatay kaydırma yok.
+Açık kalan (öneri): aynı program iki kez yüklenirse kayıtlar çift olur; önizlemede "zaten planda" uyarısı düşünülebilir.

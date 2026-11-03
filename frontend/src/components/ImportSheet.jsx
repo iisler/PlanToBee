@@ -6,8 +6,8 @@ import BusyLabel from './BusyLabel';
 import client from '../api/client';
 import { errorCode, errorText } from '../api/errors';
 import { ACTIVITY_KINDS, kindInfo } from '../utils/events';
-import { addDays, dkey, WEEKDAYS_FULL } from '../utils/format';
-import { dayMonth, isoDay, parseKey, plusYear } from '../utils/recurrence';
+import { addDays, dkey, WEEKDAYS, WEEKDAYS_FULL } from '../utils/format';
+import { isoDay, parseKey, plusYear } from '../utils/recurrence';
 import { readSheetFile, SheetFileError } from '../utils/sheetFile';
 import { checkRow, dayOf, matchName, mergeConsecutive, parseSchedule, toSeriesItems } from '../utils/importSchedule';
 
@@ -62,13 +62,38 @@ function daysInRange(start, until) {
   return out;
 }
 
-function SheetHead({ id, title, closeLabel, onClose }) {
+// Panel başlığı. onBack: solda ‹ (bir önceki adım); closeLabel/onClose: sağda kapat düğmesi.
+function SheetHead({ id, title, closeLabel, onClose, onBack, backLabel }) {
   return (
     <div className="sheet-head">
-      <h3 id={id} tabIndex={-1}>{title}</h3>
-      <button type="button" className="sheet-close" onClick={onClose}>{closeLabel}</button>
+      <div className="imp-headl">
+        {onBack && (
+          <button type="button" className="imp-back" onClick={onBack} aria-label={backLabel}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+          </button>
+        )}
+        <h3 id={id} tabIndex={-1}>{title}</h3>
+      </div>
+      {onClose && <button type="button" className="sheet-close" onClick={onClose}>{closeLabel}</button>}
     </div>
   );
+}
+
+const ICON_DOWNLOAD = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 4v11" /><path d="M7.5 10.5L12 15l4.5-4.5" /><path d="M5 19.5h14" />
+  </svg>
+);
+
+// Tarih aralığının kısa açıklaması: "1 hafta", "2 hafta · her hafta tekrar eder", "3 gün · yalnızca Per, Cum, Cmt"
+function rangeText(start, until) {
+  const days = Math.round((parseKey(until) - parseKey(start)) / 86400000) + 1;
+  if (days < 7) {
+    const names = [...daysInRange(start, until)].map((d) => WEEKDAYS[d - 1]);
+    return `${days} gün · yalnızca ${names.join(', ')}`;
+  }
+  const w = Math.floor(days / 7), d = days % 7;
+  return `${w} hafta${d ? ` ${d} gün` : ''}${days > 7 ? ' · her hafta tekrar eder' : ''}`;
 }
 
 const timeText = (r) => (r.start ? (r.end ? `${r.start}–${r.end}` : r.start) : '--:--');
@@ -115,7 +140,8 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
 
   function showPreview(table, src) {
     const parsed = parseSchedule(table, names);
-    if (!parsed.rows.length) {
+    // Hiçbir satırda gün ya da saat yoksa bu bir program değildir (ör. başka bir tablo): önizleme yerine yol gösterilir
+    if (!parsed.rows.some((r) => r.day || r.start)) {
       setError(src === 'photo'
         ? 'Fotoğrafta program bulunamadı. Kâğıdı düz ve aydınlık bir yerde, tamamı görünecek şekilde yeniden çek.'
         : 'Bu dosyada program bulunamadı. Gün adları (Pazartesi, Salı…) ve saatler (08:30) olmalı; örnek dosyalara bak.');
@@ -191,14 +217,13 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
   const dateError = !startDate || !untilDate ? 'Tarihleri seç.'
     : untilDate < startDate ? 'Bitiş tarihi başlangıçtan önce olamaz.'
     : untilDate > plusYear(startDate) ? 'Bitiş en fazla 1 yıl sonrası olabilir.' : '';
-  // Aralık bir haftadan kısaysa bazı günler hiç düşmez: o günün kayıtları eklenmez (satırda yazar)
+  // Aralık bir haftadan kısaysa bazı günler hiç düşmez: o günün kayıtları eklenmez (gün başlığında yazar)
   const inRange = useMemo(() => (dateError ? null : daysInRange(startDate, untilDate)), [dateError, startDate, untilDate]);
   const outOfRange = (r) => !r.issue && r.day && inRange && !inRange.has(r.day);
   const ready = rows.filter((r) => !r.issue && !outOfRange(r));
   const skipped = rows.filter(outOfRange).length;
   const blocked = rows.length - ready.length - skipped;
   const warned = rows.filter((r) => r.issue || r.hint).length;
-  const weeks = dateError ? 0 : Math.round((parseKey(untilDate) - parseKey(startDate)) / 86400000 / 7);
 
   const groups = useMemo(() => {
     const by = new Map();
@@ -242,13 +267,13 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
           </select>
         </label>
         <label>Tür
-          <select value={draft.kind ?? ''} onChange={(e) => setEditing({ ...draft, kind: e.target.value || null })}>
-            {format === 'grid' && <option value="">{kindInfo(defaultKind).label} (seçili tür)</option>}
+          <select value={draft.kind ?? (format === 'grid' ? defaultKind : 'Event')}
+            onChange={(e) => setEditing({ ...draft, kind: format === 'grid' && e.target.value === defaultKind ? null : e.target.value })}>
             {ACTIVITY_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.icon} {k.label}</option>)}
           </select>
         </label>
         <label>Başlangıç<TimeInput value={draft.start} label="Başlangıç" onChange={(v) => setEditing({ ...draft, start: v })} /></label>
-        <label>Bitiş <span className="opt">(isteğe bağlı)</span><TimeInput value={draft.end} label="Bitiş" onChange={(v) => setEditing({ ...draft, end: v })} /></label>
+        <label><span>Bitiş <span className="opt">(isteğe bağlı)</span></span><TimeInput value={draft.end} label="Bitiş" onChange={(v) => setEditing({ ...draft, end: v })} /></label>
       </div>
       <label className="imp-edit-name">Ad
         <input value={draft.title} maxLength={150} onChange={(e) => setEditing({ ...draft, title: e.target.value })} placeholder="ör. Matematik" />
@@ -294,10 +319,10 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                 </tbody>
               </table>
             </div>
-            <p className="imp-or">ya da her satıra bir kayıt: <span className="mono">Salı · 17:00 · 18:30 · Yüzme</span></p>
+            <p className="imp-or">ya da her satıra bir kayıt: <span className="mono nowrap">Salı · 17:00 · 18:30 · Yüzme</span></p>
             <div className="imp-dl">
-              <button type="button" className="btn-ghost small" onClick={() => download('ders-programi-ornek.csv', SAMPLE_GRID)}>⬇ Örnek ders programı</button>
-              <button type="button" className="btn-ghost small" onClick={() => download('program-listesi-ornek.csv', SAMPLE_LIST)}>⬇ Örnek liste</button>
+              <button type="button" className="btn-ghost small imp-dlbtn" onClick={() => download('ders-programi-ornek.csv', SAMPLE_GRID)}>{ICON_DOWNLOAD}Örnek ders programı</button>
+              <button type="button" className="btn-ghost small imp-dlbtn" onClick={() => download('program-listesi-ornek.csv', SAMPLE_LIST)}>{ICON_DOWNLOAD}Örnek liste</button>
             </div>
           </div>
         </div>
@@ -315,8 +340,8 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
               aria-valuenow={progress.step === 'read' ? pct : 0}>
               <i style={{ width: `${progress.step === 'read' ? Math.max(4, pct) : 4}%` }} className={progress.step === 'read' ? '' : 'wait'} />
             </div>
-            <h4>{progress.step === 'read' ? <>Fotoğraf okunuyor… <span className="mono">%{pct}</span></> : 'Hazırlanıyor…'}</h4>
-            <p>İlk kullanımda Türkçe metin tanıma dosyası indirilir (bir kez, ~2 MB). Fotoğraf telefonundan çıkmaz.</p>
+            <h4>{progress.step === 'read' ? <>Fotoğraf okunuyor… <span className="pct">%{pct}</span></> : 'Hazırlanıyor…'}</h4>
+            <p>İlk kullanımda Türkçe metin tanıma dosyası indirilir (bir kez, yaklaşık 6 MB). Fotoğraf telefonundan çıkmaz.</p>
             <p>İpucu: kâğıdı düz ve aydınlık bir yerde, tamamı görünecek şekilde çek.</p>
           </div>
         </div>
@@ -325,7 +350,8 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
   } else {
     content = (
       <>
-        <SheetHead id={titleId} title="Önizleme" closeLabel="‹ Geri" onClose={() => { setError(''); setStep('source'); }} />
+        <SheetHead id={titleId} title="Önizleme" backLabel="Geri: başka dosya ya da fotoğraf seç"
+          onBack={() => { setError(''); setEditing(null); setStep('source'); }} />
         <div className="sheet-body imp-body">
           <div className="imp-sum">
             <span className="pill">{source?.kind === 'photo' ? '📷' : '📄'} {source?.name}</span>
@@ -353,12 +379,16 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
               <input type="date" value={untilDate} min={startDate} max={startDate ? plusYear(startDate) : undefined}
                 onChange={(e) => { setUntilTouched(true); setUntilDate(e.target.value); }} />
             </label>
-            {dateError && <p className="imp-error inline" role="alert">{dateError}</p>}
+            {dateError ? <p className="imp-error inline" role="alert">{dateError}</p>
+              : <p className="imp-range" aria-live="polite">{rangeText(startDate, untilDate)}</p>}
           </div>
 
-          {groups.map(([day, list]) => (
-            <section className="imp-day" key={day} aria-label={day ? WEEKDAYS_FULL[day - 1] : 'Günü bulunamayanlar'}>
-              <h4>{day ? WEEKDAYS_FULL[day - 1] : 'Gün bulunamadı'} <small>{list.length} kayıt</small></h4>
+          {groups.map(([day, list]) => {
+            const dayOff = !!(day && inRange && !inRange.has(day));
+            return (
+            <section className={`imp-day${dayOff ? ' off' : ''}`} key={day} aria-label={day ? WEEKDAYS_FULL[day - 1] : 'Günü bulunamayanlar'}>
+              <h4>{day ? WEEKDAYS_FULL[day - 1] : 'Gün bulunamadı'}
+                <small>{dayOff ? 'Seçilen tarihlerde yok · eklenmez' : `${list.length} kayıt`}</small></h4>
               <ul className="imp-rows">
                 {list.map((r) => (
                   <li key={r.id} className={`imp-row${r.issue ? ' bad' : outOfRange(r) ? ' off' : r.hint ? ' check' : ''}`}>
@@ -375,13 +405,13 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                                   .filter(Boolean).join(' · ')}
                               </small>
                             )}
-                            {r.issue ? <small className="why">⚠ {r.issue} · düzeltmek için dokun</small>
-                              : outOfRange(r) ? <small className="why off">Seçilen tarihlerde {WEEKDAYS_FULL[r.day - 1]} yok · eklenmez</small>
-                              : r.hint ? <small className="why">⚠ {r.hint}</small> : null}
+                            {r.issue ? <small className="why">⚠ {r.issue} · dokunup düzelt</small>
+                              : r.hint && !outOfRange(r) ? <small className="why">⚠ {r.hint}</small> : null}
                           </span>
                         </button>
                         {r.suggest && !r.issue && (
-                          <button type="button" className="btn-ghost small imp-fix" onClick={() => applySuggest(r)}>{r.suggest}</button>
+                          <button type="button" className="btn-ghost small imp-fix" aria-label={`Adı ${r.suggest} yap`}
+                            onClick={() => applySuggest(r)}>Evet</button>
                         )}
                         <button type="button" className="x" aria-label={`${r.title || 'Kaydı'} kaldır`} onClick={() => remove(r.id)}>×</button>
                       </>
@@ -390,7 +420,8 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                 ))}
               </ul>
             </section>
-          ))}
+            );
+          })}
           {editing && !rows.some((r) => r.id === editing.id) ? (
             <section className="imp-day"><h4>Yeni kayıt</h4><div className="imp-rows">{rowEditor(editing)}</div></section>
           ) : (
@@ -405,10 +436,10 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
             </button>
           </div>
           <p>
-            {blocked > 0 && `Eksik bilgili ${blocked} kayıt eklenmez · `}
-            {skipped > 0 && `Tarih dışında kalan ${skipped} kayıt eklenmez · `}
-            {!dateError && `${dayMonth(startDate)} – ${dayMonth(untilDate)}${weeks > 1 ? ` (${weeks} hafta, her hafta tekrar)` : ''} · `}
-            "Geri al" ile hepsi birden silinir
+            {blocked + skipped > 0
+              ? [blocked > 0 && `eksik bilgili ${blocked}`, skipped > 0 && `tarih dışında ${skipped}`].filter(Boolean).join(', ')
+                .replace(/^./, (c) => c.toLocaleUpperCase('tr')) + ' kayıt eklenmez'
+              : 'Ekledikten sonra “Geri al” ile hepsi birden silinebilir'}
           </p>
         </div>
       </>

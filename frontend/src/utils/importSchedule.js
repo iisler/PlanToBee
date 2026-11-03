@@ -257,7 +257,8 @@ export function checkRow(r) {
   else if (!r.title?.trim()) issue = 'Ad yok';
   else if (!r.start) issue = 'Saat okunamadı';
   else if (r.end && toMin(r.end) <= toMin(r.start)) issue = 'Bitiş saati başlangıçtan önce';
-  const hint = issue ? '' : r.suggest ? `"${r.title}" okundu · ${r.suggest} mi?` : r.lowConfidence ? 'Okunuşu belirsiz · kontrol et' : '';
+  // Öneri: satırda okunan ad zaten görünür; uyarı yalnızca öneriyi sorar, yanındaki "Evet" düzeltir
+  const hint = issue ? '' : r.suggest ? `${r.suggest} mi?` : r.lowConfidence ? 'Okunuşu belirsiz · kontrol et' : '';
   return { ...r, issue, hint };
 }
 
