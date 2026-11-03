@@ -18,6 +18,14 @@ Durum: Tasarım: Onaylandı · Backend: Tamamlandı · Frontend: Tamamlandı · 
     kendi eklediğini değiştirir/geri alır.
   - Okul ders programında **her ders ayrı kayıt** (önizlemedeki gibi). Art arda aynı ders tek kayıt olur ("2 ders saati").
 
+- **15c (kullanıcı, 03.11):** Önizlemede yalnızca **Başlangıç** ve **Bitiş** ("Her hafta, şu tarihe kadar" kalktı).
+  - Bitiş varsayılanı **bir hafta** (başlangıç + 6 gün): program bir kez eklenir. Başlangıç değişince bitiş de kayar
+    (bitiş elle seçilmediyse).
+  - Kullanıcı başka bitiş seçebilir (iki haftalık program, dönem boyu); aralık bir haftadan uzunsa program her hafta tekrar
+    eder ("5 Kasım – 18 Kasım (2 hafta, her hafta tekrar)"). En fazla 1 yıl.
+  - Aralık bir haftadan kısaysa aralığa düşmeyen günün kayıtları soluk görünür ("Seçilen tarihlerde Pazartesi yok ·
+    eklenmez") ve eklenmez.
+
 ## Kullanıcı hikâyeleri
 - Veli olarak, okulun verdiği ders programı Excel'ini yükleyip bütün yılın okul saatlerini tek seferde eklemek istiyorum.
 - Öğrenci olarak, kâğıda yazdığım haftalık programın fotoğrafını çekip uygulamaya aktarmak istiyorum.
@@ -36,8 +44,7 @@ Durum: Tasarım: Onaylandı · Backend: Tamamlandı · Frontend: Tamamlandı · 
 4. **Önizleme:**
    - Özet: dosya adı · kayıt sayısı · "⚠ N kontrol et".
    - Ayarlar: **Tür** (Okul / Aktivite; ızgarada varsayılan Okul, listede satırdaki tür ya da Aktivite) · **Başlangıç**
-     (varsayılan bugün) · **Her hafta, şu tarihe kadar** (varsayılan okul yılı sonu,
-     en fazla başlangıç + 1 yıl). Art arda aynı ders her zaman birleşir.
+     (varsayılan bugün) · **Bitiş** (varsayılan bir hafta, 15c). Art arda aynı ders her zaman birleşir.
    - Günlere göre gruplu satırlar: saat aralığı (mono) · ad · × kaldır. Satıra dokununca düzenlenir (gün, başlangıç,
      bitiş, ad).
    - Sorunlu satır sarı zeminde, nedeni yazılı: "Saat okunamadı", "Gün bulunamadı", "'ingilizce' okundu · doğru mu?"
@@ -98,8 +105,7 @@ Bütün kaynaklar aynı ara biçime çevrilir: `{ day: 1..7, start: 'SS:dd' | nu
 
 ## Uygulama (tasarımdan sapmalar)
 - **Birleştirme anahtarı yok:** art arda aynı ders her zaman birleşir (ekran sade kalsın; ayrı istenirse satır düzenlenir).
-- **Başlangıç varsayılanı bugün** (gelecek pazartesi değil): hafta ortasında yükleyince haftanın kalan günleri kaçmasın.
-  Bitiş varsayılanı 30 Haziran (okul yılı sonu), en fazla başlangıç + 1 yıl.
+- **Başlangıç varsayılanı bugün** (gelecek pazartesi değil). Bitiş varsayılanı bir hafta (15c), en fazla başlangıç + 1 yıl.
 - **Geri al:** o yüklemede eklenen ve profilin değiştirebildiği serilerin hepsi silinir (sonradan düzenlenmiş olsa da).
   Ayrılmış günler normal aktivite olduğundan kalır.
 - **Tür:** ızgarada satırda tür yoksa önizlemedeki Tür seçimi (Okul / Diğer, varsayılan Okul). Listede: tür sütunu, yoksa
@@ -147,6 +153,8 @@ Yerel PostgreSQL + API + Vite, Chromium (390 ve 360 px, dokunmatik). Konsolda uy
 - [x] Fotoğraf (el yazısı benzeri satır listesi, gün başlıkları ayrı satırda): 4 kaydın 4'ü doğru; biri "kontrol et".
 - [x] Sorunlu satır düzenlenip eklendi; "Geri al" yüklemeyi sildi, şerit sayıları geri döndü.
 - [x] 360 px'te yatay kaydırma yok.
+- [x] 15c: varsayılan 3–9 Kasım; 5–7 Kasım seçilince Pzt/Sal/Çar kayıtları "eklenmez" (12 / 25); 5–18 Kasım "2 hafta,
+      her hafta tekrar", 25 seri `StartDate 2026-11-05`, `UntilDate 2026-11-18` ile eklendi.
 - [ ] iPhone Safari'de kamera/galeri seçimi, gerçek kâğıt ve gerçek el yazısı fotoğrafı denenmeli (el yazısında başarı
       düşük olabilir; önizleme düzeltmeye izin verir).
 - [ ] Ana ekrana eklenmiş uygulamada örnek CSV indirme davranışı denenmeli.

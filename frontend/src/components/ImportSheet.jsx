@@ -6,8 +6,8 @@ import BusyLabel from './BusyLabel';
 import client from '../api/client';
 import { errorCode, errorText } from '../api/errors';
 import { ACTIVITY_KINDS, kindInfo } from '../utils/events';
-import { dkey, WEEKDAYS_FULL } from '../utils/format';
-import { dayMonth, plusYear } from '../utils/recurrence';
+import { addDays, dkey, WEEKDAYS_FULL } from '../utils/format';
+import { dayMonth, isoDay, parseKey, plusYear } from '../utils/recurrence';
 import { readSheetFile, SheetFileError } from '../utils/sheetFile';
 import { checkRow, dayOf, matchName, mergeConsecutive, parseSchedule, toSeriesItems } from '../utils/importSchedule';
 
@@ -51,12 +51,15 @@ function download(name, rows) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Varsayılan bitiş: okul yılı sonu (30 Haziran); başlangıçtan en fazla 1 yıl sonra
-function defaultUntil(start) {
-  const [y, m] = start.split('-').map(Number);
-  const until = `${m <= 6 ? y : y + 1}-06-30`;
-  const max = plusYear(start);
-  return until > max ? max : until;
+// Varsayılan bitiş: bir hafta (başlangıç + 6 gün; programın her günü bir kez). Kullanıcı başka tarih seçebilir
+// (iki haftalık ya da dönem boyu program); en fazla başlangıçtan 1 yıl sonra (Görev 15c).
+const oneWeek = (start) => dkey(addDays(parseKey(start), 6));
+
+// Başlangıç–bitiş aralığına düşen hafta günleri (1..7)
+function daysInRange(start, until) {
+  const out = new Set();
+  for (let d = parseKey(start), i = 0; dkey(d) <= until && i < 7; d = addDays(d, 1), i += 1) out.add(isoDay(dkey(d)));
+  return out;
 }
 
 function SheetHead({ id, title, closeLabel, onClose }) {
@@ -85,7 +88,13 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
   const [defaultKind, setDefaultKind] = useState('School');
   const today = useMemo(() => dkey(new Date()), []);
   const [startDate, setStartDate] = useState(today);
-  const [untilDate, setUntilDate] = useState(() => defaultUntil(today));
+  const [untilDate, setUntilDate] = useState(() => oneWeek(today));
+  // Bitiş elle seçilmediyse başlangıçla birlikte kayar (hep bir hafta)
+  const [untilTouched, setUntilTouched] = useState(false);
+  function changeStart(v) {
+    setStartDate(v);
+    if (!untilTouched && v) setUntilDate(oneWeek(v));
+  }
   const [editing, setEditing] = useState(null); // düzenlenen satırın taslağı
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -179,12 +188,17 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
     setEditing({ id: `n${Date.now()}`, day: '', start: '', end: '', title: '', kind: format === 'grid' ? null : 'Event' });
   }
 
-  const ready = rows.filter((r) => !r.issue);
-  const blocked = rows.length - ready.length;
-  const warned = rows.filter((r) => r.issue || r.hint).length;
   const dateError = !startDate || !untilDate ? 'Tarihleri seç.'
     : untilDate < startDate ? 'Bitiş tarihi başlangıçtan önce olamaz.'
-    : untilDate > plusYear(startDate) ? 'Tekrar en fazla 1 yıl sürebilir.' : '';
+    : untilDate > plusYear(startDate) ? 'Bitiş en fazla 1 yıl sonrası olabilir.' : '';
+  // Aralık bir haftadan kısaysa bazı günler hiç düşmez: o günün kayıtları eklenmez (satırda yazar)
+  const inRange = useMemo(() => (dateError ? null : daysInRange(startDate, untilDate)), [dateError, startDate, untilDate]);
+  const outOfRange = (r) => !r.issue && r.day && inRange && !inRange.has(r.day);
+  const ready = rows.filter((r) => !r.issue && !outOfRange(r));
+  const skipped = rows.filter(outOfRange).length;
+  const blocked = rows.length - ready.length - skipped;
+  const warned = rows.filter((r) => r.issue || r.hint).length;
+  const weeks = dateError ? 0 : Math.round((parseKey(untilDate) - parseKey(startDate)) / 86400000 / 7);
 
   const groups = useMemo(() => {
     const by = new Map();
@@ -333,11 +347,11 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
               </div>
             )}
             <label className="row"><span>Başlangıç</span>
-              <input type="date" value={startDate} min={today} onChange={(e) => setStartDate(e.target.value)} />
+              <input type="date" value={startDate} min={today} onChange={(e) => changeStart(e.target.value)} />
             </label>
-            <label className="row"><span>Her hafta, şu tarihe kadar</span>
+            <label className="row"><span>Bitiş</span>
               <input type="date" value={untilDate} min={startDate} max={startDate ? plusYear(startDate) : undefined}
-                onChange={(e) => setUntilDate(e.target.value)} />
+                onChange={(e) => { setUntilTouched(true); setUntilDate(e.target.value); }} />
             </label>
             {dateError && <p className="imp-error inline" role="alert">{dateError}</p>}
           </div>
@@ -347,7 +361,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
               <h4>{day ? WEEKDAYS_FULL[day - 1] : 'Gün bulunamadı'} <small>{list.length} kayıt</small></h4>
               <ul className="imp-rows">
                 {list.map((r) => (
-                  <li key={r.id} className={`imp-row${r.issue ? ' bad' : r.hint ? ' check' : ''}`}>
+                  <li key={r.id} className={`imp-row${r.issue ? ' bad' : outOfRange(r) ? ' off' : r.hint ? ' check' : ''}`}>
                     {editing?.id === r.id ? rowEditor(editing) : (
                       <>
                         <button type="button" className="imp-main" onClick={() => setEditing({ id: r.id, day: r.day ?? '', start: r.start, end: r.end, title: r.title, kind: r.kind })}
@@ -361,7 +375,9 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                                   .filter(Boolean).join(' · ')}
                               </small>
                             )}
-                            {(r.issue || r.hint) && <small className="why">⚠ {r.issue || r.hint}{r.issue ? ' · düzeltmek için dokun' : ''}</small>}
+                            {r.issue ? <small className="why">⚠ {r.issue} · düzeltmek için dokun</small>
+                              : outOfRange(r) ? <small className="why off">Seçilen tarihlerde {WEEKDAYS_FULL[r.day - 1]} yok · eklenmez</small>
+                              : r.hint ? <small className="why">⚠ {r.hint}</small> : null}
                           </span>
                         </button>
                         {r.suggest && !r.issue && (
@@ -390,7 +406,8 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
           </div>
           <p>
             {blocked > 0 && `Eksik bilgili ${blocked} kayıt eklenmez · `}
-            {startDate && untilDate && !dateError && `${dayMonth(startDate)} – ${dayMonth(untilDate)}, her hafta · `}
+            {skipped > 0 && `Tarih dışında kalan ${skipped} kayıt eklenmez · `}
+            {!dateError && `${dayMonth(startDate)} – ${dayMonth(untilDate)}${weeks > 1 ? ` (${weeks} hafta, her hafta tekrar)` : ''} · `}
             "Geri al" ile hepsi birden silinir
           </p>
         </div>
