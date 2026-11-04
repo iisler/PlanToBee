@@ -72,6 +72,8 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `ASPNETCORE_ENVIRONMENT` | Ortam adı. Docker imajı zaten `Production` ile açılır. | Varsayılan `Production` | `Production` | Değiştirme | Hayır |
 | `PORT` | API'nin dinlediği port. **Render kendisi verir, girme.** | Otomatik | `10000` | Render | Hayır |
 | `Jwt__Issuer` / `Jwt__Audience` | Belirteç düzenleyici / hedef adı. | Varsayılan `plantobee` | `plantobee` | Değiştirme | Hayır |
+| `Auth__EmailCode__Enabled` | Girişte e-postaya 6 haneli kod gönderilir (iki adımlı doğrulama). Kod 10 dk geçerli, tek kullanımlık, 5 hatalı denemede iptal. E-postası doğrulanmamış hesap kodsuz girer. Bekleyen kodlar bellektedir: sunucu yeniden başlarsa kullanıcı yeniden giriş yapar. **E-posta servisi (Brevo) kesilirse kimse giriş yapamaz**; acil durumda `false` yapılabilir. | Varsayılan `true` | `true` | - | Hayır |
+| `Auth__EmailCode__MinIntervalSeconds` / `Auth__EmailCode__MaxPerHour` | Hesap başına giriş kodu gönderim sınırı (en az aralık / saatte en fazla). Yalnızca testlerde gevşetilir. | Varsayılan `60` / `5` | `60` | - | Hayır |
 | `Jwt__AccessTokenMinutes` | Erişim belirtecinin ömrü (dakika). Dolunca uygulama yenileme belirteciyle sessizce yenisini alır. | Varsayılan `15` (1-1440) | `15` | - | Hayır |
 | `Jwt__RefreshTokenDays` | Yenileme belirtecinin ömrü (gün). Her kullanımda yenilenir; bu kadar gün hiç açılmayan cihazda yeniden giriş gerekir. | Varsayılan `30` (1-365) | `30` | - | Hayır |
 | `ForwardedHeaders__Enabled` | Proxy'nin eklediği gerçek istemci IP'si ve HTTPS bilgisini kullan. | Varsayılan `true` | `true` | Değiştirme | Hayır |
