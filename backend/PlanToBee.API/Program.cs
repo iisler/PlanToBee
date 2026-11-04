@@ -88,6 +88,7 @@ else
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<SendThrottle>();
 builder.Services.AddSingleton<MissingAccountLockout>();
+builder.Services.AddSingleton<LoginChallenges>();
 builder.Services.AddScoped<MemberContext>();
 builder.Services.AddScoped<FamilyService>();
 builder.Services.AddScoped<AuthTokenService>();

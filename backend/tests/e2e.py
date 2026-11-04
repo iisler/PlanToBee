@@ -12,6 +12,7 @@ API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmal�
     ConnectionStrings__Default="Host=localhost;Database=plantobee_e2e;Username=<kullanıcı>" \\
     Jwt__Key="<en az 32 karakter>" Email__OutputDirectory=/tmp/plantobee-emails \\
     RateLimits__Auth=1000 RateLimits__InvitePublic=1000 \\
+    Auth__EmailCode__MinIntervalSeconds=0 Auth__EmailCode__MaxPerHour=1000 \\
     dotnet run --no-launch-profile --urls http://localhost:5102
 
     python3 backend/tests/e2e.py --api http://localhost:5102/api --emails /tmp/plantobee-emails
@@ -99,6 +100,18 @@ def link_params(mail, path):
     return {k: v[0] for k, v in urllib.parse.parse_qs(m.group(1)).items()}
 
 
+def login_req(body):
+    """POST /auth/login. E-posta doğrulanmış hesapta giriş kodu istenir; kod e-postadan okunup tamamlanır.
+    Eski (oturum açan) cevapla aynı biçimde döner; yanlış şifre gibi hatalar olduğu gibi geçer."""
+    before = len(emails_to(body["email"]))
+    s, b = req("POST", "/auth/login", body)
+    if s == 200 and isinstance(b, dict) and b.get("twoFactorRequired"):
+        mails = wait_email(body["email"], before + 1)
+        code = re.search(r"Giriş kodun:\s*(\d{6})", mails[-1]).group(1)
+        return req("POST", "/auth/login/verify", {"challengeId": b["challengeId"], "code": code})
+    return s, b
+
+
 def new_email(tag):
     return f"e2e-{tag}-{uuid.uuid4().hex[:8]}@example.com"
 
@@ -111,7 +124,7 @@ def register_and_verify(name, password="sifre123"):
     p = link_params(mail, "verify-email")
     s, _ = req("POST", "/auth/verify-email", {"userId": p["userId"], "token": p["token"]})
     assert s == 200
-    s, b = req("POST", "/auth/login", {"email": email, "password": password})
+    s, b = login_req({"email": email, "password": password})
     assert s == 200, (s, b)
     return email, b
 
@@ -149,9 +162,9 @@ def test_register_privacy():
     check("doğrulanmış adres: aynı durum kodu ve gövde", (s3, b3) == (s1, b1), (s3, b3))
     mails = wait_email(email, 2)
     check("sahibine 'zaten hesabın var' e-postası", len(mails) == 2 and "zaten bir hesabın var" in mails[-1], len(mails))
-    s, b = req("POST", "/auth/login", {"email": email, "password": "baskaSifre1"})
+    s, b = login_req({"email": email, "password": "baskaSifre1"})
     check("ikinci kayıt şifreyi değiştirmedi", s == 401, s)
-    s, _ = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, _ = login_req({"email": email, "password": "sifre123"})
     check("ilk şifreyle giriş", s == 200, s)
 
     # Şifre kuralı hatası iki durumda da aynı
@@ -164,12 +177,83 @@ def test_login_lockout_parity():
     print("Giriş kilidi: kayıtlı ve olmayan hesapta aynı davranış")
     email, _ = register_and_verify("Kilit")
     ghost = new_email("ghost")
-    real = [req("POST", "/auth/login", {"email": email, "password": "yanlis"})[0] for _ in range(6)]
-    fake = [req("POST", "/auth/login", {"email": ghost, "password": "yanlis"})[0] for _ in range(6)]
+    real = [login_req({"email": email, "password": "yanlis"})[0] for _ in range(6)]
+    fake = [login_req({"email": ghost, "password": "yanlis"})[0] for _ in range(6)]
     check("durum kodu dizileri aynı", real == fake, (real, fake))
     check("5. denemede kilit (429)", real == [401, 401, 401, 401, 429, 429], real)
-    s, b = req("POST", "/auth/login", {"email": ghost, "password": "yanlis"})
+    s, b = login_req({"email": ghost, "password": "yanlis"})
     check("olmayan hesapta kilit mesajı", s == 429 and code_of(b) == "locked_out", (s, b))
+
+
+def login_code_of(mail):
+    return re.search(r"Giriş kodun:\s*(\d{6})", mail).group(1)
+
+
+def test_login_code():
+    print("Giriş kodu (e-postayla iki adımlı doğrulama)")
+    email, _ = register_and_verify("Kod")
+    pw = {"email": email, "password": "sifre123"}
+
+    # Yanlış şifre: kod gönderilmez
+    before = len(emails_to(email))
+    s, b = req("POST", "/auth/login", {"email": email, "password": "yanlis"})
+    check("yanlış şifre 401", s == 401, (s, b))
+    time.sleep(0.5)
+    check("yanlış şifrede kod e-postası yok", len(emails_to(email)) == before)
+
+    # Doğru şifre: oturum yok, kod var
+    s, b = req("POST", "/auth/login", pw)
+    check("doğru şifre: twoFactorRequired", s == 200 and b.get("twoFactorRequired") is True and b.get("challengeId"), (s, b))
+    check("cevapta token yok", isinstance(b, dict) and "token" not in b and "refreshToken" not in b, b)
+    check("e-posta adresi maskeli", "***" in b.get("emailHint", "") and email not in b.get("emailHint", ""), b.get("emailHint"))
+    cid = b["challengeId"]
+    code = login_code_of(wait_email(email, before + 1)[-1])
+
+    # Yanlış kod, sonra doğru kod
+    wrong = "000000" if code != "000000" else "111111"
+    s, r = req("POST", "/auth/login/verify", {"challengeId": cid, "code": wrong})
+    check("yanlış kod 400 login_code_invalid", s == 400 and code_of(r) == "login_code_invalid", (s, r))
+    s, r = req("POST", "/auth/login/verify", {"challengeId": cid, "code": code})
+    check("doğru kod: oturum açıldı", s == 200 and r.get("token") and r.get("refreshToken"), (s, r))
+    s, _ = req("GET", "/auth/me", token=r["token"])
+    check("kodla alınan token çalışıyor", s == 200, s)
+    s, r2 = req("POST", "/auth/login/verify", {"challengeId": cid, "code": code})
+    check("aynı kod ikinci kez kullanılamaz", s == 400 and code_of(r2) == "login_code_expired", (s, r2))
+
+    # Tekrar gönder: eski kod geçersiz, yeni kod çalışır
+    before = len(emails_to(email))
+    s, b = req("POST", "/auth/login", pw)
+    cid = b["challengeId"]
+    old = login_code_of(wait_email(email, before + 1)[-1])
+    s, r = req("POST", "/auth/login/resend-code", {"challengeId": cid})
+    check("tekrar gönder 200", s == 200, (s, r))
+    new = login_code_of(wait_email(email, before + 2)[-1])
+    if old != new:
+        s, r = req("POST", "/auth/login/verify", {"challengeId": cid, "code": old})
+        check("eski kod geçersiz", s == 400 and code_of(r) == "login_code_invalid", (s, r))
+    s, r = req("POST", "/auth/login/verify", {"challengeId": cid, "code": new})
+    check("yeni kodla giriş", s == 200 and r.get("token"), (s, r))
+
+    # 5 hatalı deneme: challenge iptal, doğru kod da artık çalışmaz
+    s, b = req("POST", "/auth/login", pw)
+    cid = b["challengeId"]
+    good = login_code_of(wait_email(email, before + 3)[-1])
+    bad = "000000" if good != "000000" else "111111"
+    res = [req("POST", "/auth/login/verify", {"challengeId": cid, "code": bad}) for _ in range(5)]
+    check("4 yanlış deneme login_code_invalid, 5.'de login_code_expired",
+          [code_of(x[1]) for x in res] == ["login_code_invalid"] * 4 + ["login_code_expired"], [code_of(x[1]) for x in res])
+    s, r = req("POST", "/auth/login/verify", {"challengeId": cid, "code": good})
+    check("hakkı biten challenge doğru kodla da açılmaz", s == 400 and code_of(r) == "login_code_expired", (s, r))
+
+    # Bilinmeyen challenge
+    s, r = req("POST", "/auth/login/verify", {"challengeId": "yok", "code": "123456"})
+    check("bilinmeyen challenge 400", s == 400 and code_of(r) == "login_code_expired", (s, r))
+
+    # E-postası doğrulanmamış hesap kodsuz girer (hiçbir plan verisine erişemez)
+    un = new_email("dogrulanmamis")
+    req("POST", "/auth/register", {"email": un, "password": "sifre123", "displayName": "Dogrulanmamis"})
+    s, b = req("POST", "/auth/login", {"email": un, "password": "sifre123"})
+    check("doğrulanmamış hesap: doğrudan oturum", s == 200 and b.get("token") and not b.get("twoFactorRequired"), (s, b))
 
 
 def test_refresh_tokens():
@@ -192,7 +276,7 @@ def test_refresh_tokens():
     check("bilinmeyen belirteç: 401 refresh_invalid", s == 401 and code_of(r) == "refresh_invalid", (s, r))
 
     # Eşzamanlı yenileme: yalnızca biri kazanır
-    s, cur = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, cur = login_req({"email": email, "password": "sifre123"})
     with concurrent.futures.ThreadPoolExecutor(6) as ex:
         results = list(ex.map(lambda _: req("POST", "/auth/refresh", {"refreshToken": cur["refreshToken"]}), range(6)))
     ok = [r for r in results if r[0] == 200]
@@ -200,14 +284,14 @@ def test_refresh_tokens():
     check("6 eşzamanlı yenilemede 1×200 + 5×refresh_retry", len(ok) == 1 and len(retry) == 5, [r[0] for r in results])
 
     # Çıkış
-    s, cur = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, cur = login_req({"email": email, "password": "sifre123"})
     s, _ = req("POST", "/auth/logout", {"refreshToken": cur["refreshToken"]})
     check("çıkış 204", s == 204, s)
     s, r = req("POST", "/auth/refresh", {"refreshToken": cur["refreshToken"]})
     check("çıkıştan sonra yenileme 401", s == 401 and code_of(r) == "refresh_invalid", (s, r))
 
     # Şifre sıfırlama bütün oturumları kapatır
-    s, other = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, other = login_req({"email": email, "password": "sifre123"})
     before = len(emails_to(email))
     req("POST", "/auth/forgot-password", {"email": email})
     mail = wait_email(email, before + 1)[-1]
@@ -218,7 +302,7 @@ def test_refresh_tokens():
     check("şifre değişince eski oturum yenilenemiyor", s == 401 and code_of(r) == "refresh_invalid", (s, r))
     s, _ = req("GET", "/auth/me", token=other["token"])
     check("şifre değişince eski erişim belirteci 401", s == 401, s)
-    s, relog = req("POST", "/auth/login", {"email": email, "password": "yeniSifre9"})
+    s, relog = login_req({"email": email, "password": "yeniSifre9"})
     check("yeni şifreyle giriş", s == 200, s)
     s, _ = req("POST", "/auth/refresh", {"refreshToken": relog["refreshToken"]})
     check("sıfırlamadan sonraki oturum yenilenebiliyor", s == 200, s)
@@ -256,7 +340,7 @@ def test_profiles_and_plan():
     check("aynı adlı profil reddedildi", s == 409, (s, b))
 
     # Başka bir cihaz: aile hesabıyla giriş, profil seçimi
-    s, dev = req("POST", "/auth/login", {"email": p_email, "password": "sifre123"})
+    s, dev = login_req({"email": p_email, "password": "sifre123"})
     check("yeni cihazda giriş profilsiz", s == 200 and dev.get("profile") is None, (s, dev.get("profile")))
     s, b = req("GET", "/days/" + dt.date.today().isoformat(), token=dev["token"])
     check("profil seçmeden plan: 403 profile_required", s == 403 and code_of(b) == "profile_required", (s, b))
@@ -359,7 +443,7 @@ def test_solo_family():
     s, d = req("GET", "/days/" + dt.date.today().isoformat(), token=own["token"])
     check("tek profille plan açılıyor", s == 200, s)
 
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, b = select(dev, own["profile"]["id"])
     check("tek profilli ailede PIN'siz ebeveyn seçilebiliyor", s == 200 and b.get("profile"), (s, b))
 
@@ -373,7 +457,7 @@ def test_solo_family():
     me = next((p for p in plist if p["isOwner"]), {})
     check("sahibin profilinde artık PIN var", me.get("hasPin") is True, me)
 
-    s, dev2 = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev2 = login_req({"email": email, "password": "sifre123"})
     s, b = select(dev2, me["id"])
     check("ailede 2 profil: PIN'siz seçim reddedilir", s == 400 and code_of(b) == "pin_invalid", (s, b))
     s, b = select(dev2, me["id"], pin="2468")
@@ -386,7 +470,7 @@ def test_events_and_training():
     s, own = req("POST", "/family", {"name": "Spor Ailesi", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
     pt = own["token"]
     s, kid = req("POST", "/profiles", {"displayName": "Ece", "role": "Child"}, pt)
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
     ct = ct["token"]
     day = dt.date.today()
@@ -467,7 +551,7 @@ def test_event_end_time():
     s, own = req("POST", "/family", {"name": "Saat Ailesi", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
     pt = own["token"]
     s, kid = req("POST", "/profiles", {"displayName": "Ela", "role": "Child"}, pt)
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
     ct = ct["token"]
     d = (dt.date.today() + dt.timedelta(days=3)).isoformat()
@@ -564,7 +648,7 @@ def test_study_start_time():
     s, own = req("POST", "/family", {"name": "Ders Saat", "profileName": "Anne", "pin": "1357", "refreshToken": acc["refreshToken"]}, acc["token"])
     pt = own["token"]
     s, kid = req("POST", "/profiles", {"displayName": "Can", "role": "Child"}, pt)
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
     ct = ct["token"]
     d = (dt.date.today() + dt.timedelta(days=2)).isoformat()
@@ -654,7 +738,7 @@ def test_series():
     s, own = req("POST", "/family", {"name": "Tekrar Ailesi", "profileName": "Anne", "pin": "1593", "refreshToken": acc["refreshToken"]}, acc["token"])
     pt = own["token"]
     s, kid = req("POST", "/profiles", {"displayName": "Ela", "role": "Child"}, pt)
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
     ct = ct["token"]
     o_email, o_acc = register_and_verify("TekrarB")
@@ -981,7 +1065,7 @@ def test_push():
     check("config: ortak anahtar 65 bayt", len(key) == 65 and key[0] == 4, cfg)
 
     s, kid = req("POST", "/profiles", {"displayName": "Ece", "role": "Child"}, pt)
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
     ct = ct["token"]
     fake = FakePush()
@@ -1195,13 +1279,13 @@ def test_account_delete():
     s, kid = req("POST", "/profiles", {"displayName": "Kuzu", "role": "Child"}, pt)
     s, dad = req("POST", "/profiles", {"displayName": "Baba", "role": "Parent", "pin": "2580"}, pt)
     member_ids = [owner_id, kid["id"], dad["id"]]
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, ct = select(dev, kid["id"])
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, dt_ = select(dev, dad["id"], pin="2580")
-    s, dev = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, dev = login_req({"email": email, "password": "sifre123"})
     s, other_device = select(dev, owner_id, pin="1470")
-    s, noprof = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, noprof = login_req({"email": email, "password": "sifre123"})
 
     day = dt.date.today().isoformat()
     s, e1 = req("POST", f"/days/{day}/entries", {"subject": "Matematik", "minutes": 30}, pt)
@@ -1258,7 +1342,7 @@ def test_account_delete():
     check("silme: şifresiz 400 password_invalid", s == 400 and code_of(b) == "password_invalid", (s, b))
     s, d = req("GET", f"/days/{day}", token=pt)
     check("reddedilen isteklerden sonra veri duruyor", s == 200 and len(d["studyEntries"]) >= 2, s)
-    s, _ = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
+    s, _ = login_req({"email": email, "password": "sifre123"})
     check("başarılı girişte hatalı deneme sayacı sıfırlanır", s == 200, s)
 
     rows_before = account_rows(user_id, family_id, member_ids, entry_ids, event_ids)
@@ -1281,8 +1365,8 @@ def test_account_delete():
     check("silme sonrası yenileme reddedilir", s == 401 and code_of(r) == "refresh_invalid", (s, r))
     s, b = req("POST", "/account/delete", body, other_device["token"])
     check("silme sonrası tekrar silme 401", s == 401, s)
-    s1, b1 = req("POST", "/auth/login", {"email": email, "password": "sifre123"})
-    s2, b2 = req("POST", "/auth/login", {"email": new_email("yok"), "password": "sifre123"})
+    s1, b1 = login_req({"email": email, "password": "sifre123"})
+    s2, b2 = login_req({"email": new_email("yok"), "password": "sifre123"})
     check("silinen e-postayla giriş: olmayan hesapla aynı hata", s1 == s2 == 401 and b1 == b2, (s1, b1, s2, b2))
 
     rows_after = account_rows(user_id, family_id, member_ids, entry_ids, event_ids)
@@ -1313,7 +1397,7 @@ def test_account_delete():
     check("yeniden kayıtta doğrulama e-postası gitti", p is not None and p["userId"] != user_id, p)
     s, _ = req("POST", "/auth/verify-email", {"userId": p["userId"], "token": p["token"]}) if p else (0, None)
     check("yeniden kayıt doğrulandı", s == 200, s)
-    s, na = req("POST", "/auth/login", {"email": email, "password": "yeniSifre7"})
+    s, na = login_req({"email": email, "password": "yeniSifre7"})
     check("yeni hesapla giriş, ailesi yok", s == 200 and na.get("family") is None and na.get("profile") is None, (s, na))
     s, b = req("GET", f"/days/{day}", token=na["token"])
     check("yeni hesap: 403 family_required", s == 403 and code_of(b) == "family_required", (s, b))
@@ -1333,10 +1417,10 @@ def test_account_delete():
     check("ailesi olmayan hesap siler", s == 204, (s, b))
     u_email = new_email("dogrulanmamis")
     req("POST", "/auth/register", {"email": u_email, "password": "sifre123", "displayName": "Doğrulanmamış"})
-    s, ua = req("POST", "/auth/login", {"email": u_email, "password": "sifre123"})
+    s, ua = login_req({"email": u_email, "password": "sifre123"})
     s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, ua["token"])
     check("e-postası doğrulanmamış hesap siler", s == 204, (s, b))
-    s, _ = req("POST", "/auth/login", {"email": u_email, "password": "sifre123"})
+    s, _ = login_req({"email": u_email, "password": "sifre123"})
     check("silinen doğrulanmamış hesapla giriş 401", s == 401, s)
 
     # Yanlış şifre denemeleri giriş kilidine sayılır
@@ -1345,7 +1429,7 @@ def test_account_delete():
     check("silmede 5 yanlış şifre: 4×400 + 429", codes == [400, 400, 400, 400, 429], codes)
     s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, k["token"])
     check("kilitliyken doğru şifreyle de silinmez (429 locked_out)", s == 429 and code_of(b) == "locked_out", (s, b))
-    s, b = req("POST", "/auth/login", {"email": k_email, "password": "sifre123"})
+    s, b = login_req({"email": k_email, "password": "sifre123"})
     check("kilit girişte de geçerli", s == 429, (s, b))
 
 
@@ -1367,7 +1451,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_login_lockout_parity, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
+    for t in (test_register_privacy, test_login_lockout_parity, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

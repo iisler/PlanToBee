@@ -78,9 +78,22 @@ export function AuthProvider({ children }) {
     }
   }, [setUser]);
 
+  // Şifre doğruysa ve e-posta doğrulanmışsa oturum açılmaz: cevap { twoFactorRequired: true, challengeId, emailHint, ... }
+  // olur ve e-postaya 6 haneli kod gider (verifyLoginCode ile tamamlanır). Aksi halde oturum açılır.
   async function login(email, password) {
     const res = await client.post('/auth/login', { email, password });
+    if (!res.data.twoFactorRequired) applyAuth(res.data);
+    return res.data;
+  }
+
+  async function verifyLoginCode(challengeId, code) {
+    const res = await client.post('/auth/login/verify', { challengeId, code });
     applyAuth(res.data);
+    return res.data;
+  }
+
+  async function resendLoginCode(challengeId) {
+    const res = await client.post('/auth/login/resend-code', { challengeId });
     return res.data;
   }
 
@@ -144,7 +157,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, meError, login, register, logout, accountDeleted, applyAuth, refreshMe, selectProfile,
+      user, meError, login, verifyLoginCode, resendLoginCode, register, logout, accountDeleted, applyAuth, refreshMe, selectProfile,
       switching, startSwitch, cancelSwitch,
     }}>
       {children}
