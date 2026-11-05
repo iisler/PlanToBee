@@ -28,10 +28,12 @@ Değişiklik yok") diğeri yeterlidir. Koşul sağlanmıyorsa ne eksik olduğunu
   plantobee-api.onrender.com, Neon) **istek atma**; yerel `plantobee` veritabanına dokunma.
 - Yerelde PostgreSQL yoksa (Postgres.app kurulu olmayabilir) sunucu testlerini çalıştırma, internetten ikili indirip
   çalıştırma; "sunucu davranışı doğrulanmadı" diye raporla ve Ilker'den Postgres'i başlatmasını iste. Ön yüz için
-  sahte API ile yapılan kontrol, sunucu doğrulaması yerine geçmez.
+  sahte API ile yapılan kontrol, sunucu doğrulaması yerine geçmez. Alternatif: PR açıksa GitHub Actions'taki
+  **Backend testleri** iş akışı (`.github/workflows/backend-tests.yml`) aynı kapıyı geçici PostgreSQL ile çalıştırır;
+  sonucunu `gh pr checks <numara>` ve `gh run view <id> --log-failed` ile oku.
 - e2e ortam değişkenleri (aksi hâlde hız sınırı testi yanlış hata verir):
   ```
-  ASPNETCORE_ENVIRONMENT=Development ConnectionStrings__Default="Host=localhost;Database=plantobee_e2e;Username=$(whoami)" Jwt__Key=<32+ karakter, sabit> Email__OutputDirectory=<geçici klasör> RateLimits__Auth=1000 RateLimits__InvitePublic=1000 RateLimits__Pin=1000 RateLimits__Api=100000 WebPush__Key=<test değeri> WebPush__TestEndpointHosts__0=localhost WebPush__BatchSeconds=2 App__FrontendBaseUrl=http://localhost:5173 dotnet run --no-launch-profile --urls http://localhost:<port>
+  ASPNETCORE_ENVIRONMENT=Development ConnectionStrings__Default="Host=localhost;Database=plantobee_e2e;Username=$(whoami)" Jwt__Key=<32+ karakter, sabit> Email__OutputDirectory=<geçici klasör> RateLimits__Auth=1000 RateLimits__Pin=1000 RateLimits__Api=100000 Auth__EmailCode__MinIntervalSeconds=0 Auth__EmailCode__MaxPerHour=1000 WebPush__Key=<test değeri> WebPush__TestEndpointHosts__0=localhost WebPush__BatchSeconds=2 App__FrontendBaseUrl=http://localhost:5173 dotnet run --no-launch-profile --urls http://localhost:<port>
   python3 backend/tests/e2e.py --api http://localhost:<port>/api --emails <klasör>
   ```
   İş bitince yalnızca kendi başlattığın süreci kapat (`kill <pid>`, `pkill` ile genel arama yapma).
@@ -40,10 +42,11 @@ Değişiklik yok") diğeri yeterlidir. Koşul sağlanmıyorsa ne eksik olduğunu
 ## Görevin
 1. **Kriter listesi çıkar:** Her kabul kriterini (K1, K2 …) bir test satırına çevir; kanıt türünü seç: otomatik test,
    komut çıktısı, kod satırı (dosya:satır) ya da tarayıcı ölçümü.
-2. **Otomatik kapı (her seferinde):**
-   - `cd backend && dotnet build PlanToBee.API` (uyarısız)
-   - `cd backend/tests/WebPushSelfTest && dotnet run`
-   - `dotnet ef migrations has-pending-model-changes` (model değişmediyse)
+2. **Otomatik kapı (her seferinde; komutlar repo kökünden):**
+   - `dotnet build backend/PlanToBee.API` (uyarısız)
+   - `dotnet run --project backend/tests/WebPushSelfTest`
+   - `dotnet ef migrations has-pending-model-changes --project backend/PlanToBee.API` (model değişmediyse;
+     `dotnet-ef` yoksa önce `dotnet tool install --global dotnet-ef --version "10.*"`)
    - e2e.py (yukarıdaki ortamla); yeni senaryo eklendiyse onu da çalıştır
    - `cd frontend && npx oxlint && npm run build` (build için VITE_API_URL ver, örn. http://localhost:5000/api)
 3. **Kriter kriter doğrula.** Kod incelemesi yetmiyorsa çalıştır. Okuduğun kodun gerçekten çağrıldığını doğrula
