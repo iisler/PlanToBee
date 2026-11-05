@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
-  // Giriş kodu adımı: { challengeId, emailHint }. Şifre doğru girilince e-postaya 6 haneli kod gider.
+  // Giriş kodu adımı: { challengeId, emailHint, resendAfter }. Şifre doğru girilince e-postaya 6 haneli kod gider.
   const [codeStep, setCodeStep] = useState(null);
   const [code, setCode] = useState('');
   const [codeInfo, setCodeInfo] = useState('');
@@ -70,7 +70,7 @@ export default function LoginPage() {
       if (mode === 'login') {
         const data = await login(form.email.trim(), form.password);
         if (data.twoFactorRequired) {
-          setCodeStep({ challengeId: data.challengeId, emailHint: data.emailHint });
+          setCodeStep({ challengeId: data.challengeId, emailHint: data.emailHint, resendAfter: data.resendAfter });
           setCode('');
           setCodeInfo('');
           setCooldown(data.resendAfter ?? 60);
@@ -118,7 +118,7 @@ export default function LoginPage() {
       const r = await resendLoginCode(codeStep.challengeId);
       setCodeInfo(r?.message || 'Yeni kod gönderildi.');
       setCode('');
-      setCooldown(60);
+      setCooldown(codeStep.resendAfter ?? 60);
     } catch (err) {
       if (err?.response?.data?.code === 'login_code_expired') backToPassword();
       setError(errorText(err));

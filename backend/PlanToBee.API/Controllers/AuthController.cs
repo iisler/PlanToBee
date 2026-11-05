@@ -290,7 +290,7 @@ public class AuthController(
             return CodeNotSent();
         }
         return Ok(new LoginCodeRequiredDto(true, id, MaskEmail(user.Email!),
-            (int)LoginChallenges.Lifetime.TotalSeconds, 60));
+            (int)LoginChallenges.Lifetime.TotalSeconds, LoginCodeMinIntervalSeconds));
     }
 
     private async Task<bool> TrySendLoginCodeAsync(User user, string code)
@@ -320,7 +320,10 @@ public class AuthController(
     private bool TryAcquireLoginCodeSlot(User user) =>
         throttle.TryAcquire(LoginCodeThrottleKey(user), TimeSpan.FromHours(1),
             config.GetValue("Auth:EmailCode:MaxPerHour", 5),
-            TimeSpan.FromSeconds(config.GetValue("Auth:EmailCode:MinIntervalSeconds", 60)));
+            TimeSpan.FromSeconds(LoginCodeMinIntervalSeconds));
+
+    // İstemcideki "tekrar gönder" sayacı da bu süreyi kullanır.
+    private int LoginCodeMinIntervalSeconds => config.GetValue("Auth:EmailCode:MinIntervalSeconds", 60);
 
     private static string LoginCodeThrottleKey(User user) => $"logincode:{user.Id}";
 

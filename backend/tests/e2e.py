@@ -11,7 +11,7 @@ API geliştirme modunda, e-postaları bir klasöre yazacak şekilde çalışmal�
     ASPNETCORE_ENVIRONMENT=Development \\
     ConnectionStrings__Default="Host=localhost;Database=plantobee_e2e;Username=<kullanıcı>" \\
     Jwt__Key="<en az 32 karakter>" Email__OutputDirectory=/tmp/plantobee-emails \\
-    RateLimits__Auth=1000 RateLimits__InvitePublic=1000 \\
+    RateLimits__Auth=1000 RateLimits__Pin=1000 RateLimits__Api=100000 \\
     Auth__EmailCode__MinIntervalSeconds=0 Auth__EmailCode__MaxPerHour=1000 \\
     dotnet run --no-launch-profile --urls http://localhost:5102
 
