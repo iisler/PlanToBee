@@ -55,6 +55,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, PersonalDataPr
             b.Property(u => u.UserName).HasMaxLength(512).HasConversion(personalData.EncryptedConverter());
             b.Property(u => u.NormalizedEmail).HasConversion(personalData.IndexConverter());
             b.Property(u => u.NormalizedUserName).HasConversion(personalData.IndexConverter());
+            // Kayıt onayları veritabanında 1 (onaylandı) / 0 (onay yok) olarak tutulur; kodda bool'dur.
+            b.Property(u => u.IsKvkkChecked).HasConversion<int>();
+            b.Property(u => u.IsTermsAccepted).HasConversion<int>();
+            b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Users_IsKvkkChecked", "\"IsKvkkChecked\" IN (0, 1)");
+                t.HasCheckConstraint("CK_Users_IsTermsAccepted", "\"IsTermsAccepted\" IN (0, 1)");
+            });
         });
 
         builder.Entity<RefreshToken>(b =>

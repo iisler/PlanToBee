@@ -812,11 +812,11 @@ namespace PlanToBee.API.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsKvkkChecked")
-                        .HasColumnType("boolean");
+                    b.Property<int>("IsKvkkChecked")
+                        .HasColumnType("integer");
 
-                    b.Property<bool>("IsTermsAccepted")
-                        .HasColumnType("boolean");
+                    b.Property<int>("IsTermsAccepted")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
@@ -860,7 +860,12 @@ namespace PlanToBee.API.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Users_IsKvkkChecked", "\"IsKvkkChecked\" IN (0, 1)");
+
+                            t.HasCheckConstraint("CK_Users_IsTermsAccepted", "\"IsTermsAccepted\" IN (0, 1)");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

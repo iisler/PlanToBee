@@ -17,24 +17,42 @@ namespace PlanToBee.API.Migrations
                 type: "timestamp with time zone",
                 nullable: true);
 
-            migrationBuilder.AddColumn<bool>(
+            migrationBuilder.AddColumn<int>(
                 name: "IsKvkkChecked",
                 table: "Users",
-                type: "boolean",
+                type: "integer",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: 0);
 
-            migrationBuilder.AddColumn<bool>(
+            migrationBuilder.AddColumn<int>(
                 name: "IsTermsAccepted",
                 table: "Users",
-                type: "boolean",
+                type: "integer",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: 0);
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Users_IsKvkkChecked",
+                table: "Users",
+                sql: "\"IsKvkkChecked\" IN (0, 1)");
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Users_IsTermsAccepted",
+                table: "Users",
+                sql: "\"IsTermsAccepted\" IN (0, 1)");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Users_IsKvkkChecked",
+                table: "Users");
+
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Users_IsTermsAccepted",
+                table: "Users");
+
             migrationBuilder.DropColumn(
                 name: "ConsentsAcceptedAt",
                 table: "Users");
