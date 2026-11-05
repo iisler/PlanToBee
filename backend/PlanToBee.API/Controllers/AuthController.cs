@@ -22,6 +22,8 @@ public class AuthController(
     IOptions<AppOptions> app,
     SendThrottle throttle,
     MissingAccountLockout lockout,
+    LoginChallenges challenges,
+    IConfiguration config,
     ILogger<AuthController> logger) : ControllerBase
 {
     // Hesap varlığı belli olmaz: e-posta kayıtlı olsa da olmasa da cevap aynıdır ve oturum açılmaz.
@@ -98,8 +100,52 @@ public class AuthController(
         if (check.IsLockedOut) return LockedOut();
         if (!check.Succeeded) return InvalidCredentials();
 
-        // Doğrulanmamış kullanıcı da token alır; ancak aile ve plan uç noktaları 403 email_not_verified döner.
+        // İki adımlı doğrulama: şifre doğruysa oturum hemen açılmaz, e-postaya 6 haneli kod gider.
+        // E-postası doğrulanmamış hesap kod alamaz (adres kanıtlanmadı) ve zaten hiçbir plan verisine erişemez;
+        // o hesap eskisi gibi giriş yapar, aile ve plan uç noktaları 403 email_not_verified döner.
+        if (user.EmailConfirmed && config.GetValue("Auth:EmailCode:Enabled", true))
+            return await StartLoginCodeAsync(user);
+
         return Ok(await tokens.BuildAuthResponse(user));
+    }
+
+    // Giriş kodunu doğrular ve oturumu açar. Kod tek kullanımlıktır; 5 hatalı denemede challenge iptal edilir.
+    [HttpPost("login/verify")]
+    public async Task<IActionResult> VerifyLoginCode(VerifyLoginCodeDto dto)
+    {
+        var code = new string(dto.Code.Where(char.IsDigit).ToArray());
+        var (status, userId, stamp) = challenges.Verify(dto.ChallengeId, code);
+        if (status == LoginChallenges.VerifyStatus.Wrong)
+        {
+            var left = challenges.AttemptsLeft(dto.ChallengeId);
+            return Err.BadRequest("login_code_invalid", $"Kod hatalı. {left} deneme hakkın kaldı.");
+        }
+        if (status != LoginChallenges.VerifyStatus.Ok) return LoginCodeExpired();
+
+        var user = await userManager.FindByIdAsync(userId!);
+        // Kod verildikten sonra şifre değiştiyse (güvenlik damgası yenilenir) kod geçersizdir.
+        if (user == null || await userManager.GetSecurityStampAsync(user) != stamp) return LoginCodeExpired();
+        if (await userManager.IsLockedOutAsync(user)) return LockedOut();
+
+        await userManager.ResetAccessFailedCountAsync(user);
+        return Ok(await tokens.BuildAuthResponse(user));
+    }
+
+    // Aynı challenge için yeni kod gönderir (eski kod geçersiz olur). Adres başına dakikada 1, saatte 5 e-posta.
+    [HttpPost("login/resend-code")]
+    public async Task<IActionResult> ResendLoginCode(ResendLoginCodeDto dto)
+    {
+        var userId = challenges.UserOf(dto.ChallengeId);
+        var user = userId == null ? null : await userManager.FindByIdAsync(userId);
+        if (user == null) return LoginCodeExpired();
+
+        if (!TryAcquireLoginCodeSlot(user))
+            return Err.TooMany("Kısa süre önce kod gönderildi. Bir dakika bekleyip tekrar dene.");
+
+        var code = challenges.Resend(dto.ChallengeId);
+        if (code == null) return LoginCodeExpired();
+        if (!await TrySendLoginCodeAsync(user, code)) return CodeNotSent();
+        return Ok(new { message = "Yeni kod e-postana gönderildi." });
     }
 
     // Süresi dolan erişim belirteci yerine yenisini verir; yenileme belirteci de değişir.
@@ -230,6 +276,62 @@ public class AuthController(
         await tokens.RevokeAllAsync(user.Id);
         return Ok(new { message = "Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin." });
     }
+
+    private async Task<IActionResult> StartLoginCodeAsync(User user)
+    {
+        // Gönderim sınırı kod denemesini de sınırlar: en fazla saatte 5 kod, her biri 5 denemelik.
+        if (!TryAcquireLoginCodeSlot(user))
+            return Err.TooMany("Kısa süre önce giriş kodu gönderildi. Bir dakika bekleyip tekrar dene.");
+
+        var (id, code) = challenges.Create(user.Id, await userManager.GetSecurityStampAsync(user));
+        if (!await TrySendLoginCodeAsync(user, code))
+        {
+            challenges.Remove(id);
+            return CodeNotSent();
+        }
+        return Ok(new LoginCodeRequiredDto(true, id, MaskEmail(user.Email!),
+            (int)LoginChallenges.Lifetime.TotalSeconds, LoginCodeMinIntervalSeconds));
+    }
+
+    private async Task<bool> TrySendLoginCodeAsync(User user, string code)
+    {
+        try
+        {
+            await emailSender.SendAsync(EmailTemplates.LoginCode(
+                user.Email!, user.DisplayName, code, (int)LoginChallenges.Lifetime.TotalMinutes));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Giriş kodu e-postası gönderilemedi");
+            return false;
+        }
+    }
+
+    // "ilker@gmail.com" -> "i***@gmail.com": kod ekranında hangi adrese gittiği anlaşılsın, tamamı görünmesin.
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        return at <= 0 ? "***" : $"{email[0]}***{email[at..]}";
+    }
+
+    // Giriş kodu e-postaları: varsayılan en az 60 sn arayla, saatte en fazla 5 (Auth:EmailCode:MinIntervalSeconds /
+    // MaxPerHour ile değişir; yalnızca testlerde gevşetilir).
+    private bool TryAcquireLoginCodeSlot(User user) =>
+        throttle.TryAcquire(LoginCodeThrottleKey(user), TimeSpan.FromHours(1),
+            config.GetValue("Auth:EmailCode:MaxPerHour", 5),
+            TimeSpan.FromSeconds(LoginCodeMinIntervalSeconds));
+
+    // İstemcideki "tekrar gönder" sayacı da bu süreyi kullanır.
+    private int LoginCodeMinIntervalSeconds => config.GetValue("Auth:EmailCode:MinIntervalSeconds", 60);
+
+    private static string LoginCodeThrottleKey(User user) => $"logincode:{user.Id}";
+
+    private static ObjectResult LoginCodeExpired() =>
+        Err.BadRequest("login_code_expired", "Kodun süresi doldu ya da çok fazla hatalı deneme yapıldı. Yeniden giriş yap.");
+
+    private static ObjectResult CodeNotSent() =>
+        Err.Make(503, "login_code_not_sent", "Giriş kodu gönderilemedi. Biraz sonra tekrar dene.");
 
     private static ObjectResult InvalidCredentials() => Err.Make(401, "invalid_credentials", "E-posta veya şifre hatalı.");
     private static ObjectResult LockedOut() =>

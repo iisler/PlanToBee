@@ -13,6 +13,16 @@ public record LoginDto(
     [Required(ErrorMessage = "E-posta girin")] string Email,
     [Required(ErrorMessage = "Şifre girin")] string Password);
 
+// Şifre doğruysa ve e-posta doğrulanmışsa giriş oturum açmaz; bunun yerine e-postaya 6 haneli kod gider.
+// İstemci TwoFactorRequired=true görürse kod ekranını açar ve ChallengeId ile /auth/login/verify çağırır.
+public record LoginCodeRequiredDto(bool TwoFactorRequired, string ChallengeId, string EmailHint, int ExpiresIn, int ResendAfter);
+
+public record VerifyLoginCodeDto(
+    [Required, StringLength(100)] string ChallengeId,
+    [Required(ErrorMessage = "Kodu girin"), StringLength(20)] string Code);
+
+public record ResendLoginCodeDto([Required, StringLength(100)] string ChallengeId);
+
 public record EmailOnlyDto([Required(ErrorMessage = "E-posta girin"), StringLength(256)] string Email);
 
 public record VerifyEmailDto([Required] string UserId, [Required] string Token);

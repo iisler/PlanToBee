@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ACCOUNT_DELETED_KEY, useAuth } from '../context/AuthContext';
 import client from '../api/client';
@@ -16,7 +16,7 @@ const LEGAL = `${import.meta.env.BASE_URL}legal/`;
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
 // Kayıt oturum açmaz; "e-postana bağlantı gönderdik" ekranı gösterilir (hesap varlığı belli olmasın diye).
 export default function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, verifyLoginCode, resendLoginCode } = useAuth();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', displayName: '' });
   const [error, setError] = useState('');
@@ -25,6 +25,12 @@ export default function LoginPage() {
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  // Giriş kodu adımı: { challengeId, emailHint, resendAfter }. Şifre doğru girilince e-postaya 6 haneli kod gider.
+  const [codeStep, setCodeStep] = useState(null);
+  const [code, setCode] = useState('');
+  const [codeInfo, setCodeInfo] = useState('');
+  // "Kodu tekrar gönder" için bekleme (saniye); sunucu da dakikada 1 gönderime izin verir.
+  const [cooldown, setCooldown] = useState(0);
   // Hesap silindikten sonra gelindiyse kalıcı bilgi; sekme değiştirince ya da yazmaya başlayınca kapanır.
   const [deletedInfo, setDeletedInfo] = useState(() => {
     try {
@@ -37,6 +43,12 @@ export default function LoginPage() {
   });
   // Sunucu uyanıyorsa giriş uzun sürer: 2 sn sonra ekranı kaplayan bekleme katmanı gösterilir.
   const slow = useSlow(loading, 2000);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const set = (k) => (e) => { setDeletedInfo(false); setForm((f) => ({ ...f, [k]: e.target.value })); };
 
@@ -56,7 +68,14 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(form.email.trim(), form.password);
+        const data = await login(form.email.trim(), form.password);
+        if (data.twoFactorRequired) {
+          setCodeStep({ challengeId: data.challengeId, emailHint: data.emailHint, resendAfter: data.resendAfter });
+          setCode('');
+          setCodeInfo('');
+          setCooldown(data.resendAfter ?? 60);
+          setLoading(false);
+        }
       } else {
         if (!acceptTerms) { setError('Kayıt olmak için Kullanım Koşulları\'nı kabul etmelisin.'); setLoading(false); return; }
         const data = await register(form.email.trim(), form.password, form.displayName.trim());
@@ -69,6 +88,43 @@ export default function LoginPage() {
     }
   }
 
+  function backToPassword() {
+    setCodeStep(null);
+    setCode('');
+    setCodeInfo('');
+    setError('');
+    setForm((f) => ({ ...f, password: '' }));
+  }
+
+  async function submitCode(e) {
+    e.preventDefault();
+    setError('');
+    setCodeInfo('');
+    setLoading(true);
+    try {
+      await verifyLoginCode(codeStep.challengeId, code);
+    } catch (err) {
+      // Süresi dolan ya da hakkı biten kodda baştan giriş gerekir.
+      if (err?.response?.data?.code === 'login_code_expired') backToPassword();
+      setError(errorText(err));
+      setLoading(false);
+    }
+  }
+
+  async function resendCode() {
+    setError('');
+    setCodeInfo('');
+    try {
+      const r = await resendLoginCode(codeStep.challengeId);
+      setCodeInfo(r?.message || 'Yeni kod gönderildi.');
+      setCode('');
+      setCooldown(codeStep.resendAfter ?? 60);
+    } catch (err) {
+      if (err?.response?.data?.code === 'login_code_expired') backToPassword();
+      setError(errorText(err));
+    }
+  }
+
   async function resend() {
     setError('');
     setResendInfo('');
@@ -78,6 +134,42 @@ export default function LoginPage() {
     } catch (err) {
       setError(errorText(err));
     }
+  }
+
+  if (codeStep) {
+    return (
+      <AuthLayout subtitle="Giriş kodunu gir">
+        <p className="auth-text"><b>{codeStep.emailHint}</b> adresine 6 haneli bir kod gönderdik. Kod 10 dakika geçerlidir.</p>
+        <form onSubmit={submitCode}>
+          <input
+            id="loginCode"
+            className="pin-input"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="one-time-code"
+            aria-label="Giriş kodu"
+            placeholder="••••••"
+            maxLength={6}
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            required
+          />
+          {codeInfo && <div className="auth-info" role="status">{codeInfo}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          <button type="submit" className="auth-submit" disabled={loading || code.length !== 6}>
+            <BusyLabel busy={loading} text="Doğrula" busyText="Doğrulanıyor…" />
+          </button>
+        </form>
+        <div className="auth-actions">
+          <button className="btn-ghost" onClick={resendCode} disabled={cooldown > 0}>
+            {cooldown > 0 ? `Kodu tekrar gönder (${cooldown} sn)` : 'Kodu tekrar gönder'}
+          </button>
+          <button className="btn-ghost" onClick={backToPassword}>Geri dön</button>
+        </div>
+        <div className="auth-hint">E-posta gelmezse gereksiz (spam) klasörüne bak.</div>
+      </AuthLayout>
+    );
   }
 
   if (registered) {
