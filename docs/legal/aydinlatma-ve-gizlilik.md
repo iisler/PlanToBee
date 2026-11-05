@@ -1,94 +1,143 @@
 # PlanToBee Kişisel Verilerin Korunması Aydınlatma Metni ve Gizlilik Politikası
 
-Sürüm 1 · Yürürlük tarihi: 17.10.2026
+Sürüm 2 · Yürürlük tarihi: 05.11.2026
 
-Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. maddesi uyarınca, PlanToBee
-uygulamasını ve web sitesini kullanırken kişisel verilerinin nasıl işlendiğini anlatır. Bu bir bilgilendirmedir;
-senden ayrıca bir onay istemez.
+Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. maddesi ve Aydınlatma Yükümlülüğünün
+Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ uyarınca hazırlanmıştır. PlanToBee mobil uygulamasını
+ve web sitesini ("Hizmet") kullanırken kişisel verilerinin hangi amaçlarla ve hangi hukuki sebeplerle işlendiğini,
+nasıl toplandığını, kimlere aktarıldığını ve haklarını anlatır. Bu bir bilgilendirmedir; senden onay istemez.
 
 ## 1. Veri sorumlusu
 
-Veri sorumlusu: **PlanToBee uygulaması** (bireysel geliştirici tarafından işletilir)
-İletişim: **plantobee.app@gmail.com**
+<!-- YAYINDAN ÖNCE DOLDURULACAK: Veri sorumlusu gerçek ya da tüzel bir kişi olmalıdır; "uygulama" veri sorumlusu olamaz.
+     Şirket kurulursa: ticaret unvanı, MERSİS numarası ve adres yazılır. -->
+| | |
+|---|---|
+| Veri sorumlusu | **[AD SOYAD]** (PlanToBee'yi geliştiren ve işleten gerçek kişi) |
+| Posta adresi | **[POSTA ADRESİ]** |
+| E-posta | **plantobee.app@gmail.com** |
 
-## 2. Hangi kişisel verileri işliyoruz?
+## 2. İşlenen kişisel veriler
 
-| Veri grubu | Neler | Nasıl saklanır |
+| Veri kategorisi | Veriler |
+|---|---|
+| Kimlik | Görünen ad; profil adları (çocuk profilleri dahil) ve profilin rolü (ebeveyn ya da çocuk) |
+| İletişim | Hesap sahibinin e-posta adresi |
+| Müşteri işlem (plan verileri) | Dersler, konular, süreler ve durumları; aktiviteler, tekrarlar, saatler ve notlar; kaydı hangi profilin eklediği ve değiştirdiği; içe aktardığın programdan oluşturulan kayıtlar |
+| İşlem güvenliği | Şifrenin, PIN'lerin ve e-postayla gönderilen giriş kodunun geri çevrilemez özetleri; oturum bilgileri; giriş, PIN ve kod denemeleri; IP adresi |
+| Cihaz ve bildirim | Bildirimlere izin verdiysen cihazının bildirim aboneliği ve cihaz adı (ör. "iPhone · Safari"), bildirim tercihlerin |
+
+Hizmet için KVKK'nın 6. maddesinde sayılan özel nitelikli kişisel verilere (ör. sağlık bilgisi) ihtiyaç yoktur. Not
+alanlarına bu tür bilgileri yazmamanı öneririz.
+
+## 3. İşleme amaçları ve hukuki sebepler
+
+| Amaç | Veri kategorisi | Hukuki sebep (KVKK m. 5/2) |
 |---|---|---|
-| Hesap bilgileri | E-posta adresi, görünen ad, şifre | E-posta veritabanında şifreli (AES-256-GCM) saklanır. Şifre hiçbir zaman açık metin saklanmaz; yalnızca geri çevrilemez özeti tutulur. |
-| Profil bilgileri | Profil adları (ör. "Ela"), rol (ebeveyn / çocuk), PIN | PIN yalnızca geri çevrilemez özet olarak saklanır. Çocuk profillerinde e-posta ya da başka iletişim bilgisi yoktur. |
-| Plan verileri | Dersler, konular, süreler, durumlar; aktiviteler, saatler, notlar; kaydı kimin eklediği ve değiştirdiği | Ailenin ortak planı olarak saklanır; yalnızca aile hesabıyla giriş yapanlar görür. |
-| Bildirim bilgileri | Bildirimlere izin verdiysen cihazının bildirim aboneliği ve cihaz adı (ör. "iPhone · Safari"), bildirim tercihlerin | Abonelik bilgileri veritabanında şifreli saklanır. |
-| Güvenlik kayıtları | IP adresi, giriş ve PIN denemeleri, oturum bilgileri | Kötüye kullanımı ve yetkisiz girişi önlemek için kısa süre tutulur. |
+| Hesabı oluşturmak, e-posta adresini doğrulamak, girişi ve e-postayla gönderilen kodla iki adımlı doğrulamayı sağlamak | Kimlik, İletişim, İşlem güvenliği | (c) Sözleşmenin kurulması ve ifası |
+| Ailenin ortak haftalık planını sunmak ve profiller arasında paylaşmak | Kimlik, Müşteri işlem | (c) Sözleşmenin kurulması ve ifası |
+| İstersen aile üyelerinin girdiği kayıtlar için bildirim göndermek | Cihaz ve bildirim, Müşteri işlem | (c) Sözleşmenin kurulması ve ifası |
+| Şifre sıfırlama ve hesapla ilgili zorunlu e-postaları göndermek | Kimlik, İletişim | (c) Sözleşmenin kurulması ve ifası |
+| Hizmetin güvenliğini sağlamak, yetkisiz girişi ve kötüye kullanımı önlemek | İşlem güvenliği | (f) Meşru menfaat (temel hak ve özgürlüklerine zarar vermemek kaydıyla) |
+| Verileri kayba karşı yedeklemek ve gerektiğinde geri yüklemek | Tüm kategoriler | (c) Sözleşmenin ifası ve (f) Meşru menfaat |
+| Başvurularını cevaplamak, yetkili makamların hukuken zorunlu taleplerini karşılamak, olası uyuşmazlıklarda hakları korumak | İlgili olduğu ölçüde tüm kategoriler | (ç) Hukuki yükümlülük ve (e) Bir hakkın tesisi, kullanılması veya korunması |
 
-Uygulamada reklam, analiz ya da takip aracı yoktur. Cihazında yalnızca oturumun açık kalması ve tercihlerin
-(ör. seçili profil, bildirim kararı) için gerekli bilgiler saklanır; bunlar çerez değil, uygulamanın kendi
-deposudur ve üçüncü kişilerle paylaşılmaz.
+Verilerin satılmaz; pazarlama, reklam ya da profilleme amacıyla işlenmez. Hizmette reklam, analiz ya da takip aracı
+yoktur. Bu nedenle açık rızana dayanan bir işleme yoktur.
 
-## 3. Hangi amaçlarla işliyoruz?
+## 4. Toplama yöntemi
 
-- Hesabını oluşturmak, e-posta adresini doğrulamak ve giriş yapmanı sağlamak,
-- Ailenin ortak haftalık planını (dersler, aktiviteler) sunmak ve profiller arasında paylaşmak,
-- İstersen aile üyelerinin girdiği kayıtlar için bildirim göndermek,
-- Şifre sıfırlama ve hesapla ilgili zorunlu e-postaları göndermek,
-- Hizmetin güvenliğini sağlamak, yetkisiz girişi ve kötüye kullanımı önlemek,
-- Kanuni yükümlülükleri yerine getirmek ve başvurularını cevaplamak.
+Kişisel verilerin elektronik ortamda toplanır: doğrudan senden (kayıt, profil ve plan girişleri) ve Hizmet'i
+kullanırken otomatik olarak (güvenlik kayıtları, bildirim aboneliği).
 
-## 4. Hukuki sebepler (KVKK m. 5/2)
+Bazı özellikler yalnızca cihazında çalışır:
 
-- **(c) Sözleşmenin kurulması ve ifası:** Hesap, profiller, plan verileri ve bildirimler; hizmeti sana sunabilmek
-  için gereklidir.
-- **(ç) Hukuki yükümlülüğün yerine getirilmesi:** Kanunlardan doğan saklama, bildirim ve başvuru cevaplama
-  yükümlülükleri.
-- **(f) Meşru menfaat:** Güvenlik kayıtları ve kötüye kullanımın önlenmesi (temel hak ve özgürlüklerine zarar
-  vermemek kaydıyla).
+- **Program yükleme:** Excel ya da CSV dosyası ve fotoğraf cihazında okunur; dosyanın ya da fotoğrafın kendisi
+  sunucuya gönderilmez. Plana yalnızca onayladığın kayıtlar eklenir.
+- **Sesle ekleme:** Sesin PlanToBee sunucularına gönderilmez. Konuşma tanıma, cihazının ve tarayıcının bir
+  özelliğidir; kullandığın tarayıcıya göre ses, tarayıcı ya da işletim sistemi sağlayıcısında (ör. Chrome'da Google,
+  Safari'de Apple) işlenebilir. Bu işleme o sağlayıcının kendi gizlilik koşullarına tabidir. PlanToBee'ye yalnızca
+  sesten oluşturulan ve onayladığın aktivite gelir.
+- **Cihaz izinleri:** Bildirim, mikrofon (sesle ekleme) ve kamera ya da fotoğraf (program yükleme) izinleri yalnızca
+  ilgili özelliği kullandığında istenir. İzinleri cihaz ayarlarından istediğin zaman geri alabilirsin.
+- **Cihazında saklananlar:** Oturumun açık kalması ve tercihlerin (ör. seçili profil, bildirim kararı) için gerekli
+  bilgiler cihazının uygulama deposunda tutulur. Çerez kullanılmaz ve bu bilgiler üçüncü kişilerle paylaşılmaz.
 
-Pazarlama, reklam ya da profilleme amacıyla veri işlemiyoruz; bu nedenle açık rızana dayanan bir işleme yoktur.
+## 5. Kişisel verilerin aktarılması
 
-## 5. Verileri kime aktarıyoruz?
+### 5.1 Hizmet sağlayıcıları
 
-Verilerin hiçbir şekilde satılmaz, reklam ya da pazarlama amacıyla paylaşılmaz. Yalnızca hizmeti çalıştırmak için
-aşağıdaki hizmet sağlayıcılarını kullanıyoruz:
+Hizmet'i çalıştırmak için aşağıdaki hizmet sağlayıcısı gruplarından destek alınır. Bu sağlayıcılar verileri yalnızca
+bu hizmeti sunmak için, veri sorumlusunun talimatıyla işler (veri işleyen); verileri kendi amaçları için kullanamaz.
 
-<!-- AKTARIM BÖLÜMÜ: Sunucu Türkiye'ye taşınınca yalnızca bu bölüm güncellenir. -->
-| Hizmet | Ne için | Konum |
+<!-- AKTARIM BÖLÜMÜ: Sunucu Türkiye'ye taşınınca ya da bir sağlayıcı değişince bu tablo ve
+     docs/legal/hizmet-saglayicilar.md birlikte güncellenir. -->
+| Alıcı grubu | Aktarım amacı | Ülke |
 |---|---|---|
-| Render | Uygulama sunucusu (API) | Almanya (Frankfurt) |
-| Neon | Veritabanı | Almanya (Frankfurt) |
-| Brevo | Doğrulama ve şifre sıfırlama e-postalarının gönderimi | Avrupa Birliği |
-| Apple Push Notification service, Google Firebase Cloud Messaging ve tarayıcı bildirim servisleri | Bildirimlerin cihazına iletilmesi | Yurt dışı |
-| GitHub Pages | Web sitesinin yayınlanması | Yurt dışı |
-
-Bildirim içerikleri uçtan uca şifrelidir; bildirim servisleri içeriği okuyamaz, yalnızca şifreli mesajı cihazına
-iletir. Bu sağlayıcılara yapılan aktarım KVKK'nın 9. maddesi kapsamındadır.
+| Bulut sunucu ve barındırma hizmet sağlayıcısı | Uygulama sunucusunun (API) çalışması | Almanya |
+| Veritabanı hizmet sağlayıcısı | Hesap ve plan verilerinin saklanması | Almanya |
+| E-posta gönderim hizmet sağlayıcısı | Doğrulama, giriş kodu ve şifre sıfırlama e-postalarının gönderimi | Avrupa Birliği |
+| Yazılım geliştirme ve barındırma platformu | Web sitesinin yayınlanması; şifreli veritabanı yedeklerinin saklanması | Amerika Birleşik Devletleri |
+| Cihaz ve tarayıcı üreticilerinin bildirim servisleri | Bildirimlerin cihazına iletilmesi | Cihazına ve tarayıcına göre değişir; ağırlıklı olarak Amerika Birleşik Devletleri |
 <!-- /AKTARIM BÖLÜMÜ -->
 
-Kanunen yetkili kamu kurum ve kuruluşlarına, yalnızca hukuken zorunlu olduğu hallerde ve istenen ölçüde bilgi
-verilebilir.
+Bildirim içerikleri uçtan uca şifrelidir; bildirim servisleri içeriği okuyamaz, yalnızca şifreli mesajı cihazına
+iletir. Veritabanı yedekleri yüklenmeden önce AES-256 ile şifrelenir; yedeklerin saklandığı platform içeriği okuyamaz.
 
-## 6. Toplama yöntemi
+Güncel hizmet sağlayıcılarının adlarını öğrenmek istersen 10. bölümdeki yollarla bize yazabilirsin (KVKK m. 11/1-ç).
 
-Kişisel verilerin, uygulamayı ve web sitesini kullandığında elektronik ortamda, doğrudan senden (kayıt, profil ve
-plan girişleri) ve kullanım sırasında otomatik olarak (güvenlik kayıtları, bildirim aboneliği) toplanır.
+### 5.2 Yurt dışına aktarım
 
-## 7. Saklama süreleri
+Yukarıdaki sağlayıcıların sunucuları Türkiye dışında olduğundan kişisel verilerin yurt dışına aktarılır. Bu aktarım
+KVKK'nın 9. maddesi ve Kişisel Verilerin Yurt Dışına Aktarılmasına İlişkin Usul ve Esaslar Hakkında Yönetmelik
+uyarınca, uygun güvence olarak Kurul'un ilan ettiği standart sözleşme imzalanarak ve sözleşme Kişisel Verileri Koruma
+Kurumu'na bildirilerek yapılır.
+
+### 5.3 Kamu kurum ve kuruluşları
+
+Kişisel verilerin, yalnızca hukuken zorunlu olduğu hallerde ve istenen ölçüde, kanunen yetkili kamu kurum ve
+kuruluşlarıyla (ör. yargı mercileri) paylaşılabilir.
+
+## 6. Saklama süreleri
 
 - Hesap ve plan verileri hesabın açık olduğu sürece saklanır.
-- Hesabını sildiğinde tüm verilerin hemen silinir; veritabanı yedeklerinden de en geç **30 gün** içinde düşer.
+- Hesabını sildiğinde tüm verilerin hemen silinir; şifreli veritabanı yedeklerinden de en geç **30 gün** içinde düşer.
 - Silinen bir profilin eklediği kayıtlar ailenin planında kalır ve "Eski üye" olarak görünür; hesap silindiğinde
   bunlar da silinir.
+- E-postayla gönderilen giriş kodu **10 dakika** geçerlidir; yalnızca özeti, kod kullanılana ya da süresi dolana kadar
+  tutulur.
+- Oturum bilgileri çıkış yaptığında ya da en geç **30 gün** kullanılmadığında geçersiz olur.
 - Güvenlik kayıtları en fazla **90 gün** saklanır.
 - Bildirim aboneliği, bildirimleri kapattığında, çıkış yaptığında ya da cihaz aboneliği geçersiz olduğunda silinir.
+- Bir başvurunun ya da uyuşmazlığın gerektirdiği kayıtlar yalnızca o süreç boyunca saklanır.
+
+Süresi dolan veriler Kişisel Verilerin Silinmesi, Yok Edilmesi veya Anonim Hale Getirilmesi Hakkında Yönetmelik'e
+uygun olarak silinir.
+
+## 7. Veri güvenliği
+
+KVKK'nın 12. maddesi uyarınca verilerin için şu önlemler alınır:
+
+- Uygulama ile sunucu arasındaki tüm iletişim şifrelidir (HTTPS).
+- E-posta adresi ve bildirim abonelikleri veritabanında AES-256-GCM ile şifreli saklanır.
+- Şifre, PIN ve giriş kodu hiçbir zaman açık metin olarak saklanmaz; yalnızca geri çevrilemez özetleri tutulur.
+- Girişte e-postayla gönderilen kodla iki adımlı doğrulama yapılır; giriş, PIN ve kod denemeleri sınırlandırılır.
+- Veritabanı yedekleri şifreli saklanır; verilere ve yedeklere yalnızca veri sorumlusu erişebilir.
+
+Verilerin hukuka aykırı olarak başkalarınca ele geçirilirse, durum en kısa sürede sana ve Kişisel Verileri Koruma
+Kurulu'na bildirilir.
 
 ## 8. Çocukların verileri
 
-PlanToBee'de hesabı ebeveyn (hesap sahibi) açar. Çocuk profillerini ebeveyn oluşturur; çocuklardan e-posta ya da
-iletişim bilgisi alınmaz, yalnızca profil adı ve plan verileri işlenir. Hesap sahibi, ailesindeki profillerin
-verilerinin girilmesinden ve kullanılmasından sorumludur.
+PlanToBee'de hesabı ebeveyn ya da veli (hesap sahibi) açar. Çocuk profillerini hesap sahibi oluşturur ve çocuğu
+adına bilgileri o girer. Çocuklardan e-posta ya da iletişim bilgisi alınmaz; yalnızca profil adı ve plan verileri
+işlenir. Profil adı olarak takma ad kullanabilirsin. Hesap sahibi, ailesindeki profillerin verilerinin girilmesinden
+ve kullanılmasından sorumludur; çocuğun KVKK'daki hakları velisi aracılığıyla kullanılabilir.
 
 ## 9. KVKK m. 11 kapsamındaki hakların
 
 Veri sorumlusuna başvurarak şunları isteyebilirsin:
+
 - Kişisel verilerinin işlenip işlenmediğini öğrenme, işlenmişse bilgi isteme,
 - İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme,
 - Yurt içinde ya da yurt dışında aktarıldığı üçüncü kişileri bilme,
@@ -101,12 +150,23 @@ Veri sorumlusuna başvurarak şunları isteyebilirsin:
 
 ## 10. Başvuru yolu
 
-Başvurunu, kimliğini doğrulayabileceğimiz bilgilerle birlikte **plantobee.app@gmail.com** adresine, tercihen
-hesabına kayıtlı e-posta adresinden gönderebilirsin. Başvurun en geç **30 gün** içinde ücretsiz olarak
-cevaplanır. Hesabını ve tüm verilerini uygulama içinden de silebilirsin: Ad menüsü › Ailem › Hesabı ve tüm verileri
-sil.
+Başvurunu Türkçe olarak şu yollardan biriyle yapabilirsin:
+
+- Hesabına kayıtlı e-posta adresinden **plantobee.app@gmail.com** adresine e-postayla,
+- Islak imzalı bir dilekçeyle **[POSTA ADRESİ]** adresine posta ya da elden teslimle,
+- Kayıtlı elektronik posta (KEP), güvenli elektronik imza ya da mobil imzayla **plantobee.app@gmail.com** adresine.
+
+Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ uyarınca başvuruda adın soyadın, T.C. kimlik numaran
+(yabancıysan uyruğun ve pasaport ya da kimlik numaran), tebligata esas adresin, varsa e-posta adresin ve telefon
+numaran ile talebinin konusu yer almalıdır.
+
+Başvurun en geç **30 gün** içinde ücretsiz olarak cevaplanır. Başvurun reddedilirse, cevabı yetersiz bulursan ya da
+süresinde cevap verilmezse, cevabı öğrendiğin tarihten itibaren 30 gün ve her halde başvuru tarihinden itibaren 60
+gün içinde Kişisel Verileri Koruma Kurulu'na şikâyette bulunabilirsin (KVKK m. 14).
+
+Hesabını ve tüm verilerini uygulama içinden de silebilirsin: Ad menüsü › Ailem › Hesabı ve tüm verileri sil.
 
 ## 11. Değişiklikler
 
-Bu metin güncellenirse yeni sürüm bu sayfada yayımlanır ve yürürlük tarihi değişir. Önemli değişikliklerde
-uygulama içinde bilgilendirilirsin.
+Bu metin güncellenirse yeni sürüm bu sayfada yayımlanır ve yürürlük tarihi değişir. Önemli değişikliklerde uygulama
+içinde bilgilendirilirsin.
