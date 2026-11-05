@@ -521,7 +521,7 @@ Kayıt formuna "Aydınlatma Metni'ni okudum" kutusu eklenir; `Users` tablosuna `
 `ConsentsAcceptedAt` (`timestamptz`) sütunları gelir (`LegalConsents` migration'ı). Yeni kayıtta ikisi 1, zaman damgası
 kayıt anıdır. Mevcut hesaplar 0 ve boş kalır (o zaman Aydınlatma için işaretlenmiş bir kutu yoktu).
 
-Yayından önceki `main`: `43e97f2`, git'te `rollback-oncesi-kvkk-onay` etiketiyle saklanır. Eski sürüm sütunları bilmez:
+Yayından önceki `main`: `43e97f2`. Eski sürüm sütunları bilmez:
 eklerken yazmaz (varsayılan 0 kalır), okurken seçmez. Geri dönüşte veritabanında bir şey yapmak gerekmez:
 
 ```bash
