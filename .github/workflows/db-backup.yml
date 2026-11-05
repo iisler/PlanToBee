@@ -1,0 +1,74 @@
+# Gece veritabanı yedeği: Neon'daki canlı veritabanının pg_dump kopyası, şifrelenip Actions artifact'i olarak saklanır.
+#
+# Gerekenler (bir kez, bkz. docs/DEPLOY.md Bölüm 9):
+#   - Settings > Secrets and variables > Actions > Secrets:
+#       BACKUP_DATABASE_URL  Neon bağlantı adresi (Render'daki ConnectionStrings__Default ile aynı, postgresql://...)
+#       BACKUP_PASSPHRASE    Yedeği şifreleyen parola; parola yöneticisinde de saklanır, kaybolursa yedek açılamaz
+# Gizliler tanımlı değilse iş başarısız olur (GitHub e-postayla haber verir); yedeklerin sessizce durması fark edilsin.
+#
+# Geri yükleme: .github/workflows/db-restore.yml (aynı imaj, aynı pg sürümü).
+#
+# Repo herkese açık: herkese açık repolarda artifact'leri GitHub'a giriş yapan herkes indirebilir. Bu yüzden yedek
+# şifrelenmeden asla yüklenmez.
+name: Veritabanı yedeği
+
+on:
+  schedule:
+    # Her gece 03:17 (Türkiye saati, UTC+3). GitHub zamanlanmış işleri birkaç dakika-saat geciktirebilir; yedek için sorun değil.
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Gizlileri kontrol et
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_DATABASE_URL ya da BACKUP_PASSPHRASE tanımlı değil; yedek alınmadı (docs/DEPLOY.md 9.1)."
+            exit 1
+          fi
+
+      # pg_dump sunucunun ana sürümünden eski olamaz (yeni istemci eski sunucuyu yedekleyebilir). İmaj digest ile sabit:
+      # etiket sonradan başka bir imaja taşınsa da canlı veritabanı adresi yalnızca bu imaja verilir.
+      # Neon projesi PostgreSQL 19'a geçerse ya da güvenlik güncellemesi için: Docker Hub'da postgres etiketinin yeni
+      # digest'ini al ve bu dosyayla db-restore.yml'deki PG_IMAGE'ı birlikte güncelle.
+      # Yedek diske yalnızca şifreli olarak yazılır; parola gpg'ye bir boru (pipe) üzerinden verilir.
+      - name: Yedeği al ve şifrele
+        env:
+          PG_IMAGE: postgres:18.6@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+        run: |
+          set -euo pipefail
+          umask 077
+          file="plantobee-$(date -u +%Y-%m-%dT%H%MZ).dump.gpg"
+          docker run --rm -e DATABASE_URL "$PG_IMAGE" \
+              sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl' \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 --pinentry-mode loopback -o "$file" 3< <(printf '%s' "$BACKUP_PASSPHRASE")
+          size=$(stat -c %s "$file")
+          if [ "$size" -lt 1024 ]; then
+            echo "::error::Yedek beklenenden küçük ($size bayt); pg_dump başarısız olmuş olabilir."
+            exit 1
+          fi
+          echo "BACKUP_FILE=$file" >> "$GITHUB_ENV"
+          echo "Yedek: $file ($size bayt, şifreli)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Yedeği sakla
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error

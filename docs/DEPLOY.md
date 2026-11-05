@@ -60,9 +60,9 @@ Blueprint ile kurulumda (Bölüm 3.3) Render yalnızca **sana sorulması gereken
 | `Email__Smtp__Username` | Brevo SMTP kullanıcı adı. | **Sorulur** | `8a1b2c001@smtp-brevo.com` | Brevo > SMTP & API > SMTP sekmesi > **Login** | Evet (hassas) |
 | `Email__Smtp__Password` | Brevo SMTP anahtarı (Brevo hesap şifren **değil**). | **Sorulur** | `xsmtpsib-...` | Brevo > SMTP & API > SMTP > Generate a new SMTP key | **Evet** |
 | `Email__From` | E-postaların gönderen adresi. Brevo'da **doğrulanmış** olmalı. | **Sorulur** | `plantobee.app@gmail.com` | Brevo > Senders'ta doğruladığın adres | Hayır |
-| `Jwt__Key` | Oturum belirteçlerini (giriş anahtarlarını) imzalayan anahtar. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
+| `Jwt__Key` | Oturum belirteçlerini (giriş anahtarlarını) imzalayan anahtar. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet, yedeğini al (3.3, 8. adım)** |
 | `PersonalData__Key` | E-posta adreslerini veritabanında **şifreleyen** anahtar. Kaybolursa adresler kurtarılamaz; değiştirilirse kimse giriş yapamaz. Üretimde zorunlu. | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet, yedeğini al (3.3, 8. adım)** |
-| `DataProtection__KeyEncryptionKey` | E-posta doğrulama ve şifre sıfırlama linklerini imzalayan anahtarları veritabanında **şifreli** tutan anahtar. Yoksa `Jwt__Key`'den türetilir (açılışta uyarı yazılır). | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet** |
+| `DataProtection__KeyEncryptionKey` | E-posta doğrulama ve şifre sıfırlama linklerini imzalayan anahtarları veritabanında **şifreli** tutan anahtar. Yoksa `Jwt__Key`'den türetilir (açılışta uyarı yazılır). | Render **kendisi üretir** | 44 karakterlik rastgele metin | Render | **Evet, yedeğini al (3.3, 8. adım)** |
 | `App__FrontendBaseUrl` | Sitenin adresi: e-posta linkleri ve CORS izni. `https://` ile başlar, sonunda `/` yok. Site bir alt yoldaysa yol da yazılır. | Hazır | `https://iisler.github.io/PlanToBee/app` | `render.yaml` | Hayır |
 | `Email__FromName` | Gönderen adı (gelen kutusunda görünen). | Varsayılan `PlanToBee` | `PlanToBee` | - | Hayır |
 | `Email__Smtp__Host` | SMTP sunucusu. | Varsayılan `smtp-relay.brevo.com` | `smtp-relay.brevo.com` | - | Hayır |
@@ -165,7 +165,7 @@ API, 2525 portuna düz bağlanır ve **STARTTLS** komutuyla bağlantıyı şifre
 
 Belge: https://render.com/docs/infrastructure-as-code, https://render.com/docs/docker, https://render.com/docs/health-checks
 
-Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health` sağlık kontrolü, `main` dalından otomatik yayın) repodaki `render.yaml` dosyasında hazır. Sen yalnızca gizli değerleri girersin.
+Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health/live` sağlık kontrolü, `main` dalından otomatik yayın) repodaki `render.yaml` dosyasında hazır. Sen yalnızca gizli değerleri girersin.
 
 1. https://render.com adresinde hesap aç (**Sign up with GitHub**). GitHub erişim izni sorarsa **Only select repositories** seç ve yalnızca `PlanToBee`'yi işaretle.
 2. **Dashboard** > **New** > **Blueprint**.
@@ -197,14 +197,21 @@ Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health` sağlık kontro
    {"status":"ok","api":"ok","database":"ok"}
    ```
 
-8. **E-posta şifreleme anahtarını yedekle (önemli):** Render > `plantobee-api` > **Environment** > `PersonalData__Key` satırında değeri göster ve kopyala. Bir parola yöneticisine (ör. iCloud Anahtar Zinciri, 1Password) "PlanToBee PersonalData__Key" adıyla kaydet.
-   - Veritabanındaki e-posta adresleri bu anahtarla şifrelidir. Render servisi silinir ya da değer kaybolursa adresler **kurtarılamaz**.
-   - Değeri **değiştirme**: değişirse mevcut kullanıcılar giriş yapamaz.
-   - Yönetici komutları (Bölüm 7) bu anahtarla çalışır.
+8. **Render'ın ürettiği anahtarları yedekle (önemli):** Render > `plantobee-api` > **Environment**'ta aşağıdaki dört satırın değerini göster, kopyala ve bir parola yöneticisine (ör. iCloud Anahtar Zinciri, 1Password) "PlanToBee <değişken adı>" adıyla kaydet. Render servisi silinip Blueprint yeniden kurulursa Render bunları **yeniden ve farklı** üretir; o zaman Environment'ta kayıtlı değerleri geri yazarsın (Bölüm 9.2).
+
+   | Değişken | Kaybolursa |
+   |---|---|
+   | `PersonalData__Key` | Veritabanındaki e-posta adresleri bu anahtarla şifreli: adresler **kurtarılamaz**, kimse giriş yapamaz. Yönetici komutları (Bölüm 7b) de bununla çalışır. |
+   | `DataProtection__KeyEncryptionKey` | Gönderilmiş doğrulama ve şifre sıfırlama linkleri çalışmaz (yenisi istenebilir). |
+   | `Jwt__Key` | Tüm oturumlar kapanır, herkes yeniden giriş yapar. |
+   | `WebPush__Key` | Bildirim abonelikleri geçersiz olur; cihazlar uygulamayı açınca yeniden abone olur. |
+
+   - Bu değerleri **değiştirme**: özellikle `PersonalData__Key` değişirse mevcut kullanıcılar giriş yapamaz.
 
 Sağlık adresleri:
-- `/health`: API ve veritabanı. Veritabanına ulaşılamazsa **503** ve `"database":"unreachable"` döner. Render bu adresi dağıtım ve çalışma sırasında kontrol eder.
-- `/health/live`: yalnızca API (veritabanına dokunmaz).
+- `/health`: API ve veritabanı. Veritabanına ulaşılamazsa **503** ve `"database":"unreachable"` döner. Elle kontrol için.
+- `/health/live`: yalnızca API (veritabanına dokunmaz). Render bu adresi dağıtım ve çalışma sırasında kontrol eder. Veritabanına dokunan `/health` kullanılsaydı, sunucu uyumadığında (ücretli plan) Render'ın sürekli kontrolü Neon'u hiç uyutmaz ve ücretsiz planın aylık işlem süresini bitirirdi.
+- API'nin kendisi de boşta veritabanına gitmez: bildirim dağıtıcısı kuyruğu düzenli aralıkla sorgulamaz, yalnızca yeni bildirim yazılınca ya da bekleyen bir bildirimin vakti gelince (toplama süresi, sessiz saat sonu) uyanır. Trafik yokken Neon 5 dakika sonra uyur.
 - İkisi de giriş gerektirmez, istek sınırına takılmaz ve bağlantı bilgisi, sunucu adı ya da hata ayrıntısı içermez.
 
 Render ücretsiz plan notları:
@@ -346,7 +353,7 @@ Kalan risk: Güvenlik, Render'ın konteynere yalnızca kendi proxy'si üzerinden
 ## 6. Güncelleme (yeni sürüm yayına nasıl çıkar)
 
 - Kod `main` dalına geldiğinde (merge ya da push) iki servis de **otomatik** yayınlar:
-  - **Render:** Auto-Deploy açıksa, `backend/PlanToBee.API` altında değişiklik varsa imajı yeniden derler ve yeni sürümü yayına alır. Sağlık kontrolü (`/health`) tanımlı olduğu için Render yeni sürüm sağlıklı cevap verene kadar bekler; açılamazsa dağıtım başarısız görünür ve Logs'ta nedeni yazar. Yeni migration'lar açılışta kendiliğinden uygulanır.
+  - **Render:** Auto-Deploy açıksa, `backend/PlanToBee.API` altında değişiklik varsa imajı yeniden derler ve yeni sürümü yayına alır. Sağlık kontrolü (`/health/live`) tanımlı olduğu için Render yeni sürüm sağlıklı cevap verene kadar bekler; açılamazsa dağıtım başarısız görünür ve Logs'ta nedeni yazar. Yeni migration'lar açılışta kendiliğinden uygulanır.
   - **GitHub Pages:** Her `main` commit'inde iş akışı `frontend`'i yeniden derler ve eski `index.html` ile birlikte yayınlar.
 - Elle yeniden dağıtmak için: Render > **Manual Deploy** > **Deploy latest commit**; GitHub > Actions > **GitHub Pages** > **Run workflow**.
 - Veritabanı şemasını değiştiren bir sürüm çıkmadan önce Neon'da yedek almak istersen: Neon > **Branches** > **Create branch** (o anki verinin kopyası).
@@ -568,3 +575,49 @@ Kabaca adımlar (zamanı gelince ayrıntılandırılacak):
 6. **Gelen e-posta (isteğe bağlı):** Cloudflare > **Email Routing** ile `info@plantobee.com`'a gelenleri Gmail'e yönlendir.
 7. **GitHub Pages:** Yeni adres çalışınca eski `/PlanToBee/app/` adresini yeni adrese yönlendirecek küçük bir değişiklik yapılır; kullanıcıların ana ekran kısayolları kırılmaz.
 
+
+---
+
+## 9. Gece veritabanı yedeği
+
+Neon'un ücretsiz planında geçmişe dönüş penceresi kısadır (saatler). Gerçek kullanıcı verisi için ek olarak her gece
+`.github/workflows/db-backup.yml` çalışır: canlı veritabanının `pg_dump` kopyasını alır, **şifreler** ve GitHub Actions
+artifact'i olarak **30 gün** saklar.
+
+Repo herkese açık olduğu için artifact'leri GitHub'a giriş yapan herkes indirebilir. Yedek bu yüzden yalnızca
+şifreli yüklenir; parola olmadan açılamaz.
+
+### 9.1 Kurulum (bir kez)
+
+1. Güçlü bir parola üret (ör. parola yöneticisinde 32+ karakter) ve parola yöneticisine "PlanToBee yedek parolası" adıyla kaydet. **Kaybolursa yedekler açılamaz.**
+2. GitHub > `PlanToBee` > **Settings** > **Secrets and variables** > **Actions** > **Secrets** > **New repository secret**:
+
+   | Name | Secret |
+   |---|---|
+   | `BACKUP_DATABASE_URL` | Neon bağlantı adresi (Render'daki `ConnectionStrings__Default` ile aynı, `postgresql://...`) |
+   | `BACKUP_PASSPHRASE` | 1. adımdaki parola |
+
+3. GitHub > **Actions** > **Veritabanı yedeği** > **Run workflow** ile bir kez elle çalıştır. Bitince çalışmanın sayfasında **Artifacts** altında `plantobee-<tarih>.dump.gpg` görünmeli.
+
+Notlar:
+- GitHub, herkese açık repolarda 60 gün commit olmazsa zamanlanmış işleri kapatır ve e-postayla haber verir. O e-posta gelirse Actions > **Veritabanı yedeği** > **Enable workflow**.
+- Yedek her gece Neon'u bir kez kısa süre uyandırır; işlem kotasına etkisi önemsizdir.
+- İş başarısız olursa GitHub, repo sahibine e-posta gönderir. Gizliler tanımlı değilse iş de **başarısız** olur (sessizce atlanmaz); kurulumu bitirene kadar her gece bu e-posta gelir.
+- Yedek, sabit bir `postgres` imajıyla alınır (`PG_IMAGE`, digest ile). Neon projesi PostgreSQL 19'a yükseltilirse yedek "server version mismatch" hatasıyla durur: o zaman `db-backup.yml` ve `db-restore.yml`'deki `PG_IMAGE`'ı birlikte yeni sürümün digest'ine güncelle.
+
+### 9.2 Geri yükleme
+
+Geri yükleme de GitHub Actions'ta çalışır (`.github/workflows/db-restore.yml`): yedeği alan imajın aynısıyla, Mac'e
+hiçbir şey kurmadan. İş yalnızca **boş** bir veritabanına yükler, yüklemeyi tek işlem olarak yapar (hata olursa
+hiçbir şey yazılmaz) ve sonunda tablo başına satır sayılarını yazar.
+
+1. **Yeni, boş bir veritabanı aç.** Neon > projede **Databases** > **New database**, sonra **Connect** (havuz kapalı) ile adresini al. Canlı veritabanının üstüne yükleme yapılamaz; iş, hedefte tablo görürse durur. (Branch açma: branch mevcut verinin kopyasıdır, boş değildir.)
+2. GitHub > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**: `RESTORE_DATABASE_URL` = 1. adımdaki adres. (`BACKUP_PASSPHRASE` zaten tanımlı.)
+3. Actions > **Veritabanı yedeği** > istenen günün çalışmasını aç; adres çubuğundaki `/runs/<numara>` kısmındaki numarayı kopyala.
+4. Actions > **Veritabanı geri yükleme** > **Run workflow**: `run_id` = 3. adımdaki numara, onay kutusuna `GERI YUKLE` yaz.
+5. İş bitince çalışmanın **Summary** sayfasında tablo başına satır sayıları görünür. Sayılar beklendiği gibiyse (ör. `Users`, `Families`, `Days`, `StudyEntries` dolu):
+   - Render > **Environment** > `ConnectionStrings__Default`'u yeni veritabanının adresine çevir.
+   - Render servisi de yeniden kurulduysa `PersonalData__Key`, `DataProtection__KeyEncryptionKey`, `Jwt__Key` ve `WebPush__Key`'i parola yöneticisindeki değerlerle değiştir (Bölüm 3.3, 8. adım). En az `PersonalData__Key` aynı olmalı: yedekteki e-posta adresleri onunla şifreli.
+6. Uygulamada giriş yapıp verileri kontrol et. Sonra `RESTORE_DATABASE_URL` secret'ını sil.
+
+İş başarısız olursa hedef veritabanı boş kalır; nedeni çalışmanın günlüğünde yazar (yanlış parola, hedef boş değil, yedek bulunamadı).
