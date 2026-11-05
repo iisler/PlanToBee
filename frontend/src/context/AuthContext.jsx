@@ -98,8 +98,9 @@ export function AuthProvider({ children }) {
   }
 
   // Kayıt oturum açmaz: cevap, hesap zaten var olsa da aynıdır ("e-postana bağlantı gönderdik").
-  async function register(email, password, displayName) {
-    const res = await client.post('/auth/register', { email, password, displayName });
+  // acceptKvkk / acceptTerms: kayıt formundaki onay kutuları; sunucu ikisi true değilse kaydı reddeder.
+  async function register(email, password, displayName, { acceptKvkk, acceptTerms }) {
+    const res = await client.post('/auth/register', { email, password, displayName, acceptKvkk, acceptTerms });
     return res.data;
   }
 

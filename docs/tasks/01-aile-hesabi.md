@@ -413,7 +413,7 @@ Kısaltmalar: 🔓 anonim, 🔑 oturum gerekir, ✅ oturum ve doğrulanmış e-p
 
 | Metot ve yol | Yetki | İstek | Cevap 200 | Hatalar |
 |---|---|---|---|---|
-| `POST /api/auth/register` | 🔓 | `{ email, password, displayName }` (`username` de kabul edilir) | `AuthResponse` (`emailVerified:false`). Doğrulama e-postası gider. | 400 `validation` (şifre en az 6 karakter, yinelenen e-posta, ad boş) |
+| `POST /api/auth/register` | 🔓 | `{ email, password, displayName, acceptKvkk, acceptTerms }` (`username` de kabul edilir; iki onay da `true` olmalı, hesaba `IsKvkkChecked`/`IsTermsAccepted` = 1 ve `ConsentsAcceptedAt` yazılır) | `AuthResponse` (`emailVerified:false`). Doğrulama e-postası gider. | 400 `validation` (şifre en az 6 karakter, yinelenen e-posta, ad boş), 400 `consent_required` (onay kutularından biri işaretsiz) |
 | `POST /api/auth/login` | 🔓 | `{ email, password }` | `AuthResponse`. Doğrulanmamış kullanıcı da token alır. | 401 `invalid_credentials`, 429 `locked_out` |
 | `GET /api/auth/me` | 🔑 | - | `{ userId, email, displayName, emailVerified, family: FamilySummary\|null }` | 401 |
 | `POST /api/auth/verify-email` | 🔓 | `{ userId, token }` (bağlantıdaki değerler olduğu gibi) | `{ message, alreadyVerified }` | 400 `verify_invalid` (token 2 gün geçerli) |

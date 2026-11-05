@@ -36,12 +36,19 @@ public class AuthController(
     {
         var displayName = (dto.DisplayName ?? dto.Username ?? "").Trim();
         if (displayName.Length == 0) return Err.BadRequest("validation", "Adını girin.");
+        // Hesabın var olup olmadığından önce bakılır: eksik onay her adreste aynı hatayı verir.
+        if (!dto.AcceptKvkk || !dto.AcceptTerms)
+            return Err.BadRequest("consent_required", "Kayıt olmak için Aydınlatma Metni'ni okuduğunu onaylamalı ve Kullanım Koşulları'nı kabul etmelisin.");
         var email = dto.Email.Trim();
         var accepted = new RegisterAcceptedDto(
             "Kaydını tamamlamak için e-posta adresine bir bağlantı gönderdik. Bağlantıyı açtıktan sonra giriş yapabilirsin. " +
             "E-posta birkaç dakika içinde gelmezse gereksiz (spam) klasörüne bak.", email);
 
-        var user = new User { UserName = email, Email = email, DisplayName = displayName, EmailConfirmed = false };
+        var user = new User
+        {
+            UserName = email, Email = email, DisplayName = displayName, EmailConfirmed = false,
+            IsKvkkChecked = true, IsTermsAccepted = true, ConsentsAcceptedAt = DateTime.UtcNow,
+        };
         var passwordErrors = new List<IdentityError>();
         foreach (var validator in userManager.PasswordValidators)
         {
@@ -177,7 +184,8 @@ public class AuthController(
         if (user == null) return Unauthorized();
         int? memberId = int.TryParse(User.FindFirst(AuthClaims.Member)?.Value, out var mid) ? mid : null;
         return Ok(new MeDto(user.Id, user.Email!, user.DisplayName, user.EmailConfirmed,
-            await tokens.GetFamilySummary(user.Id), await tokens.GetProfileSummary(user.Id, memberId)));
+            await tokens.GetFamilySummary(user.Id), await tokens.GetProfileSummary(user.Id, memberId),
+            user.IsKvkkChecked, user.IsTermsAccepted));
     }
 
     // Doğrulama bağlantısındaki userId ve token ile e-postayı doğrular. Oturum gerekmez.

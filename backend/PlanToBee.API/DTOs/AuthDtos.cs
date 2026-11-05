@@ -7,7 +7,10 @@ public record RegisterDto(
     [Required(ErrorMessage = "E-posta girin"), EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi girin"), StringLength(256)] string Email,
     [Required(ErrorMessage = "Şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string Password,
     [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? DisplayName,
-    [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? Username);
+    [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? Username,
+    // Kayıt formundaki onay kutuları: ikisi de true değilse kayıt reddedilir (consent_required).
+    bool AcceptKvkk = false,
+    bool AcceptTerms = false);
 
 public record LoginDto(
     [Required(ErrorMessage = "E-posta girin")] string Email,
@@ -51,7 +54,8 @@ public record AuthResponseDto(
     FamilySummaryDto? Family,
     ProfileSummaryDto? Profile);
 
-public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family, ProfileSummaryDto? Profile);
+public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family, ProfileSummaryDto? Profile,
+    bool IsKvkkChecked, bool IsTermsAccepted);
 
 // Kayıt cevabı hesap zaten var olsa da aynıdır (hesap varlığı belli olmaz); oturum açılmaz.
 public record RegisterAcceptedDto(string Message, string Email);
