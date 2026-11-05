@@ -42,6 +42,8 @@ jobs:
       ConnectionStrings__Default: Host=localhost;Database=plantobee_e2e;Username=postgres;Password=postgres
       Email__OutputDirectory: /tmp/plantobee-emails
       RateLimits__Auth: "1000"
+      RateLimits__Pin: "1000"
+      RateLimits__Api: "100000"
       WebPush__TestEndpointHosts__0: localhost
       WebPush__BatchSeconds: "2"
       Auth__EmailCode__MinIntervalSeconds: "0"
@@ -52,6 +54,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Geçici anahtarları üret
+        run: |
+          # Bu çalışmaya özel, atılacak anahtarlar (EF araçları da uygulamayı başlattığı için en başta).
+          echo "Jwt__Key=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+          echo "WebPush__Key=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
 
       - name: Derle
         run: |
@@ -65,12 +73,6 @@ jobs:
 
       - name: Web Push şifreleme testi
         run: dotnet run --project backend/tests/WebPushSelfTest --no-build
-
-      - name: Geçici anahtarları üret
-        run: |
-          # Bu çalışmaya özel, atılacak anahtarlar.
-          echo "Jwt__Key=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
-          echo "WebPush__Key=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
 
       - name: Uçtan uca senaryo
         run: |
