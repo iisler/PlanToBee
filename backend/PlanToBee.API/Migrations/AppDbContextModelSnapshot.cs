@@ -797,6 +797,9 @@ namespace PlanToBee.API.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ConsentsAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -807,6 +810,12 @@ namespace PlanToBee.API.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsKvkkChecked")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsTermsAccepted")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("LockoutEnabled")
