@@ -38,6 +38,9 @@ public class NotificationSignal
 // Toplama: alıcı + kaydı giren kişi için son bildirimden bu yana BatchSeconds geçtiyse yeni giriş hemen gider;
 // geçmediyse bekler ve süre dolunca o arada gelenler tek bildirim olur. Son gönderim zamanı bellekte tutulur
 // (sunucu yeniden başlarsa ilk giriş yine hemen gider).
+// Bekleme: kuyruk düzenli aralıkla sorgulanmaz. Dağıtıcı yalnızca kuyruğa yeni olay yazılınca (sinyal) ya da bekleyen
+// bir bildirimin vakti gelince (toplama süresi sonu, sessiz saat sonu) uyanır. Böylece trafik yokken veritabanına
+// hiç gidilmez ve Neon uyuyabilir. Kuyruğa yalnızca NotificationService yazar ve her yazışta sinyal verir.
 public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSignal signal, IOptions<WebPushOptions> options,
     ILogger<NotificationDispatcher> logger) : BackgroundService
 {
@@ -46,17 +49,36 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Value.Enabled) return;
-        var interval = TimeSpan.FromSeconds(Math.Clamp(options.Value.BatchSeconds / 3.0, 1, 15));
         while (!stoppingToken.IsCancellationRequested)
         {
-            try { await FlushAsync(DateTime.UtcNow, stoppingToken); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "Bildirim kuyruğu işlenemedi"); }
-            try { await signal.WaitAsync(interval, stoppingToken); }
+            DateTime? next;
+            try { next = await FlushAsync(DateTime.UtcNow, stoppingToken); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Bildirim kuyruğu işlenemedi");
+                next = DateTime.UtcNow + RetryDelay;
+            }
+            try { await signal.WaitAsync(WaitTime(next, DateTime.UtcNow), stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
     }
 
-    public async Task FlushAsync(DateTime now, CancellationToken ct)
+    // Hata sonrası (ör. veritabanına ulaşılamadı) yeniden deneme aralığı.
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(15);
+    // Bekleyen iş yokken en uzun uyku. Kuyruk sinyalle uyandırır; bu yalnızca bir güvenlik ağıdır ve
+    // SemaphoreSlim'in üst sınırının (yaklaşık 24 gün) altında kalır.
+    private static readonly TimeSpan MaxWait = TimeSpan.FromHours(24);
+
+    public static TimeSpan WaitTime(DateTime? next, DateTime now)
+    {
+        if (next == null) return MaxWait;
+        var wait = next.Value - now;
+        return wait <= TimeSpan.Zero ? TimeSpan.Zero : wait < MaxWait ? wait : MaxWait;
+    }
+
+    // Gönderilebilecekleri gönderir. Döner: kuyrukta kalan ilk işin vakti (toplama süresi ya da sessiz saat sonu);
+    // bekleyen iş yoksa null.
+    public async Task<DateTime?> FlushAsync(DateTime now, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -70,6 +92,8 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         var pending = await db.PendingNotifications.Where(p => p.HoldUntil == null || p.HoldUntil <= now).ToListAsync(ct);
 
         var messages = new List<(int Recipient, PushMessage Message, List<PendingNotification> Rows)>();
+        DateTime? next = null;
+        void Later(DateTime at) { if (next == null || at < next) next = at; }
         // Değişiklik ve silme her zaman beklemeden, tek tek gider (toplanmaz, toplama süresini de etkilemez).
         foreach (var row in pending.Where(p => p.HoldUntil == null && IsInstant(p.Category)))
             messages.Add((row.RecipientMemberId, Compose([row], app, held: false), [row]));
@@ -78,7 +102,7 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         {
             var rows = g.ToList();
             var hasLast = _lastSent.TryGetValue(g.Key, out var last);
-            if (hasLast && now - last < window) continue;
+            if (hasLast && now - last < window) { Later(last + window); continue; }
             // Devam bildirimi ("3 kayıt daha"): girişler önceki bildirimin toplama süresi içinde geldiyse.
             // Süre dolduktan sonra gelen giriş yeni bir başlangıçtır.
             var followUp = hasLast && rows.Min(r => r.CreatedAt) - last < window;
@@ -93,7 +117,10 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
         }
         // Süresi dolmuş ve bu turda yenilenmemiş kayıtlar: bellekte birikmesin.
         foreach (var key in _lastSent.Where(x => now - x.Value >= window).Select(x => x.Key).ToList()) _lastSent.Remove(key);
-        if (messages.Count == 0) return;
+        // Sessiz saatte bekleyen (vadesi gelmemiş) satırlar: en erken vakit. Yalnızca dağıtıcı uyandığında sorgulanır.
+        var held = await db.PendingNotifications.Where(p => p.HoldUntil > now).MinAsync(p => p.HoldUntil, ct);
+        if (held != null) Later(held.Value);
+        if (messages.Count == 0) return next;
 
         // Önce kuyruktan sil (aynı bildirim iki kez gitmesin), sonra gönder.
         db.PendingNotifications.RemoveRange(messages.SelectMany(m => m.Rows));
@@ -103,10 +130,11 @@ public class NotificationDispatcher(IServiceScopeFactory scopes, NotificationSig
             // Satırların bir kısmı bu arada silindi (ör. hesap silindi, aile ve kuyruğu gitti). Silme işlemi
             // bütün halinde geri alınır, bu turda hiçbir şey gönderilmez; sonraki tur kalan satırları yeniden okur.
             logger.LogInformation("Bildirim kuyruğu bu sırada değişti; tur yeniden denenecek.");
-            return;
+            return now + TimeSpan.FromSeconds(1);
         }
         foreach (var (recipient, message, _) in messages)
             await sender.SendToMemberAsync(recipient, message, ct);
+        return next;
     }
 
     private static bool IsInstant(NotificationCategory c) => c is NotificationCategory.Changed or NotificationCategory.Deleted;

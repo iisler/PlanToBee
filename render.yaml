@@ -12,7 +12,10 @@ services:
     autoDeploy: true
     dockerfilePath: ./backend/PlanToBee.API/Dockerfile
     dockerContext: ./backend/PlanToBee.API
-    healthCheckPath: /health
+    # /health/live veritabanına dokunmaz. /health kullanılırsa Render'ın sürekli kontrolü Neon'u hiç uyutmaz ve
+    # Neon ücretsiz planının aylık işlem süresi biter. Veritabanı durumu için /health elle açılabilir.
+    # (API de boşta veritabanına gitmez: bildirim dağıtıcısı yalnızca yeni bildirimde ya da vakti gelince uyanır.)
+    healthCheckPath: /health/live
     envVars:
       # Neon > Connect (havuz kapalı) adresi: postgresql://...
       - key: ConnectionStrings__Default

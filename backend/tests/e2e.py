@@ -1235,6 +1235,9 @@ def test_account_delete():
     ot = o_own["token"]
     s, oe = req("POST", f"/days/{day}/entries", {"subject": "Tarih", "minutes": 40}, ot)
     s, o_before = req("GET", f"/days/{day}", token=ot)
+    # İlk istek varsayılan ders listesini oluşturur; o cevaptaki createdAt bellekteki saattir (Linux'ta 100 ns),
+    # sonrakiler veritabanından (mikrosaniye) okunur. Karşılaştırma için liste önce oluşturulur.
+    req("GET", "/subjects", token=ot)
     s, o_subj_before = req("GET", "/subjects", token=ot)
     s, o_me = req("GET", "/auth/me", token=ot)
     other_rows_before = account_rows(o_me["userId"], o_own["family"]["id"], [o_own["profile"]["id"]], [oe["id"]], [])

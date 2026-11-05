@@ -1,0 +1,104 @@
+# Yedekten geri yükleme: "Veritabanı yedeği" çalışmasının şifreli yedeğini çözer ve BOŞ bir veritabanına yükler.
+# Yalnızca elle çalışır (Actions > Veritabanı geri yükleme > Run workflow). Ayrıntılar: docs/DEPLOY.md Bölüm 9.2.
+#
+# Gerekenler:
+#   - Secrets: BACKUP_PASSPHRASE (yedekle aynı) ve RESTORE_DATABASE_URL (hedef: yeni, boş veritabanının adresi)
+#
+# Güvenlik:
+#   - Hedefte public şemada tablo varsa iş durur; canlı veritabanının üstüne yazılamaz.
+#   - Yükleme tek işlemdir (--single-transaction --exit-on-error): bir hata olursa hiçbir şey yazılmaz, yarım veritabanı kalmaz.
+#   - Yedeği alan imajla aynı imaj kullanılır (pg_restore sürümü arşivle uyumlu).
+name: Veritabanı geri yükleme
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Yedeği alan 'Veritabanı yedeği' çalışmasının numarası (çalışma adresindeki /runs/<numara>)"
+        required: true
+      confirm:
+        description: 'Onay için GERI YUKLE yaz'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: db-restore
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TARGET_URL: ${{ secrets.RESTORE_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      # db-backup.yml ile aynı olmalı.
+      PG_IMAGE: postgres:18.6@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+    steps:
+      - name: Girdileri ve gizlileri kontrol et
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "GERI YUKLE" ]; then echo "::error::Onay metni yanlış."; exit 1; fi
+          case "$RUN_ID" in ''|*[!0-9]*) echo "::error::run_id yalnızca rakam olmalı."; exit 1;; esac
+          if [ -z "$TARGET_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::RESTORE_DATABASE_URL ya da BACKUP_PASSPHRASE tanımlı değil (docs/DEPLOY.md 9.2)."
+            exit 1
+          fi
+
+      - name: Yedeği indir
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          pattern: plantobee-*
+          path: backup
+
+      - name: Hedefin boş olduğunu kontrol et
+        run: |
+          set -euo pipefail
+          tables=$(docker run -i --rm -e TARGET_URL "$PG_IMAGE" sh -c 'psql "$TARGET_URL" -v ON_ERROR_STOP=1 -tA -f -' <<'SQL'
+          select count(*) from pg_tables where schemaname = 'public';
+          SQL
+          )
+          if [ "$tables" != "0" ]; then
+            echo "::error::Hedef veritabanı boş değil ($tables tablo). Yeni, boş bir veritabanı aç (docs/DEPLOY.md 9.2)."
+            exit 1
+          fi
+
+      - name: Şifreyi çöz ve yükle
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find backup -name 'plantobee-*.dump.gpg')
+          if [ "${#files[@]}" -ne 1 ]; then echo "::error::Çalışmada tam bir yedek dosyası bekleniyordu (${#files[@]} bulundu)."; exit 1; fi
+          echo "Yedek: $(basename "${files[0]}")" >> "$GITHUB_STEP_SUMMARY"
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d "${files[0]}" 3< <(printf '%s' "$BACKUP_PASSPHRASE") \
+            | docker run -i --rm -e TARGET_URL "$PG_IMAGE" \
+                sh -c 'pg_restore --no-owner --no-acl --single-transaction --exit-on-error -d "$TARGET_URL"'
+
+      - name: Satır sayılarını yaz
+        run: |
+          set -euo pipefail
+          docker run -i --rm -e TARGET_URL "$PG_IMAGE" sh -c 'psql "$TARGET_URL" -v ON_ERROR_STOP=1 -tA -F " | " -f -' > counts.txt <<'SQL'
+          select table_name,
+                 (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text
+          from information_schema.tables
+          where table_schema = 'public' and table_type = 'BASE TABLE'
+          order by table_name;
+          SQL
+          {
+            echo ""
+            echo "| Tablo | Satır |"
+            echo "|---|---|"
+            sed 's/^/| /; s/$/ |/' counts.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+          migrations=$(awk -F' [|] ' '$1 == "__EFMigrationsHistory" { print $2 }' counts.txt)
+          if [ -z "$migrations" ] || [ "$migrations" = "0" ]; then
+            echo "::error::Geri yüklenen veritabanında migration kaydı yok; yedek beklenen veritabanına ait değil."
+            exit 1
+          fi
+          echo "Geri yükleme tamamlandı: $(wc -l < counts.txt) tablo. Satır sayılarını kontrol et, sonra Render'ı bu veritabanına çevir." >> "$GITHUB_STEP_SUMMARY"
