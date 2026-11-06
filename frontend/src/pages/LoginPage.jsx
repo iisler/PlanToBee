@@ -8,9 +8,7 @@ import useSlow from '../hooks/useSlow';
 import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
 import PasswordInput from '../components/PasswordInput';
-
-// KVKK ve kullanım koşulları: girişsiz açılan statik sayfalar (public/legal/)
-const LEGAL = `${import.meta.env.BASE_URL}legal/`;
+import LegalSheet from '../components/LegalSheet';
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
@@ -26,6 +24,8 @@ export default function LoginPage() {
   const [resendInfo, setResendInfo] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptKvkk, setAcceptKvkk] = useState(false);
+  // Açık yasal metin: 'kvkk' | 'terms' | null. Kutular yalnızca metnin sonundaki düğmeyle işaretlenir.
+  const [legalDoc, setLegalDoc] = useState(null);
   // Giriş kodu adımı: { challengeId, emailHint, resendAfter }. Şifre doğru girilince e-postaya 6 haneli kod gider.
   const [codeStep, setCodeStep] = useState(null);
   const [code, setCode] = useState('');
@@ -52,6 +52,18 @@ export default function LoginPage() {
   }, [cooldown]);
 
   const set = (k) => (e) => { setDeletedInfo(false); setForm((f) => ({ ...f, [k]: e.target.value })); };
+
+  // İşaretlemek için metin açılır; işareti kaldırmak doğrudan olur.
+  function onConsentChange(doc, checked) {
+    setError('');
+    if (checked) setLegalDoc(doc);
+    else (doc === 'kvkk' ? setAcceptKvkk : setAcceptTerms)(false);
+  }
+
+  function openLegal(e, doc) {
+    e.preventDefault();  // etiketin kutuyu değiştirmesini engeller
+    setLegalDoc(doc);
+  }
 
   function switchMode(m) {
     setMode(m);
@@ -203,10 +215,6 @@ export default function LoginPage() {
               <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
             </div>
           )}
-          <div className="legal-links">
-            <a href={`${LEGAL}aydinlatma.html`}>Aydınlatma Metni ve Gizlilik</a>
-            <a href={`${LEGAL}kosullar.html`}>Kullanım Koşulları</a>
-          </div>
         </>
       )}
     >
@@ -233,14 +241,15 @@ export default function LoginPage() {
         />
         {mode === 'register' && (
           <>
-            {/* Aydınlatma bir bilgilendirmedir, açık rıza değildir (KVKK m.10): kutu yalnızca okunduğunu kaydeder. */}
+            {/* Aydınlatma bir bilgilendirmedir, açık rıza değildir (KVKK m.10): kutu yalnızca okunduğunu kaydeder.
+                İşaretsiz kutuya dokunmak metni açar; kutu metnin sonundaki düğmeyle işaretlenir. İşaretliyken dokunmak kaldırır. */}
             <label className="terms-check">
-              <input type="checkbox" checked={acceptKvkk} onChange={(e) => { setAcceptKvkk(e.target.checked); setError(''); }} required />
-              <span>Kişisel verilerimin işlenmesine ilişkin <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni</a>'ni okudum.</span>
+              <input type="checkbox" checked={acceptKvkk} onChange={(e) => onConsentChange('kvkk', e.target.checked)} required />
+              <span>Kişisel verilerimin işlenmesine ilişkin <button type="button" className="link-btn" onClick={(e) => openLegal(e, 'kvkk')}>Aydınlatma Metni</button>'ni okudum.</span>
             </label>
             <label className="terms-check">
-              <input type="checkbox" checked={acceptTerms} onChange={(e) => { setAcceptTerms(e.target.checked); setError(''); }} required />
-              <span>18 yaşını doldurdum ve <a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
+              <input type="checkbox" checked={acceptTerms} onChange={(e) => onConsentChange('terms', e.target.checked)} required />
+              <span>18 yaşını doldurdum ve <button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
             </label>
           </>
         )}
@@ -251,6 +260,10 @@ export default function LoginPage() {
         {slow && <Loading />}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}
       </form>
+      {legalDoc && (
+        <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)}
+          onAccept={() => { (legalDoc === 'kvkk' ? setAcceptKvkk : setAcceptTerms)(true); setError(''); }} />
+      )}
     </AuthLayout>
   );
 }
