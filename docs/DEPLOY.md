@@ -514,6 +514,33 @@ DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_SeriesImportId';
   ve Türkçe dil verisi (~2 MB) indirilir. Yeni ortam değişkeni yok. İsteğe bağlı: `RateLimits__Import` (kullanıcı başına
   dakikada toplu yükleme, varsayılan 10).
 
+### 6.7 Geri dönüş: "KVKK ve Kullanım Koşulları onayı" sürümünden önceki sürüme
+
+Kayıt formuna "Aydınlatma Metni'ni okudum" kutusu eklenir; `Users` tablosuna `IsKvkkChecked` ve `IsTermsAccepted`
+(`integer`, **1 = onaylandı, 0 = onay yok**, yalnızca 0/1 kabul eden CHECK kısıtıyla) ve boş bırakılabilir
+`ConsentsAcceptedAt` (`timestamptz`) sütunları gelir (`LegalConsents` migration'ı). Yeni kayıtta ikisi 1, zaman damgası
+kayıt anıdır. Mevcut hesaplar 0 ve boş kalır (o zaman Aydınlatma için işaretlenmiş bir kutu yoktu).
+
+Yayından önceki `main`: `43e97f2`. Eski sürüm sütunları bilmez:
+eklerken yazmaz (varsayılan 0 kalır), okurken seçmez. Geri dönüşte veritabanında bir şey yapmak gerekmez:
+
+```bash
+git revert --no-edit -m 1 $(git log main --merges --format=%H -1 --grep "claude/eloquent-johnson-n0l18s")
+git push origin main
+```
+
+Sütunları kaldırmak gerekirse (onay kayıtları kaybolur) Neon > SQL Editor:
+
+```sql
+ALTER TABLE "Users" DROP CONSTRAINT "CK_Users_IsKvkkChecked", DROP CONSTRAINT "CK_Users_IsTermsAccepted";
+ALTER TABLE "Users" DROP COLUMN "IsKvkkChecked", DROP COLUMN "IsTermsAccepted", DROP COLUMN "ConsentsAcceptedAt";
+DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '%_LegalConsents';
+```
+
+- API sitenin yenisinden önce yayına çıkarsa eski site onayları göndermez ve kayıt `consent_required` hatası alır;
+  site yayınlanınca (ya da açık sayfa yenilenince) düzelir. Giriş ve diğer işlemler etkilenmez.
+- Onaylı hesapları görmek için: `SELECT COUNT(*) FROM "Users" WHERE "IsKvkkChecked" = 1 AND "IsTermsAccepted" = 1;`
+
 ---
 
 ## 7. Yerel geliştirme (değişmedi)

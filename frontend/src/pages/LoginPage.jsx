@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptKvkk, setAcceptKvkk] = useState(false);
   // Giriş kodu adımı: { challengeId, emailHint, resendAfter }. Şifre doğru girilince e-postaya 6 haneli kod gider.
   const [codeStep, setCodeStep] = useState(null);
   const [code, setCode] = useState('');
@@ -56,6 +57,7 @@ export default function LoginPage() {
     setMode(m);
     setDeletedInfo(false);
     setAcceptTerms(false);
+    setAcceptKvkk(false);
     setError('');
     setRegistered(null);
     setResendInfo('');
@@ -77,8 +79,12 @@ export default function LoginPage() {
           setLoading(false);
         }
       } else {
-        if (!acceptTerms) { setError('Kayıt olmak için 18 yaşını doldurduğunu onaylayıp Kullanım Koşulları\'nı kabul etmelisin.'); setLoading(false); return; }
-        const data = await register(form.email.trim(), form.password, form.displayName.trim());
+        if (!acceptKvkk || !acceptTerms) {
+          setError('Kayıt olmak için Aydınlatma Metni\'ni okuduğunu onaylamalı ve Kullanım Koşulları\'nı kabul etmelisin.');
+          setLoading(false);
+          return;
+        }
+        const data = await register(form.email.trim(), form.password, form.displayName.trim(), { acceptKvkk, acceptTerms });
         setRegistered({ email: data.email || form.email.trim(), message: data.message });
         setLoading(false);
       }
@@ -227,12 +233,15 @@ export default function LoginPage() {
         />
         {mode === 'register' && (
           <>
+            {/* Aydınlatma bir bilgilendirmedir, açık rıza değildir (KVKK m.10): kutu yalnızca okunduğunu kaydeder. */}
+            <label className="terms-check">
+              <input type="checkbox" checked={acceptKvkk} onChange={(e) => { setAcceptKvkk(e.target.checked); setError(''); }} required />
+              <span>Kişisel verilerimin işlenmesine ilişkin <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni</a>'ni okudum.</span>
+            </label>
             <label className="terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => { setAcceptTerms(e.target.checked); setError(''); }} required />
               <span>18 yaşını doldurdum ve <a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
             </label>
-            {/* Aydınlatma bir bilgilendirmedir, onay kutusu değildir (KVKK m.10) */}
-            <div className="auth-hint">Kişisel verilerin <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni</a>'ne uygun işlenir.</div>
           </>
         )}
         {error && <div className="auth-error" role="alert">{error}</div>}

@@ -112,13 +112,17 @@ def login_req(body):
     return s, b
 
 
+# Kayıt formundaki onay kutuları (Aydınlatma Metni okundu, Kullanım Koşulları kabul). İkisi de zorunlu.
+CONSENT = {"acceptKvkk": True, "acceptTerms": True}
+
+
 def new_email(tag):
     return f"e2e-{tag}-{uuid.uuid4().hex[:8]}@example.com"
 
 
 def register_and_verify(name, password="sifre123"):
     email = new_email(name.lower())
-    s, b = req("POST", "/auth/register", {"email": email, "password": password, "displayName": name})
+    s, b = req("POST", "/auth/register", {"email": email, "password": password, "displayName": name, **CONSENT})
     assert s == 200, (s, b)
     mail = wait_email(email, 1)[-1]
     p = link_params(mail, "verify-email")
@@ -144,7 +148,7 @@ def next_june15(d):
 def test_register_privacy():
     print("Kayıt: hesap varlığı belli olmuyor")
     email = new_email("reg")
-    s1, b1 = req("POST", "/auth/register", {"email": email, "password": "sifre123", "displayName": "Deneme"})
+    s1, b1 = req("POST", "/auth/register", {"email": email, "password": "sifre123", "displayName": "Deneme", **CONSENT})
     check("yeni adres 200", s1 == 200, (s1, b1))
     check("cevapta token yok", isinstance(b1, dict) and "token" not in b1, b1)
     mails = wait_email(email, 1)
@@ -152,13 +156,13 @@ def test_register_privacy():
 
     # Aynı adres, doğrulanmamış: aynı cevap, doğrulama e-postası yeniden gider (60 sn sınırı yüzünden
     # hemen gitmeyebilir; bu yüzden yalnızca cevap karşılaştırılır).
-    s2, b2 = req("POST", "/auth/register", {"email": email, "password": "baskaSifre1", "displayName": "Başka"})
+    s2, b2 = req("POST", "/auth/register", {"email": email, "password": "baskaSifre1", "displayName": "Başka", **CONSENT})
     check("doğrulanmamış adres: aynı durum kodu ve gövde", (s2, b2) == (s1, b1), (s2, b2))
 
     # Doğrulanmış adres: aynı cevap, sahibine "zaten hesabın var" e-postası gider.
     p = link_params(mails[-1], "verify-email")
     req("POST", "/auth/verify-email", {"userId": p["userId"], "token": p["token"]})
-    s3, b3 = req("POST", "/auth/register", {"email": email, "password": "baskaSifre1", "displayName": "Başka"})
+    s3, b3 = req("POST", "/auth/register", {"email": email, "password": "baskaSifre1", "displayName": "Başka", **CONSENT})
     check("doğrulanmış adres: aynı durum kodu ve gövde", (s3, b3) == (s1, b1), (s3, b3))
     mails = wait_email(email, 2)
     check("sahibine 'zaten hesabın var' e-postası", len(mails) == 2 and "zaten bir hesabın var" in mails[-1], len(mails))
@@ -167,9 +171,23 @@ def test_register_privacy():
     s, _ = login_req({"email": email, "password": "sifre123"})
     check("ilk şifreyle giriş", s == 200, s)
 
+    # Onay kutuları zorunlu: eksikse kayıtlı ve yeni adreste aynı hata
+    plain = {"password": "sifre123", "displayName": "X"}
+    for name, extra in [("onaysız", {}), ("yalnızca KVKK", {"acceptKvkk": True}), ("yalnızca koşullar", {"acceptTerms": True})]:
+        sa, ba = req("POST", "/auth/register", {"email": email, **plain, **extra})
+        sb, bb = req("POST", "/auth/register", {"email": new_email("noconsent"), **plain, **extra})
+        check(f"{name}: 400 consent_required, iki adreste aynı",
+              sa == sb == 400 and ba == bb and isinstance(ba, dict) and ba.get("code") == "consent_required", (sa, ba, sb, bb))
+
+    # Kayıtta işaretlenen onaylar hesaba true olarak yazılır
+    s, b = login_req({"email": email, "password": "sifre123"})
+    s, me = req("GET", "/auth/me", token=b.get("token") if isinstance(b, dict) else None)
+    check("me: isKvkkChecked ve isTermsAccepted true",
+          s == 200 and me.get("isKvkkChecked") is True and me.get("isTermsAccepted") is True, (s, me))
+
     # Şifre kuralı hatası iki durumda da aynı
-    s4, b4 = req("POST", "/auth/register", {"email": email, "password": "123", "displayName": "X"})
-    s5, b5 = req("POST", "/auth/register", {"email": new_email("short"), "password": "123", "displayName": "X"})
+    s4, b4 = req("POST", "/auth/register", {"email": email, "password": "123", "displayName": "X", **CONSENT})
+    s5, b5 = req("POST", "/auth/register", {"email": new_email("short"), "password": "123", "displayName": "X", **CONSENT})
     check("kısa şifre: kayıtlı ve yeni adreste aynı hata", s4 == s5 == 400 and b4 == b5, (s4, b4, s5, b5))
 
 
@@ -251,7 +269,7 @@ def test_login_code():
 
     # E-postası doğrulanmamış hesap kodsuz girer (hiçbir plan verisine erişemez)
     un = new_email("dogrulanmamis")
-    req("POST", "/auth/register", {"email": un, "password": "sifre123", "displayName": "Dogrulanmamis"})
+    req("POST", "/auth/register", {"email": un, "password": "sifre123", "displayName": "Dogrulanmamis", **CONSENT})
     s, b = req("POST", "/auth/login", {"email": un, "password": "sifre123"})
     check("doğrulanmamış hesap: doğrudan oturum", s == 200 and b.get("token") and not b.get("twoFactorRequired"), (s, b))
 
@@ -1393,7 +1411,7 @@ def test_account_delete():
 
     # Aynı e-postayla yeniden kayıt: yeni, boş hesap
     before = len(emails_to(email))
-    s, b = req("POST", "/auth/register", {"email": email, "password": "yeniSifre7", "displayName": "Yeni"})
+    s, b = req("POST", "/auth/register", {"email": email, "password": "yeniSifre7", "displayName": "Yeni", **CONSENT})
     check("aynı e-postayla yeniden kayıt 200", s == 200, (s, b))
     mails = wait_email(email, before + 1)
     p = link_params(mails[-1], "verify-email") if len(mails) > before else None
@@ -1419,7 +1437,7 @@ def test_account_delete():
     s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, solo["token"])
     check("ailesi olmayan hesap siler", s == 204, (s, b))
     u_email = new_email("dogrulanmamis")
-    req("POST", "/auth/register", {"email": u_email, "password": "sifre123", "displayName": "Doğrulanmamış"})
+    req("POST", "/auth/register", {"email": u_email, "password": "sifre123", "displayName": "Doğrulanmamış", **CONSENT})
     s, ua = login_req({"email": u_email, "password": "sifre123"})
     s, b = req("POST", "/account/delete", {"password": "sifre123", "confirm": "SİL"}, ua["token"])
     check("e-postası doğrulanmamış hesap siler", s == 204, (s, b))

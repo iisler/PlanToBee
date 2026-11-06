@@ -11,8 +11,9 @@ PlanToBee'yi bireysel geliştirici olarak **İlker İşler** işletir. İletişi
 
 ## 2. Hangi verileri, neden işliyoruz?
 
-- **Hesap:** E-posta adresin, adın ve şifren (yalnızca geri çevrilemez özeti). Hesabını açmak, giriş yapmanı sağlamak,
-  doğrulama, giriş kodu ve şifre sıfırlama e-postalarını göndermek için.
+- **Hesap:** E-posta adresin, adın, şifren (yalnızca geri çevrilemez özeti) ve kayıtta bu metni okuduğunu ve
+  Kullanım Koşulları'nı kabul ettiğini gösteren kayıt ile tarihi. Hesabını açmak, giriş yapmanı sağlamak, doğrulama,
+  giriş kodu ve şifre sıfırlama e-postalarını göndermek için.
 - **Aile planı:** Profil adları, dersler, aktiviteler ve notlar. Uygulamanın kendisi; ailenin planını sunmak ve
   profiller arasında paylaşmak için.
 - **Bildirimler:** İzin verirsen cihazının bildirim adresi ve bildirim tercihlerin. Bildirim göndermek için.
