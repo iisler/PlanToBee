@@ -240,7 +240,7 @@ export default function LoginPage() {
             </label>
             <label className="terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => { setAcceptTerms(e.target.checked); setError(''); }} required />
-              <span><a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
+              <span>18 yaşını doldurdum ve <a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
             </label>
           </>
         )}
