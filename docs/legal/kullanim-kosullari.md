@@ -2,8 +2,7 @@
 
 Sürüm 2 · Yürürlük tarihi: 06.11.2026
 
-<!-- YAYINDAN ÖNCE: [AD SOYAD] yerine geliştiricinin adı soyadı yazılır. -->
-PlanToBee uygulamasını ve web sitesini ("Hizmet") bireysel geliştirici olarak **[AD SOYAD]** sunar. Hesap oluşturarak
+PlanToBee uygulamasını ve web sitesini ("Hizmet") bireysel geliştirici olarak **İlker İşler** sunar. Hesap oluşturarak
 bu koşulları kabul etmiş olursun.
 
 ## 1. Hizmet

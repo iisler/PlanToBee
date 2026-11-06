@@ -7,8 +7,7 @@ kişisel verilerinin nasıl işlendiğini kısaca anlatır. Bu bir bilgilendirme
 
 ## 1. Veri sorumlusu
 
-<!-- YAYINDAN ÖNCE: [AD SOYAD] yerine geliştiricinin adı soyadı yazılır (App Store'da satıcı olarak görünen ad). -->
-PlanToBee'yi bireysel geliştirici olarak **[AD SOYAD]** işletir. İletişim: **plantobee.app@gmail.com**
+PlanToBee'yi bireysel geliştirici olarak **İlker İşler** işletir. İletişim: **plantobee.app@gmail.com**
 
 ## 2. Hangi verileri, neden işliyoruz?
 
