@@ -1,56 +1,51 @@
 # PlanToBee Kullanım Koşulları
 
-Sürüm 1 · Yürürlük tarihi: 17.10.2026
+Sürüm 2 · Yürürlük tarihi: 06.11.2026
 
-Bu koşullar, PlanToBee uygulamasının ve web sitesinin ("Hizmet") kullanımını düzenler. Hizmet, **PlanToBee uygulaması** tarafından sunulur. Hesap oluşturarak bu koşulları kabul etmiş olursun.
+<!-- YAYINDAN ÖNCE: [AD SOYAD] yerine geliştiricinin adı soyadı yazılır. -->
+PlanToBee uygulamasını ve web sitesini ("Hizmet") bireysel geliştirici olarak **[AD SOYAD]** sunar. Hesap oluşturarak
+bu koşulları kabul etmiş olursun.
 
 ## 1. Hizmet
 
-PlanToBee, ailelerin ve öğrencilerin haftalık ders çalışma planını ve aktivitelerini (spor, müzik, buluşma, sınav
-vb.) birlikte planlayıp takip etmesini sağlayan bir uygulamadır. Bir aile hesabı altında birden fazla profil
-oluşturulabilir; plan, ailedeki profiller arasında ortaktır.
+PlanToBee, ailelerin ve öğrencilerin haftalık ders planını ve aktivitelerini birlikte planlayıp takip etmesini
+sağlayan ücretsiz bir uygulamadır.
 
-## 2. Hesap ve sorumluluk
+## 2. Hesap
 
-- Hesabı açan kişi hesabın sahibidir. Aile hesabında hesap sahibi, ailenin planını yöneten ebeveyn ya da velidir.
-- Hesap sahibi, aile hesabına eklediği profillerin (çocuklar dahil) kullanımından ve girilen bilgilerden sorumludur.
-- Hesap şifreni ve ebeveyn profillerinin PIN'lerini gizli tutmak senin sorumluluğundadır. Hesabının yetkisiz
-  kullanıldığını düşünürsen şifreni değiştir ve bize bildir.
-- Hesap bilgilerinin doğru olmasından sen sorumlusun.
+- Hesabı 18 yaşını doldurmuş bir ebeveyn ya da veli açar.
+- Aile hesabına eklediğin profillerden (çocuklar dahil) ve girilen bilgilerden sen sorumlusun.
+- Şifreni ve PIN'lerini gizli tut. Hesabının izinsiz kullanıldığını düşünürsen şifreni değiştir ve bize yaz.
 
-## 3. Kabul edilemez kullanım
+## 3. Kurallar
 
-Hizmeti şu amaçlarla kullanamazsın:
-- Hukuka aykırı, başkalarının haklarını ihlal eden ya da zarar veren içerik girmek,
-- Başkasının hesabına izinsiz girmeye, hizmetin güvenliğini aşmaya ya da hizmeti aksatmaya çalışmak,
-- Hizmeti otomatik araçlarla aşırı yüklemek ya da kötüye kullanmak.
+Hukuka aykırı içerik giremez, başkasının hesabına girmeye ya da Hizmet'i aksatmaya çalışamazsın. Bu kurallara aykırı
+kullanımda hesap kapatılabilir.
 
-Bu koşullara aykırı kullanımda hesap askıya alınabilir ya da kapatılabilir.
+## 4. İçeriğin
 
-## 4. Hizmetin sunulması
+Girdiğin plan ve notlar senindir; yalnızca Hizmet'i sana sunmak için işlenir.
 
-- Hizmet "olduğu gibi" ve ücretsiz sunulur. Kesintisiz ya da hatasız çalışacağı garanti edilmez; bakım, güncelleme
-  ya da teknik sorunlar nedeniyle geçici olarak kullanılamayabilir.
-- Verilerinin güvenliği için makul teknik ve idari önlemler alınır (bkz. Aydınlatma Metni ve Gizlilik Politikası).
-  Yine de önemli planlarını gerektiğinde ayrıca not etmeni öneririz.
-- Yürürlükteki mevzuatın izin verdiği ölçüde, hizmetin kullanımından doğan dolaylı zararlardan sorumluluk kabul
-  edilmez.
+## 5. Sorumluluk
 
-## 5. Kişisel veriler
+Hizmet ücretsiz ve "olduğu gibi" sunulur; kesintisiz ya da hatasız çalışacağı garanti edilmez. Kast ve ağır ihmal
+halleri dışında, Hizmet'in kullanımından doğan dolaylı zararlardan sorumluluk kabul edilmez. Önemli planlarını
+ayrıca not etmeni öneririz.
 
-Kişisel verilerin, **Aydınlatma Metni ve Gizlilik Politikası**'nda anlatıldığı şekilde işlenir.
+## 6. Kişisel veriler
 
-## 6. Hesabın silinmesi
+Kişisel verilerin **Aydınlatma Metni ve Gizlilik Politikası**'nda anlatıldığı şekilde işlenir.
 
-Hesabını ve tüm verilerini istediğin zaman uygulama içinden silebilirsin: Ad menüsü › Ailem › Hesabı ve tüm verileri
-sil. Silme işlemi geri alınamaz.
+## 7. Hesabın silinmesi
 
-## 7. Değişiklikler
+Hesabını ve tüm verilerini istediğin zaman uygulamadan silebilirsin: Ad menüsü › Ailem › Hesabı ve tüm verileri sil.
+Hizmet sona erecekse önceden bilgilendirilirsin.
 
-Bu koşullar güncellenebilir. Önemli değişikliklerde uygulama içinde bilgilendirilirsin ve gerekirse yeniden onayın
-istenir. Güncel sürüm her zaman bu sayfada yayımlanır.
+## 8. Değişiklikler
 
-## 8. Uygulanacak hukuk ve iletişim
+Bu koşullar güncellenebilir; güncel sürüm bu sayfada yayımlanır. Önemli değişikliklerde e-postayla ya da uygulama
+içinde bilgilendirilirsin.
 
-Bu koşullara Türkiye Cumhuriyeti hukuku uygulanır. Sorularını ve bildirimlerini **plantobee.app@gmail.com**
-adresine gönderebilirsin.
+## 9. Uygulanacak hukuk ve iletişim
+
+Bu koşullara Türkiye Cumhuriyeti hukuku uygulanır. Sorularını **plantobee.app@gmail.com** adresine gönderebilirsin.

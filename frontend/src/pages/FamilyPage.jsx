@@ -8,6 +8,9 @@ import Loading from '../components/Loading';
 import PinInput from '../components/PinInput';
 import { initial, ROLE_LABEL } from '../utils/format';
 
+// Aydınlatma ve koşullar: statik sayfalar (public/legal/)
+const LEGAL = `${import.meta.env.BASE_URL}legal/`;
+
 const ROLES = ['Child', 'Parent'];
 
 // "Ailem": aile adı ve profiller. Profil ekleme, düzenleme ve silme yalnızca ebeveyn profilinden yapılır;
@@ -141,6 +144,12 @@ export default function FamilyPage({ family, reloadFamily, onProfileChanged, onD
         if (isParent && owner) return <div className="muted small-note owner-note">Hesabı yalnızca hesap sahibi ({owner.displayName}) silebilir.</div>;
         return null;
       })()}
+
+      {/* Apple 5.1.1: gizlilik metnine giriş yapmışken de uygulama içinden ulaşılır */}
+      <div className="legal-links">
+        <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni ve Gizlilik</a>
+        <a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>
+      </div>
 
       {removing && (
         <ConfirmDialog danger title="Profili sil" confirmLabel="Profili sil" busy={busy}

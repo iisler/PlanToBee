@@ -77,7 +77,7 @@ export default function LoginPage() {
           setLoading(false);
         }
       } else {
-        if (!acceptTerms) { setError('Kayıt olmak için Kullanım Koşulları\'nı kabul etmelisin.'); setLoading(false); return; }
+        if (!acceptTerms) { setError('Kayıt olmak için 18 yaşını doldurduğunu onaylayıp Kullanım Koşulları\'nı kabul etmelisin.'); setLoading(false); return; }
         const data = await register(form.email.trim(), form.password, form.displayName.trim());
         setRegistered({ email: data.email || form.email.trim(), message: data.message });
         setLoading(false);
@@ -229,7 +229,7 @@ export default function LoginPage() {
           <>
             <label className="terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => { setAcceptTerms(e.target.checked); setError(''); }} required />
-              <span><a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
+              <span>18 yaşını doldurdum ve <a href={`${LEGAL}kosullar.html`} target="_blank" rel="noopener">Kullanım Koşulları</a>'nı kabul ediyorum.</span>
             </label>
             {/* Aydınlatma bir bilgilendirmedir, onay kutusu değildir (KVKK m.10) */}
             <div className="auth-hint">Kişisel verilerin <a href={`${LEGAL}aydinlatma.html`} target="_blank" rel="noopener">Aydınlatma Metni</a>'ne uygun işlenir.</div>
