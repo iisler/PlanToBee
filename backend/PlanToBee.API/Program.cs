@@ -51,10 +51,14 @@ builder.Services.Configure<KeyManagementOptions>(o => o.XmlEncryptor = new AesGc
 
 builder.Services.AddIdentity<User, IdentityRole>(opt =>
 {
-    opt.Password.RequireDigit = false;
-    opt.Password.RequireUppercase = false;
-    opt.Password.RequireNonAlphanumeric = false;
-    opt.Password.RequiredLength = 6;
+    // Şifre politikası: en az 8 karakter; büyük harf, küçük harf, rakam ve özel karakter (ör. / * ! ?) zorunlu.
+    // Art arda aynı ya da ardışık karakterler (111, 123, abc) PasswordPatternValidator ile reddedilir.
+    // İstemcideki karşılığı: frontend/src/utils/passwordPolicy.js
+    opt.Password.RequiredLength = 8;
+    opt.Password.RequireUppercase = true;
+    opt.Password.RequireLowercase = true;
+    opt.Password.RequireDigit = true;
+    opt.Password.RequireNonAlphanumeric = true;
     opt.User.RequireUniqueEmail = true;
     // Yeni hesaplarda kullanıcı adı = e-posta (görünen ad ayrı DisplayName alanında).
     // Boş bırakmak karakter kısıtını kaldırır; eski hesapların Türkçe karakterli kullanıcı adları da geçerli kalır.
@@ -62,12 +66,15 @@ builder.Services.AddIdentity<User, IdentityRole>(opt =>
     // Giriş için e-posta doğrulaması zorunlu değil (doğrulanmamış kullanıcı token alır ama
     // aile/plan uç noktaları [RequireVerifiedEmail] ile kapalıdır, "E-postanı doğrula" ekranı gösterilir).
     opt.SignIn.RequireConfirmedEmail = false;
+    // 5 hatalı şifre denemesinde hesap kalıcı olarak kilitlenir; kendiliğinden açılmaz. Kilidi yalnızca
+    // "Şifremi unuttum" akışı (e-postadaki kod ya da bağlantıyla yeni şifre belirleme) açar.
     opt.Lockout.MaxFailedAccessAttempts = 5;
-    opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    opt.Lockout.DefaultLockoutTimeSpan = AuthLockout.Permanent;
     opt.Lockout.AllowedForNewUsers = true;
     opt.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProvider<User>.ProviderName;
 })
 .AddErrorDescriber<TurkishIdentityErrorDescriber>()
+.AddPasswordValidator<PasswordPatternValidator<User>>()
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders()
 .AddTokenProvider<EmailConfirmationTokenProvider<User>>(EmailConfirmationTokenProvider<User>.ProviderName);
@@ -89,6 +96,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<SendThrottle>();
 builder.Services.AddSingleton<MissingAccountLockout>();
 builder.Services.AddSingleton<LoginChallenges>();
+builder.Services.AddSingleton<PasswordResetCodes>();
 builder.Services.AddScoped<MemberContext>();
 builder.Services.AddScoped<FamilyService>();
 builder.Services.AddScoped<AuthTokenService>();

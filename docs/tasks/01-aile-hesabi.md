@@ -387,7 +387,7 @@ Kapsam: 1-3. fazlar (hesap temeli, aile ve davet, rol tabanlı yetki ve kayıt i
   | `/api/invitations/*` | IP başına 10 istek/5 dk |
   | Davet gönderme ve yeniden gönderme | Kullanıcı başına 20/saat; aile başına 30 e-posta/gün; aynı davet için 60 sn bekleme |
   | Doğrulama ve şifre sıfırlama e-postası | Adres başına 60 sn bekleme, 5/saat |
-  | Giriş | 5 hatalı denemede hesap 5 dk kilitlenir |
+  | Giriş | 5 hatalı denemede hesap kalıcı olarak kilitlenir; kilidi yalnızca "Şifremi unuttum" (e-postadaki kod ya da bağlantıyla yeni şifre) açar |
   | Yedek kod | Davet başına 5 hatalı denemede kilitlenir |
 
   IP ve kullanıcı sınırları `RateLimits:Auth`, `RateLimits:InvitePublic` ve `RateLimits:InviteSend` ayarlarıyla değiştirilebilir.
@@ -413,12 +413,13 @@ Kısaltmalar: 🔓 anonim, 🔑 oturum gerekir, ✅ oturum ve doğrulanmış e-p
 
 | Metot ve yol | Yetki | İstek | Cevap 200 | Hatalar |
 |---|---|---|---|---|
-| `POST /api/auth/register` | 🔓 | `{ email, password, displayName, acceptKvkk, acceptTerms }` (`username` de kabul edilir; iki onay da `true` olmalı, hesaba `IsKvkkChecked`/`IsTermsAccepted` = 1 ve `ConsentsAcceptedAt` yazılır) | `AuthResponse` (`emailVerified:false`). Doğrulama e-postası gider. | 400 `validation` (şifre en az 6 karakter, yinelenen e-posta, ad boş), 400 `consent_required` (onay kutularından biri işaretsiz) |
-| `POST /api/auth/login` | 🔓 | `{ email, password }` | `AuthResponse`. Doğrulanmamış kullanıcı da token alır. | 401 `invalid_credentials`, 429 `locked_out` |
+| `POST /api/auth/register` | 🔓 | `{ email, password, displayName, acceptKvkk, acceptTerms }` (`username` de kabul edilir; iki onay da `true` olmalı, hesaba `IsKvkkChecked`/`IsTermsAccepted` = 1 ve `ConsentsAcceptedAt` yazılır) | `AuthResponse` (`emailVerified:false`). Doğrulama e-postası gider. | 400 `validation` (şifre politikası: en az 8 karakter, büyük ve küçük harf, rakam, özel karakter; art arda aynı ya da ardışık 3 karakter yok (111, 123, abc); yinelenen e-posta, ad boş), 400 `consent_required` (onay kutularından biri işaretsiz) |
+| `POST /api/auth/login` | 🔓 | `{ email, password }` | `AuthResponse`. Doğrulanmamış kullanıcı da token alır. | 401 `invalid_credentials`, 429 `locked_out` (kalıcı kilit; istemci "Şifremi unuttum" ekranına yönlendirir) |
 | `GET /api/auth/me` | 🔑 | - | `{ userId, email, displayName, emailVerified, family: FamilySummary\|null }` | 401 |
 | `POST /api/auth/verify-email` | 🔓 | `{ userId, token }` (bağlantıdaki değerler olduğu gibi) | `{ message, alreadyVerified }` | 400 `verify_invalid` (token 2 gün geçerli) |
 | `POST /api/auth/resend-verification` | 🔓 veya 🔑 | `{}` (oturum açıksa) veya `{ email }` | Her durumda aynı: `{ message }` | 429 `rate_limited` (60 sn içinde tekrar) |
-| `POST /api/auth/forgot-password` | 🔓 | `{ email }` | Her durumda aynı: `{ message: "Kayıtlı bir hesap varsa…" }` | - |
+| `POST /api/auth/forgot-password` | 🔓 | `{ email }` | Her durumda aynı: `{ message: "Kayıtlı bir hesap varsa…" }`. E-postaya 6 haneli kod (15 dk, 5 deneme, tek kullanım) ve bağlantı (1 saat) gider. | - |
+| `POST /api/auth/reset-password/code` | 🔓 | `{ email, code, newPassword }` | `{ message }`. Şifre değişir, kalıcı kilit açılır, e-posta doğrulanmış sayılır, bütün oturumlar düşer. Oturum açılmaz. | 400 `reset_code_invalid` (yanlış/süresi dolmuş kod ya da olmayan adres; aynı cevap), 400 `validation` (şifre politikası; deneme hakkı yemez) |
 | `POST /api/auth/reset-password` | 🔓 | `{ userId, token, newPassword }` | `AuthResponse` (otomatik giriş). E-posta doğrulanmış sayılır. Eski oturumlar düşer. | 400 `reset_invalid` (geçersiz, kullanılmış veya 1 saat geçmiş), 400 `validation` |
 
 **Kaldırılanlar:** `GET /api/auth/features` ve doğrulamasız `POST /api/auth/reset-password {email,newPassword}`. `reset-password` artık yukarıdaki token'lı akıştır.

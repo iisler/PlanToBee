@@ -51,8 +51,7 @@ public class AccountController(
             return Err.BadRequest("confirm_invalid", $"Onaylamak için {ConfirmText} yaz.");
 
         var check = await signInManager.CheckPasswordSignInAsync(user, dto.Password ?? "", lockoutOnFailure: true);
-        if (check.IsLockedOut)
-            return Err.Make(429, "locked_out", "Çok fazla hatalı şifre denemesi. Birkaç dakika sonra tekrar dene.");
+        if (check.IsLockedOut) return AuthLockout.LockedOut();
         // 401 değil: oturum geçerli, yalnızca şifre yanlış (istemci 401'i oturum sonu sayar).
         if (!check.Succeeded) return Err.BadRequest("password_invalid", "Şifre hatalı.");
 

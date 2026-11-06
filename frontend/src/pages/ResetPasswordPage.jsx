@@ -7,8 +7,10 @@ import { useNotice } from '../context/NoticeContext';
 import AuthLayout from '../components/AuthLayout';
 import BusyLabel from '../components/BusyLabel';
 import PasswordInput from '../components/PasswordInput';
+import PasswordRules from '../components/PasswordRules';
+import { PASSWORD_INVALID_TEXT, PASSWORD_MIN_LENGTH, passwordValid } from '../utils/passwordPolicy';
 
-// E-postadaki bağlantıdan açılır: /reset-password?userId=…&token=…
+// E-postadaki bağlantıdan açılır: /reset-password?userId=…&token=… Şifre değişince kalıcı giriş kilidi de açılır.
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
   const userId = params.get('userId');
@@ -24,6 +26,7 @@ export default function ResetPasswordPage() {
   async function submit(e) {
     e.preventDefault();
     setError('');
+    if (!passwordValid(pw.a)) return setError(PASSWORD_INVALID_TEXT);
     if (pw.a !== pw.b) return setError('Şifreler eşleşmiyor.');
     setLoading(true);
     try {
@@ -48,7 +51,8 @@ export default function ResetPasswordPage() {
         </>
       ) : (
         <form onSubmit={submit}>
-          <PasswordInput aria-label="Yeni şifre" placeholder="Yeni şifre (en az 6 karakter)" autoComplete="new-password" minLength={6} value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
+          <PasswordInput aria-label="Yeni şifre" aria-describedby="new-pw-rules" placeholder={`Yeni şifre (en az ${PASSWORD_MIN_LENGTH} karakter)`} autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} value={pw.a} onChange={e => setPw(p => ({ ...p, a: e.target.value }))} required />
+          <PasswordRules id="new-pw-rules" password={pw.a} />
           <PasswordInput aria-label="Yeni şifre (tekrar)" placeholder="Yeni şifre (tekrar)" autoComplete="new-password" value={pw.b} onChange={e => setPw(p => ({ ...p, b: e.target.value }))} required />
           {error && <div className="auth-error" role="alert">{error}</div>}
           <button type="submit" className="auth-submit" disabled={loading}><BusyLabel busy={loading} text="Şifreyi kaydet" busyText="Kaydediliyor…" /></button>

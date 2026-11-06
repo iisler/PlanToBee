@@ -48,6 +48,8 @@ jobs:
       WebPush__BatchSeconds: "2"
       Auth__EmailCode__MinIntervalSeconds: "0"
       Auth__EmailCode__MaxPerHour: "1000"
+      Auth__PasswordReset__MinIntervalSeconds: "0"
+      Auth__PasswordReset__MaxPerHour: "1000"
     steps:
       - uses: actions/checkout@v4
 

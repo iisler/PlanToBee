@@ -23,6 +23,7 @@ public class AuthController(
     SendThrottle throttle,
     MissingAccountLockout lockout,
     LoginChallenges challenges,
+    PasswordResetCodes resetCodes,
     IConfiguration config,
     ILogger<AuthController> logger) : ControllerBase
 {
@@ -35,7 +36,7 @@ public class AuthController(
     public async Task<IActionResult> Register(RegisterDto dto)
     {
         var displayName = (dto.DisplayName ?? dto.Username ?? "").Trim();
-        if (displayName.Length == 0) return Err.BadRequest("validation", "Adını girin.");
+        if (displayName.Length == 0) return Err.BadRequest("validation", "Kullanıcı adını girin.");
         // Hesabın var olup olmadığından önce bakılır: eksik onay her adreste aynı hatayı verir.
         if (!dto.AcceptKvkk || !dto.AcceptTerms)
             return Err.BadRequest("consent_required", "Kayıt olmak için Aydınlatma Metni'ni okuduğunu onaylamalı ve Kullanım Koşulları'nı kabul etmelisin.");
@@ -102,7 +103,8 @@ public class AuthController(
             return lockout.RegisterFailure(userManager.NormalizeEmail(email)) ? LockedOut() : InvalidCredentials();
         }
 
-        // Hatalı denemelerde hesap geçici olarak kilitlenir (Program.cs: 5 deneme / 5 dk).
+        // 5 hatalı denemede hesap kalıcı olarak kilitlenir (Program.cs, AuthLockout); kilitliyken doğru şifre de
+        // reddedilir. Kilidi "Şifremi unuttum" akışı açar.
         var check = await signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
         if (check.IsLockedOut) return LockedOut();
         if (!check.Succeeded) return InvalidCredentials();
@@ -237,21 +239,57 @@ public class AuthController(
         return Ok(new { message });
     }
 
+    // E-postaya 6 haneli kod (ekranda girilir) ve aynı işi yapan bağlantı gider. Kilitli hesap da bu yolla açılır.
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(EmailOnlyDto dto)
     {
-        const string message = "Kayıtlı bir hesap varsa şifre sıfırlama e-postası gönderildi.";
+        const string message = "Kayıtlı bir hesap varsa e-postana şifre sıfırlama kodu gönderildi.";
         var user = await userManager.FindByEmailAsync(dto.Email.Trim());
         if (user == null) return Ok(new { message });
 
         // Kötüye kullanım: adres başına dakikada 1, saatte en fazla 5 e-posta. Sınır aşılsa da cevap aynıdır.
-        if (!throttle.TryAcquire($"reset:{user.Id}", TimeSpan.FromHours(1), 5, TimeSpan.FromSeconds(60)))
+        // Bu sınır kod denemesini de sınırlar: saatte en fazla 5 kod, her biri 5 denemelik.
+        if (!throttle.TryAcquire($"reset:{user.Id}", TimeSpan.FromHours(1), ResetMaxPerHour, TimeSpan.FromSeconds(ResetMinIntervalSeconds)))
             return Ok(new { message });
 
+        var code = resetCodes.Create(user.Id, await userManager.GetSecurityStampAsync(user));
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var link = app.Value.Link("reset-password", ("userId", user.Id), ("token", SecureCodes.EncodeForUrl(token)));
-        await SafeSend(EmailTemplates.ResetPassword(user.Email!, user.DisplayName, link));
+        await SafeSend(EmailTemplates.ResetPassword(user.Email!, user.DisplayName, code,
+            (int)PasswordResetCodes.Lifetime.TotalMinutes, link));
         return Ok(new { message });
+    }
+
+    // "Şifremi unuttum" e-postasındaki kod + yeni şifre. Kod doğruysa şifre değişir, kalıcı kilit açılır, e-posta
+    // doğrulanmış sayılır ve bütün oturumlar kapanır (bağlantılı akışla aynı sonuç).
+    // Hesap varlığı belli olmaz: olmayan adres, süresi dolmuş ya da yanlış kod aynı reset_code_invalid hatasını verir.
+    [HttpPost("reset-password/code")]
+    public async Task<IActionResult> ResetPasswordWithCode(ResetPasswordWithCodeDto dto)
+    {
+        var user = await userManager.FindByEmailAsync(dto.Email.Trim());
+
+        // Şifre kuralları koddan önce kontrol edilir: kuralları tutmayan şifre deneme hakkı yemez.
+        // Olmayan hesapta da aynı kontrol yapılır, hata mesajları iki durumda aynı olsun.
+        var passwordErrors = new List<IdentityError>();
+        foreach (var validator in userManager.PasswordValidators)
+        {
+            var check = await validator.ValidateAsync(userManager, user ?? new User(), dto.NewPassword);
+            if (!check.Succeeded) passwordErrors.AddRange(check.Errors);
+        }
+        if (passwordErrors.Count > 0) return IdentityErrors(IdentityResult.Failed([.. passwordErrors]));
+
+        var code = new string(dto.Code.Where(char.IsDigit).ToArray());
+        var stamp = user == null ? null : resetCodes.Consume(user.Id, code);
+        // Kod verildikten sonra şifre değiştiyse (güvenlik damgası yenilenir) kod geçersizdir.
+        if (user == null || stamp == null || await userManager.GetSecurityStampAsync(user) != stamp)
+            return Err.BadRequest("reset_code_invalid",
+                "Kod hatalı ya da süresi dolmuş. 5 hatalı denemede kod geçersiz olur; gerekirse yeni kod iste.");
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await userManager.ResetPasswordAsync(user, token, dto.NewPassword);
+        if (!result.Succeeded) return IdentityErrors(result);
+        await CompletePasswordResetAsync(user);
+        return Ok(new { message = "Şifren değiştirildi ve hesabın açıldı. Yeni şifrenle giriş yapabilirsin." });
     }
 
     // Bağlantıdaki userId + token ile yeni şifre belirler. Token 1 saat geçerlidir ve tek kullanımlıktır
@@ -272,7 +310,14 @@ public class AuthController(
             return IdentityErrors(result);
         }
 
-        // Bağlantı e-postaya gittiği için adresin sahibi olduğu kanıtlanmış olur.
+        await CompletePasswordResetAsync(user);
+        return Ok(new { message = "Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin." });
+    }
+
+    // Şifre sıfırlandıktan sonra (kodla ya da bağlantıyla): kalıcı kilit açılır, oturumlar kapanır.
+    private async Task CompletePasswordResetAsync(User user)
+    {
+        // Kod ya da bağlantı e-postaya gittiği için adresin sahibi olduğu kanıtlanmış olur.
         if (!user.EmailConfirmed)
         {
             user.EmailConfirmed = true;
@@ -280,10 +325,16 @@ public class AuthController(
         }
         await userManager.ResetAccessFailedCountAsync(user);
         await userManager.SetLockoutEndDateAsync(user, null);
+        // Bekleyen kod da kullanılamaz olsun (damga zaten değişti; bellekte de tutulmasın).
+        resetCodes.Remove(user.Id);
         // Şifre değişti: bütün cihazlardaki oturumlar kapanır. Oturum açılmaz; kullanıcı yeni şifresiyle giriş yapar.
         await tokens.RevokeAllAsync(user.Id);
-        return Ok(new { message = "Şifren değiştirildi. Yeni şifrenle giriş yapabilirsin." });
     }
+
+    // Şifre sıfırlama e-postaları: varsayılan en az 60 sn arayla, saatte en fazla 5 (Auth:PasswordReset:MinIntervalSeconds /
+    // MaxPerHour ile değişir; yalnızca testlerde gevşetilir).
+    private int ResetMinIntervalSeconds => config.GetValue("Auth:PasswordReset:MinIntervalSeconds", 60);
+    private int ResetMaxPerHour => config.GetValue("Auth:PasswordReset:MaxPerHour", 5);
 
     private async Task<IActionResult> StartLoginCodeAsync(User user)
     {
@@ -342,8 +393,7 @@ public class AuthController(
         Err.Make(503, "login_code_not_sent", "Giriş kodu gönderilemedi. Biraz sonra tekrar dene.");
 
     private static ObjectResult InvalidCredentials() => Err.Make(401, "invalid_credentials", "E-posta veya şifre hatalı.");
-    private static ObjectResult LockedOut() =>
-        Err.Make(429, "locked_out", "Çok fazla hatalı giriş denemesi. Birkaç dakika sonra tekrar dene.");
+    private static ObjectResult LockedOut() => AuthLockout.LockedOut();
 
     private static string VerifyThrottleKey(User user) => $"verify:{user.Id}";
 

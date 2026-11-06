@@ -272,6 +272,12 @@ header.top .hello b { color: var(--ink); font-weight: 800; }
 a.auth-link { text-align: center; }
 .auth-text { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 6px; }
 .auth-hint { font-size: 12px; color: var(--ink-faint); text-align: center; }
+/* Yeni şifre kuralları: karşılanan madde yeşil ve işaretli */
+.pw-rules { list-style: none; margin: -2px 0 2px; padding: 0; display: grid; gap: 3px; font-size: 12.5px; color: var(--ink-soft); }
+.pw-rules li { display: flex; gap: 7px; align-items: baseline; }
+.pw-rules .pw-rule-mark { width: 12px; flex: none; text-align: center; font-weight: 700; }
+.pw-rules li.ok { color: var(--sport-deep); }
+.auth-warn { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: 10px; padding: 9px 12px; margin-bottom: 10px; }
 .auth-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .as-link { display: block; text-align: center; text-decoration: none; margin-top: 12px; }
 

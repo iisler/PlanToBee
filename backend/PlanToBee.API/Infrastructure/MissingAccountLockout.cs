@@ -5,11 +5,13 @@ using Microsoft.Extensions.Options;
 namespace PlanToBee.API.Infrastructure;
 
 // Olmayan hesaplara yapılan giriş denemelerinde Identity'nin hesap kilidini taklit eder: aynı sayıda hatalı
-// denemeden sonra aynı süre boyunca 429 locked_out döner. Böylece "kilitlendi" cevabı hesabın var olduğunu
-// ele vermez. Bellek içidir; tek sunucu örneği için yeterli, yeniden başlatmada sıfırlanır.
+// denemeden sonra aynı süre boyunca (gerçek hesapta kalıcı) 429 locked_out döner. Böylece "kilitlendi" cevabı
+// hesabın var olduğunu ele vermez. Bellek içidir; tek sunucu örneği için yeterli, yeniden başlatmada sıfırlanır.
+// Bellek sınırsız büyümesin diye kilitli kayıt da LockedRetention boyunca hiç denenmezse silinir.
 public class MissingAccountLockout(IOptions<IdentityOptions> identity)
 {
     private static readonly TimeSpan Retention = TimeSpan.FromDays(1);
+    private static readonly TimeSpan LockedRetention = TimeSpan.FromDays(30);
     private const int SweepEvery = 500;
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
@@ -45,12 +47,13 @@ public class MissingAccountLockout(IOptions<IdentityOptions> identity)
 
     private void Sweep()
     {
-        var cutoff = DateTime.UtcNow - Retention;
+        var now = DateTime.UtcNow;
         foreach (var (key, e) in _entries)
         {
             lock (e)
             {
-                if (e.LastSeen < cutoff && e.LockedUntil < DateTime.UtcNow)
+                var idleLimit = e.LockedUntil > now ? LockedRetention : Retention;
+                if (e.LastSeen < now - idleLimit)
                     _entries.TryRemove(new KeyValuePair<string, Entry>(key, e));
             }
         }

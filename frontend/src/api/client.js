@@ -33,7 +33,7 @@ client.interceptors.request.use(async (config) => {
 // Oturumsuz uç noktalar: buradaki 401 "oturum bitti" değil, işin kendi hatasıdır (ör. yanlış şifre).
 const ANONYMOUS = [
   '/auth/login', '/auth/login/verify', '/auth/login/resend-code', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/verify-email',
-  '/auth/reset-password', '/auth/forgot-password', '/auth/resend-verification',
+  '/auth/reset-password', '/auth/reset-password/code', '/auth/forgot-password', '/auth/resend-verification',
 ];
 
 export function saveTokens(data) {

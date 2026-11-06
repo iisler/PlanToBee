@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ACCOUNT_DELETED_KEY, useAuth } from '../context/AuthContext';
 import client from '../api/client';
-import { errorText } from '../api/errors';
+import { errorCode, errorText } from '../api/errors';
 import AuthLayout from '../components/AuthLayout';
 import useSlow from '../hooks/useSlow';
 import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
 import PasswordInput from '../components/PasswordInput';
 import LegalSheet from '../components/LegalSheet';
+import PasswordRules from '../components/PasswordRules';
+import { PASSWORD_INVALID_TEXT, PASSWORD_MIN_LENGTH, passwordValid } from '../utils/passwordPolicy';
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
 // Kayıt oturum açmaz; "e-postana bağlantı gönderdik" ekranı gösterilir (hesap varlığı belli olmasın diye).
 export default function LoginPage() {
   const { login, register, verifyLoginCode, resendLoginCode } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', displayName: '' });
   const [error, setError] = useState('');
@@ -76,6 +79,11 @@ export default function LoginPage() {
     setForm((f) => ({ ...f, password: '' }));
   }
 
+  // 5 hatalı denemede hesap kalıcı olarak kilitlenir; kilit "Şifremi unuttum" akışıyla (e-postaya gelen kod) açılır.
+  function goUnlock() {
+    navigate('/forgot-password', { state: { email: form.email.trim(), locked: true } });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -91,6 +99,11 @@ export default function LoginPage() {
           setLoading(false);
         }
       } else {
+        if (!passwordValid(form.password)) {
+          setError(PASSWORD_INVALID_TEXT);
+          setLoading(false);
+          return;
+        }
         if (!acceptKvkk || !acceptTerms) {
           setError('Kayıt olmak için Aydınlatma Metni\'ni okuduğunu onaylamalı ve Kullanım Koşulları\'nı kabul etmelisin.');
           setLoading(false);
@@ -101,8 +114,9 @@ export default function LoginPage() {
         setLoading(false);
       }
     } catch (err) {
-      setError(errorText(err));
       setLoading(false);
+      if (mode === 'login' && errorCode(err) === 'locked_out') return goUnlock();
+      setError(errorText(err));
     }
   }
 
@@ -122,8 +136,9 @@ export default function LoginPage() {
     try {
       await verifyLoginCode(codeStep.challengeId, code);
     } catch (err) {
+      if (errorCode(err) === 'locked_out') return goUnlock();
       // Süresi dolan ya da hakkı biten kodda baştan giriş gerekir.
-      if (err?.response?.data?.code === 'login_code_expired') backToPassword();
+      if (errorCode(err) === 'login_code_expired') backToPassword();
       setError(errorText(err));
       setLoading(false);
     }
@@ -226,19 +241,21 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit}>
         {mode === 'register' && (
-          <input id="displayName" aria-label="Adın" placeholder="Adın (ör. Ilker)" autoComplete="name" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
+          <input id="displayName" aria-label="Kullanıcı adı" placeholder="Kullanıcı adı" autoComplete="nickname" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
         )}
         <input id="email" type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
         <PasswordInput
           id="password"
           aria-label="Şifre"
-          placeholder={mode === 'login' ? 'Şifre' : 'Şifre (en az 6 karakter)'}
+          aria-describedby={mode === 'register' ? 'register-pw-rules' : undefined}
+          placeholder={mode === 'login' ? 'Şifre' : `Şifre (en az ${PASSWORD_MIN_LENGTH} karakter)`}
           autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          minLength={mode === 'login' ? undefined : 6}
+          minLength={mode === 'login' ? undefined : PASSWORD_MIN_LENGTH}
           value={form.password}
           onChange={set('password')}
           required
         />
+        {mode === 'register' && <PasswordRules id="register-pw-rules" password={form.password} />}
         {mode === 'register' && (
           <>
             {/* Aydınlatma bir bilgilendirmedir, açık rıza değildir (KVKK m.10): kutu yalnızca okunduğunu kaydeder.
