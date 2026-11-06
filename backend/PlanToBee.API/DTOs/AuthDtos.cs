@@ -6,7 +6,7 @@ namespace PlanToBee.API.DTOs;
 public record RegisterDto(
     [Required(ErrorMessage = "E-posta girin"), EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi girin"), StringLength(256)] string Email,
     [Required(ErrorMessage = "Şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string Password,
-    [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? DisplayName,
+    [StringLength(50, ErrorMessage = "Kullanıcı adı en fazla 50 karakter olabilir")] string? DisplayName,
     [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? Username,
     // Kayıt formundaki onay kutuları: ikisi de true değilse kayıt reddedilir (consent_required).
     bool AcceptKvkk = false,

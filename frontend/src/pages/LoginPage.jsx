@@ -241,7 +241,7 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit}>
         {mode === 'register' && (
-          <input id="displayName" aria-label="Adın" placeholder="Adın (ör. Ilker)" autoComplete="name" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
+          <input id="displayName" aria-label="Kullanıcı adı" placeholder="Kullanıcı adı" autoComplete="nickname" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
         )}
         <input id="email" type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
         <PasswordInput

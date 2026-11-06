@@ -36,7 +36,7 @@ public class AuthController(
     public async Task<IActionResult> Register(RegisterDto dto)
     {
         var displayName = (dto.DisplayName ?? dto.Username ?? "").Trim();
-        if (displayName.Length == 0) return Err.BadRequest("validation", "Adını girin.");
+        if (displayName.Length == 0) return Err.BadRequest("validation", "Kullanıcı adını girin.");
         // Hesabın var olup olmadığından önce bakılır: eksik onay her adreste aynı hatayı verir.
         if (!dto.AcceptKvkk || !dto.AcceptTerms)
             return Err.BadRequest("consent_required", "Kayıt olmak için Aydınlatma Metni'ni okuduğunu onaylamalı ve Kullanım Koşulları'nı kabul etmelisin.");
