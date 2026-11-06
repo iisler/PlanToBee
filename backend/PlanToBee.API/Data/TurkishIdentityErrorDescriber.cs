@@ -14,7 +14,7 @@ public class TurkishIdentityErrorDescriber : IdentityErrorDescriber
     public override IdentityError PasswordMismatch() => new() { Code = nameof(PasswordMismatch), Description = "Şifre hatalı." };
     public override IdentityError PasswordTooShort(int length) => new() { Code = nameof(PasswordTooShort), Description = $"Şifre en az {length} karakter olmalı." };
     public override IdentityError PasswordRequiresUniqueChars(int uniqueChars) => new() { Code = nameof(PasswordRequiresUniqueChars), Description = $"Şifrede en az {uniqueChars} farklı karakter olmalı." };
-    public override IdentityError PasswordRequiresNonAlphanumeric() => new() { Code = nameof(PasswordRequiresNonAlphanumeric), Description = "Şifrede en az bir sembol olmalı." };
+    public override IdentityError PasswordRequiresNonAlphanumeric() => new() { Code = nameof(PasswordRequiresNonAlphanumeric), Description = "Şifrede en az bir özel karakter olmalı (ör. / * ! ? .)." };
     public override IdentityError PasswordRequiresDigit() => new() { Code = nameof(PasswordRequiresDigit), Description = "Şifrede en az bir rakam olmalı." };
     public override IdentityError PasswordRequiresLower() => new() { Code = nameof(PasswordRequiresLower), Description = "Şifrede en az bir küçük harf olmalı." };
     public override IdentityError PasswordRequiresUpper() => new() { Code = nameof(PasswordRequiresUpper), Description = "Şifrede en az bir büyük harf olmalı." };

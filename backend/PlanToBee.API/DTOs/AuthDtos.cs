@@ -35,6 +35,12 @@ public record ResetPasswordDto(
     [Required] string Token,
     [Required(ErrorMessage = "Yeni şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string NewPassword);
 
+// "Şifremi unuttum" e-postasındaki 6 haneli kodla yeni şifre belirleme (kalıcı giriş kilidini de açar).
+public record ResetPasswordWithCodeDto(
+    [Required(ErrorMessage = "E-posta girin"), StringLength(256)] string Email,
+    [Required(ErrorMessage = "Kodu girin"), StringLength(20)] string Code,
+    [Required(ErrorMessage = "Yeni şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string NewPassword);
+
 public record FamilySummaryDto(int Id, string Name);
 
 // Bu oturumda seçili profil. IsOwner: hesap sahibinin profili.

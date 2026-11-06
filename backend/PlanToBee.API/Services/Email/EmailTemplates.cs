@@ -18,17 +18,20 @@ public static class EmailTemplates
         null,
         "Bu hesabı sen oluşturmadıysan bu e-postayı yok sayabilirsin.");
 
-    public static EmailMessage ResetPassword(string to, string displayName, string link) => Build(
+    // Kod "Şifremi unuttum" ekranında girilir (kalıcı giriş kilidini de açar); bağlantı aynı işi e-postadan yapar.
+    public static EmailMessage ResetPassword(string to, string displayName, string code, int codeMinutes, string link) => Build(
         to,
-        "PlanToBee: Şifre sıfırlama",
+        "PlanToBee: Şifre sıfırlama kodun",
         $"Merhaba {displayName},",
         [
-            "Şifreni sıfırlamak için bir istek aldık. Yeni şifreni belirlemek için aşağıdaki bağlantıyı kullan.",
-            "Bağlantı 1 saat geçerlidir ve yalnızca bir kez kullanılabilir."
+            "Şifreni sıfırlamak için bir istek aldık. \"Şifremi unuttum\" ekranına aşağıdaki kodu girip yeni şifreni belirle. " +
+            "Hesabın çok fazla hatalı deneme yüzünden kilitlendiyse yeni şifreni belirlediğinde kilit de açılır.",
+            $"Kod {codeMinutes} dakika geçerlidir ve yalnızca bir kez kullanılabilir. " +
+            "İstersen aşağıdaki bağlantıyla da yeni şifre belirleyebilirsin (1 saat geçerli)."
         ],
         ("Yeni şifre belirle", link),
-        null,
-        "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez.");
+        ("Şifre sıfırlama kodun:", code),
+        "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez. Bu kodu kimseyle paylaşma.");
 
     // Kayıtlı ve doğrulanmış bir adresle yeniden kayıt olunmaya çalışıldığında hesabın sahibine gider.
     // Kayıt ekranı bu durumda da "e-posta gönderdik" der; hesabın varlığını yalnızca adresin sahibi öğrenir.
@@ -64,8 +67,8 @@ public static class EmailTemplates
         var text = new System.Text.StringBuilder()
             .AppendLine(greeting).AppendLine();
         foreach (var p in paragraphs) text.AppendLine(p);
-        if (button != null) text.AppendLine().AppendLine($"{button.Value.Text}: {button.Value.Url}");
         if (code != null) text.AppendLine().AppendLine(code.Value.Intro).AppendLine(code.Value.Code);
+        if (button != null) text.AppendLine().AppendLine($"{button.Value.Text}: {button.Value.Url}");
         text.AppendLine().AppendLine(footer).AppendLine().AppendLine("PlanToBee");
 
         string H(string s) => WebUtility.HtmlEncode(s);
@@ -73,11 +76,11 @@ public static class EmailTemplates
             .Append("<div style=\"font-family:Arial,sans-serif;font-size:15px;color:#222\">")
             .Append($"<p>{H(greeting)}</p>");
         foreach (var p in paragraphs) html.Append($"<p>{H(p)}</p>");
+        if (code != null)
+            html.Append($"<p>{H(code.Value.Intro)}</p><p style=\"font-size:24px;letter-spacing:4px;font-weight:bold\">{H(code.Value.Code)}</p>");
         if (button != null)
             html.Append($"<p><a href=\"{H(button.Value.Url)}\" style=\"display:inline-block;padding:10px 18px;background:#F6B51E;color:#1E1A14;font-weight:bold;text-decoration:none;border-radius:6px\">{H(button.Value.Text)}</a></p>")
                 .Append($"<p style=\"font-size:12px;color:#666\">Buton çalışmazsa bu adresi tarayıcına yapıştır:<br>{H(button.Value.Url)}</p>");
-        if (code != null)
-            html.Append($"<p>{H(code.Value.Intro)}</p><p style=\"font-size:24px;letter-spacing:4px;font-weight:bold\">{H(code.Value.Code)}</p>");
         html.Append($"<p style=\"font-size:12px;color:#666\">{H(footer)}</p><p>PlanToBee</p></div>");
 
         return new EmailMessage(to, subject, text.ToString(), html.ToString());
