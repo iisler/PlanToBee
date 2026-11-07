@@ -211,7 +211,11 @@ Servisin ayarları (Docker, Frankfurt, ücretsiz plan, `/health/live` sağlık k
    - Bu değerleri **değiştirme**: özellikle `PersonalData__Key` değişirse mevcut kullanıcılar giriş yapamaz.
 
 Sağlık adresleri:
-- `/health`: API ve veritabanı. Veritabanına ulaşılamazsa **503** ve `"database":"unreachable"` döner. Elle kontrol için.
+- `/health`: API; veritabanı yalnızca anahtarla kontrol edilir. Anahtar `Health__Key` ortam değişkenidir (Render üretir;
+  Environment sekmesinden kopyala) ve `X-Health-Key` başlığıyla ya da `?key=` parametresiyle verilir. Anahtarsız istek
+  veritabanına dokunmaz ve `"database":"unchecked"` döner: herkese açık bu adres sık çağrılsa da Neon uyuyabilir, ücretsiz
+  planın aylık işlem süresi bu yolla tüketilemez. Anahtarla çağrılınca veritabanına ulaşılamazsa **503** ve
+  `"database":"unreachable"` döner. Elle kontrol için.
 - `/health/live`: yalnızca API (veritabanına dokunmaz). Render bu adresi dağıtım ve çalışma sırasında kontrol eder. Veritabanına dokunan `/health` kullanılsaydı, sunucu uyumadığında (ücretli plan) Render'ın sürekli kontrolü Neon'u hiç uyutmaz ve ücretsiz planın aylık işlem süresini bitirirdi.
 - API'nin kendisi de boşta veritabanına gitmez: bildirim dağıtıcısı kuyruğu düzenli aralıkla sorgulamaz, yalnızca yeni bildirim yazılınca ya da bekleyen bir bildirimin vakti gelince (toplama süresi, sessiz saat sonu) uyanır. Trafik yokken Neon 5 dakika sonra uyur.
 - İkisi de giriş gerektirmez, istek sınırına takılmaz ve bağlantı bilgisi, sunucu adı ya da hata ayrıntısı içermez.
@@ -256,7 +260,8 @@ Hangi değişiklikten sonra ne yapılır:
 
 Sırayla dene; hepsi geçerse kurulum tamamdır.
 
-1. **Sağlık:** `https://<render-adı>.onrender.com/health` > `{"status":"ok","api":"ok","database":"ok"}`. (Uykudaysa ilk açılış 30-60 sn sürebilir.)
+1. **Sağlık:** `https://<render-adı>.onrender.com/health?key=<Health__Key>` > `{"status":"ok","api":"ok","database":"ok"}`.
+   (Anahtarsız açarsan `"database":"unchecked"` görürsün; bu normaldir.) (Uykudaysa ilk açılış 30-60 sn sürebilir.)
 2. **Kayıt:** `https://iisler.github.io/PlanToBee/app/` aç > kayıt ol (kendi e-posta adresinle).
 3. **Doğrulama e-postası:** Gelen kutuna (yoksa spam klasörüne) "PlanToBee: E-posta adresini doğrula" gelmeli. Linke tıkla; site açılmalı ve doğrulama başarılı olmalı. Link `https://iisler.github.io/PlanToBee/app/verify-email?...` ile başlamalı.
 4. **Aile kurma:** Aileni oluştur.

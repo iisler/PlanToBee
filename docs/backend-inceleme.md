@@ -63,7 +63,12 @@ Aşağıdaki bulgular önem sırasına göre.
 ### O4. `/health` herkese açık ve her çağrıda veritabanına bağlanıyor
 - **Nerede:** `backend/PlanToBee.API/Infrastructure/HealthEndpoints.cs:26`.
 - **Sorun:** Kimlik doğrulama ve istek sınırı yok. Dışarıdan sürekli çağrılırsa Neon'u uyanık tutar (maliyet) ve bağlantı harcar.
-- **Öneri:** Sonucu 15–30 saniye önbellekte tut ya da IP başına sınır koy. Render'ın kendi kontrolü için `/health/live` yeterli.
+- **Öneri (düzeltildi):** Önbellek ya da IP sınırı yetmez: birkaç dakikada bir gelen tek bir istek de Neon'u uyanık tutar.
+  Veritabanı kontrolü yalnızca gizli anahtarla yapılmalı.
+- **Durum:** düzeltildi (07.11, `saglik-anahtari` dalı). Veritabanı yalnızca `Health__Key` anahtarıyla (`X-Health-Key`
+  başlığı ya da `?key=`) kontrol ediliyor; anahtarsız istek `"database":"unchecked"` dönüyor ve veritabanına dokunmuyor.
+- **Not:** Giriş, kayıt gibi oturumsuz uç noktalar da veritabanına bakmak zorunda. Kötü niyetli seyrek istekler Neon'u yine
+  uyanık tutabilir; bunu gerçek kullanıcıdan ayırmanın pratik yolu yok. Neon panelinden aylık işlem süresi izlenmeli.
 
 ## Düşük
 
@@ -114,5 +119,5 @@ Aşağıdaki bulgular önem sırasına göre.
 1. ~~**Y1:** uzunluk sınırları ve 1 MB gövde sınırı.~~ Yapıldı.
 2. **O2:** artan PIN kilidi.
 3. ~~**O1:** kilit politikası.~~ Kalıcı kilit ve kilitlenince otomatik e-posta seçildi, yapıldı.
-4. **O4:** `/health` önbelleği.
+4. ~~**O4:** `/health`.~~ Veritabanı kontrolü anahtara bağlandı.
 5. Düşük bulgular ve birim testleri, zaman buldukça.

@@ -6,9 +6,13 @@ using PlanToBee.API.Data;
 namespace PlanToBee.API.Infrastructure;
 
 // Kimlik doğrulama gerektirmeyen sağlık kontrolü.
-//   GET /health       -> API + veritabanı. 200 {"status":"ok","api":"ok","database":"ok"}
-//                        veritabanına ulaşılamazsa 503 {"status":"unhealthy","api":"ok","database":"unreachable"}
-//   GET /health/live  -> yalnızca API sürecinin ayakta olduğu (veritabanına dokunmaz).
+//   GET /health       -> API; veritabanı yalnızca anahtarla (Health:Key = X-Health-Key başlığı ya da ?key=) kontrol edilir:
+//                        200 {"status":"ok","api":"ok","database":"ok"}, ulaşılamazsa 503 {..."database":"unreachable"}.
+//                        Anahtarsız istek veritabanına dokunmaz: 200 {"status":"ok","api":"ok","database":"unchecked"}.
+//                        Herkese açık bu adres sık çağrılarak Neon uyutulmadan tutulamasın, ücretsiz planın aylık işlem
+//                        süresi tüketilemesin (docs/backend-inceleme.md, O4). Anahtar ayarlı değilse veritabanı yalnızca
+//                        geliştirmede kontrol edilir.
+//   GET /health/live  -> yalnızca API sürecinin ayakta olduğu (veritabanına dokunmaz). Render bunu kullanır.
 // Cevap gizli bilgi (bağlantı dizesi, sunucu adı, hata mesajı/yığını) içermez; ayrıntı yalnızca sunucu loguna yazılır.
 // Rate limit politikası uygulanmaz (genel bir limiter tanımlı değil), Render'ın düzenli kontrolünü engellemez.
 public static class HealthEndpoints
@@ -23,21 +27,15 @@ public static class HealthEndpoints
 
     public static void MapPlanToBeeHealthChecks(this WebApplication app)
     {
-        app.MapHealthChecks("/health", new HealthCheckOptions
+        app.MapGet("/health", async (HttpContext ctx, HealthCheckService health, IConfiguration config, IWebHostEnvironment env) =>
         {
-            Predicate = _ => true,
-            ResponseWriter = (ctx, report) =>
-            {
-                var db = report.Entries.TryGetValue(DbCheck, out var e) && e.Status == HealthStatus.Healthy ? "ok" : "unreachable";
-                ctx.Response.ContentType = "application/json; charset=utf-8";
-                ctx.Response.Headers.CacheControl = "no-store";
-                return ctx.Response.WriteAsJsonAsync(new
-                {
-                    status = report.Status == HealthStatus.Healthy ? "ok" : "unhealthy",
-                    api = "ok",
-                    database = db
-                });
-            }
+            ctx.Response.Headers.CacheControl = "no-store";
+            if (!CanCheckDatabase(ctx, config, env))
+                return Results.Json(new { status = "ok", api = "ok", database = "unchecked" });
+            var report = await health.CheckHealthAsync(r => r.Tags.Contains("db"), ctx.RequestAborted);
+            var ok = report.Status == HealthStatus.Healthy;
+            return Results.Json(new { status = ok ? "ok" : "unhealthy", api = "ok", database = ok ? "ok" : "unreachable" },
+                statusCode: ok ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable);
         });
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -50,6 +48,15 @@ public static class HealthEndpoints
                 return ctx.Response.WriteAsJsonAsync(new { status = "ok", api = "ok" });
             }
         });
+    }
+
+    // Veritabanı kontrol edilsin mi: anahtar ayarlıysa istekteki anahtar eşleşmeli; ayarlı değilse yalnızca geliştirmede.
+    internal static bool CanCheckDatabase(HttpContext ctx, IConfiguration config, IHostEnvironment env)
+    {
+        var key = config["Health:Key"];
+        if (string.IsNullOrEmpty(key)) return env.IsDevelopment();
+        var given = ctx.Request.Headers["X-Health-Key"].FirstOrDefault() ?? ctx.Request.Query["key"].FirstOrDefault();
+        return given != null && SecureCodes.FixedTimeEquals(given, key);
     }
 }
 
