@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { eventLabel } from '../utils/events';
 import { creatorMark } from '../utils/format';
 import { useAuditSettings } from '../context/AuditContext';
-import { ariaEvent, iconOf, itemKey, kindClass, span } from '../utils/timeline';
+import { ariaEvent, itemKey, kindClass, span } from '../utils/timeline';
+import KindIcon from './KindIcon';
 import { isOccurrence, repeatAria } from '../utils/recurrence';
 import RepeatMark from './RepeatMark';
 import EventForm from './EventForm';
@@ -110,7 +111,7 @@ export default function EventCard({ date, events, items, actions, draft, onClear
           </div>
         ) : (
           <div key={key} className="entry">
-            <span className={`ico ${kindClass(ev)}`} aria-hidden="true">{iconOf(ev)}</span>
+            <span className={`ico ${kindClass(ev)}`} aria-hidden="true"><KindIcon ev={ev} size={17} /></span>
             <div className="info"><div className="subj">{eventLabel(ev)}<RepeatMark entry={ev} /><AuditTag entry={ev} myId={myId} /></div></div>
             {r ? <span className="when">{whenText(r)}</span>
               : <span className="when none">{ev.time || 'saati yok'}</span>}

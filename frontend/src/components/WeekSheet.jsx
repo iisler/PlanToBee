@@ -1,11 +1,12 @@
 import { useId } from 'react';
 import Sheet from './Sheet';
 import HoneycombSpinner from './HoneycombSpinner';
+import KindIcon from './KindIcon';
 import { addDays, dkey, mondayOf, MONTHS, WEEKDAYS, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { daySummary, weekTotals } from '../utils/events';
 import { isOccurrence } from '../utils/recurrence';
 import { holidayAria, holidayTone } from '../utils/holidays';
-import { agendaItems, iconOf, itemKey, kindClass, longestGaps, toMin, weekColumn, weekColumnLabel, WE, WG_HEIGHT, WG_PX, WS } from '../utils/timeline';
+import { agendaItems, itemKey, kindClass, longestGaps, toMin, weekColumn, weekColumnLabel, WE, WG_HEIGHT, WG_PX, WS } from '../utils/timeline';
 
 const AXIS = [7, 10, 13, 16, 19, 22];
 const GRID_LINES = [10, 13, 16, 19];
@@ -39,6 +40,10 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
     );
   } else {
     const totals = weekTotals(days);
+    const lessons = days.reduce((a, d) => {
+      const s = daySummary(d);
+      return { done: a.done + s.done, total: a.total + s.total };
+    }, { done: 0, total: 0 });
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const dayOf = (i) => days.find(d => d.date === dkey(addDays(monday, i)));
@@ -51,6 +56,13 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
     const longest = longestGaps(cols, WEEKDAYS);
     body = (
       <>
+        {!totals.empty && (
+          <div className="wk-stats">
+            <span className="study">{lessons.done}/{lessons.total} ders</span>
+            <span className="sport">{totals.sportDays} gün spor</span>
+            <span className="evt">{totals.events} aktivite</span>
+          </div>
+        )}
         <div className="wg">
           <div className="wg-axis" aria-hidden="true" style={{ marginTop: 60, height: WG_HEIGHT }}>
             {AXIS.map(h => <span key={h} style={{ top: (h * 60 - WS) * WG_PX }}>{String(h).padStart(2, '0')}</span>)}
@@ -67,7 +79,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
                 aria-label={weekColumnLabel(head, col)} onClick={() => onPick(date)}>
                 <span className="wg-hd" aria-hidden="true">{tone && <span className={`hdot ${tone}`} />}<span className="w">{WEEKDAYS[i]}</span><span className="n">{date.getDate()}</span></span>
                 <span className="wg-un" aria-hidden="true">
-                  {col.untimed.length > 0 && iconOf(col.untimed[0])}
+                  {col.untimed.length > 0 && <KindIcon ev={col.untimed[0]} size={12} />}
                   {col.untimed.length > 1 && <i>+{col.untimed.length - 1}</i>}
                   {col.before.length > 0 && <i>▲</i>}
                 </span>
@@ -76,7 +88,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
                   {col.blocks.map(({ r, lane, n, top, height }) => (
                     <i key={itemKey(r.ev)} className={`wg-b ${kindClass(r.ev)}${r.noEnd ? ' noend' : ''}${r.cutBot ? ' cut-bot' : ''}${r.cutTop ? ' cut-top' : ''}`}
                       style={{ top: Math.round(top) + 1, height: Math.round(height) - 2, left: `calc(2px + ${lane} * (100% - 4px) / ${n})`, width: `calc((100% - 4px) / ${n} - ${n > 1 ? 1 : 0}px)` }}>
-                      {!r.ev.isStudy && n === 1 && height >= 20 && <span className="ic">{iconOf(r.ev)}</span>}
+                      {!r.ev.isStudy && n === 1 && height >= 20 && <span className="ic"><KindIcon ev={r.ev} size={11} /></span>}
                       {!r.ev.isStudy && n === 1 && height >= 40 && <span className="t">{r.start.endsWith(':00') ? r.start.slice(0, 2) : r.start}</span>}
                       {isOccurrence(r.ev) && n === 1 && height >= 60 && <span className="rc2">↻</span>}
                     </i>
@@ -117,7 +129,7 @@ export default function WeekSheet({ monday, days, error, onRetry, onPick, onClos
   return (
     <Sheet className="weeksheet" layerClassName="keep-tabbar" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>
       <div className="sheet-head">
-        <h3 id={titleId} tabIndex={-1}>{isThisWeek ? `Bu hafta · ${range}` : range}</h3>
+        <h3 id={titleId} tabIndex={-1}>{isThisWeek ? 'Bu hafta' : 'Hafta'}<small>{range}</small></h3>
         <button type="button" className="sheet-close" onClick={onClose}>Kapat</button>
       </div>
       <div className="sheet-body">{body}</div>

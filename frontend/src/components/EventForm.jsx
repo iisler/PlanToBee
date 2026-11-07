@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import KindIcon from './KindIcon';
 import TimeInput from './TimeInput';
 import { ACTIVITY_KINDS, eventLabel, isTraining, kindInfo } from '../utils/events';
 import { formatDuration } from '../utils/format';
@@ -213,7 +214,7 @@ export default function EventForm({
         <div className="acts" role="group" aria-label={kindsLabel}>
           {ACTIVITY_KINDS.map((k) => (
             <button key={k.kind} type="button" className={kind === k.kind ? 'on' : ''} aria-pressed={kind === k.kind} onClick={() => pick(k.kind)}>
-              <span className="ai" aria-hidden="true">{k.icon}</span>{k.label}
+              <span className="ai" aria-hidden="true"><KindIcon kind={k.kind} size={20} /></span>{k.label}
             </button>
           ))}
         </div>

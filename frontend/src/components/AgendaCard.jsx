@@ -15,8 +15,8 @@ function stepLabel(date, dir) {
   return dkey(d) === dkey(new Date()) ? 'Bugün' : `${WEEKDAYS[(d.getDay() + 6) % 7]} ${d.getDate()}`;
 }
 
-// Bee (Ajanda, Görev 10): dersler ve aktiviteler tek saat çizelgesinde (components/Timeline). Üstte yalnızca boş süre
-// özeti. Kartta ekleme yok (ekleme alt menüdeki + ile, Görev 14b); ⋯ → Düzenle alt sayfada (AgendaSheet).
+// Bee (Ajanda, Görev 10): dersler ve aktiviteler tek saat çizelgesinde (components/Timeline). Üstte "Günün akışı" ve boş süre
+// özeti (çip). Kartta ekleme yok (ekleme alt menüdeki + ile, Görev 14b); ⋯ → Düzenle alt sayfada (AgendaSheet).
 // Ders dairesi durumu değiştirir (To-do ile aynı işlem: study.cycle). items: agendaItems (DayPage).
 // Kart sola çekilince ertesi güne, sağa çekilince önceki güne geçer (hooks/useDaySwipe); onStep(+1 | -1) günü değiştirir.
 export default function AgendaCard({ date, items, isToday, myId, menuReset, subjects, study, events, dateLabel, panel, onStep }) {
@@ -72,7 +72,8 @@ export default function AgendaCard({ date, items, isToday, myId, menuReset, subj
       )}
       <div className="swipe-body" ref={bodyRef}>
         <div className="card-head">
-          <h2 className="sumh" ref={headingRef} tabIndex={-1}>{freeSummary(items)}</h2>
+          <h2 className="sumh" ref={headingRef} tabIndex={-1}>Günün akışı</h2>
+          <span className="free-chip">{freeSummary(items)}</span>
         </div>
 
         <Timeline events={items} isToday={isToday} myId={myId} onCycle={e => study.cycle(e)}

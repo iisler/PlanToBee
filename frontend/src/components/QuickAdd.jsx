@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import KindIcon from './KindIcon';
 import { kindInfo } from '../utils/events';
 import { dayTitle, formatDuration } from '../utils/format';
 import { parseKey } from '../utils/recurrence';
@@ -158,7 +159,7 @@ export default function QuickAdd({ date, subjects, onAdd, onEdit, children }) {
             <>
               <div className="qa-card">
                 <div className="qa-what">
-                  <span className="ai" aria-hidden="true">{isStudy ? '📚' : info.icon}</span>
+                  <span className={`ai ${isStudy ? 'study' : info.kind === 'Training' ? 'sport' : 'evt'}`} aria-hidden="true"><KindIcon kind={isStudy ? 'study' : info.kind} size={16} /></span>
                   <b>{name || '—'}{isStudy && p.topic && <span className="qa-topic"> · {p.topic}</span>}</b>
                   <small>{isStudy ? 'Ders' : info.label}</small>
                 </div>
