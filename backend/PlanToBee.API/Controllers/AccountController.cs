@@ -23,6 +23,7 @@ public class AccountController(
     UserManager<User> userManager,
     SignInManager<User> signInManager,
     MemberContext members,
+    ResetEmails resetEmails,
     ILogger<AccountController> logger) : ControllerBase
 {
     public const string ConfirmText = "SİL";
@@ -50,8 +51,14 @@ public class AccountController(
         if ((dto.Confirm ?? "").Trim() != ConfirmText)
             return Err.BadRequest("confirm_invalid", $"Onaylamak için {ConfirmText} yaz.");
 
+        // Girişteki gibi: kilit bu denemeyle başladıysa hesap sahibine kilit açma kodu e-postayla gider.
+        var wasLocked = await userManager.IsLockedOutAsync(user);
         var check = await signInManager.CheckPasswordSignInAsync(user, dto.Password ?? "", lockoutOnFailure: true);
-        if (check.IsLockedOut) return AuthLockout.LockedOut();
+        if (check.IsLockedOut)
+        {
+            if (!wasLocked) await resetEmails.QueueAsync(user, locked: true);
+            return AuthLockout.LockedOut();
+        }
         // 401 değil: oturum geçerli, yalnızca şifre yanlış (istemci 401'i oturum sonu sayar).
         if (!check.Succeeded) return Err.BadRequest("password_invalid", "Şifre hatalı.");
 

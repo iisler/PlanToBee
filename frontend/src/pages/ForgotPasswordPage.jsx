@@ -11,19 +11,23 @@ import PasswordRules from '../components/PasswordRules';
 import { PASSWORD_INVALID_TEXT, PASSWORD_MIN_LENGTH, passwordValid } from '../utils/passwordPolicy';
 
 const RESEND_SECONDS = 60;
+const LOCK_INFO = 'Hesap bu adrese kayıtlıysa, kilitlendiği anda e-postana bir kilit açma kodu gönderdik. Süresi dolduysa yenisini iste.';
 
 // Şifre sıfırlama ve kilitli hesabı açma. 1. adım: e-posta → sunucu e-postaya 6 haneli kod (ve bağlantı) gönderir.
 // 2. adım: kod + yeni şifre → şifre değişir, kalıcı giriş kilidi açılır. Hesabın varlığı belli edilmez; sunucu
-// her durumda aynı mesajı döner. Girişte hesap kilitlenince bu ekrana { email, locked: true } ile gelinir.
+// her durumda aynı mesajı döner. Girişte hesap kilitlenince bu ekrana { email, locked: true } ile gelinir; sunucu kilit
+// açma kodunu kilitlendiği anda kendiliğinden e-postayla gönderdiği için ekran doğrudan kod adımıyla açılır.
 export default function ForgotPasswordPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { notify } = useNotice();
   const locked = state?.locked === true;
-  const [email, setEmail] = useState(typeof state?.email === 'string' ? state.email : '');
-  const [step, setStep] = useState('email');
-  const [info, setInfo] = useState('');
+  const initialEmail = typeof state?.email === 'string' ? state.email : '';
+  const startAtCode = locked && initialEmail.trim() !== '';
+  const [email, setEmail] = useState(initialEmail);
+  const [step, setStep] = useState(startAtCode ? 'code' : 'email');
+  const [info, setInfo] = useState(startAtCode ? LOCK_INFO : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState('');
@@ -83,7 +87,7 @@ export default function ForgotPasswordPage() {
     <AuthLayout subtitle={locked ? 'Hesabının kilidini aç' : 'Şifreni sıfırla'} footer={<Link className="auth-link" to="/login">‹ Girişe dön</Link>}>
       {locked && (
         <div className="auth-warn" role="alert">
-          Çok fazla hatalı şifre denemesi yapıldığı için hesabın kilitlendi. Kilidi açmak için e-postana gelecek kodla yeni bir şifre belirle.
+          Çok fazla hatalı şifre denemesi yapıldığı için hesabın kilitlendi. Kilidi açmak için e-postana gelen kodla yeni bir şifre belirle.
         </div>
       )}
       {step === 'email' ? (
