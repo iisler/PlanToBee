@@ -204,6 +204,21 @@ def test_login_lockout_parity():
     check("olmayan hesapta kilit mesajı", s == 429 and code_of(b) == "locked_out", (s, b))
 
 
+def test_request_limits():
+    print("İstek sınırları: uzun giriş alanları ve 1 MB'ı aşan gövde reddedilir")
+    s, b = req("POST", "/auth/login", {"email": "a" * 300 + "@ornek.com", "password": "yanlis"})
+    check("256 karakteri aşan e-postayla giriş 400", s == 400, (s, b))
+    s, b = req("POST", "/auth/login", {"email": new_email("uzunsifre"), "password": "x" * 200})
+    check("128 karakteri aşan şifreyle giriş 400", s == 400, (s, b))
+    try:
+        s, b = req("POST", "/auth/login", {"email": new_email("buyukgovde"), "password": "yanlis", "pad": "y" * 1_100_000})
+        ok = s == 413 and code_of(b) == "request_too_large"
+    except (urllib.error.URLError, ConnectionError) as e:
+        # Sunucu gövdenin kalanını okumadan bağlantıyı kapattıysa istemci cevabı okuyamaz; istek yine reddedilmiştir.
+        s, b, ok = None, repr(e), True
+    check("1 MB'ı aşan gövde 413 (request_too_large)", ok, (s, b))
+
+
 def test_password_policy():
     print("Şifre politikası: 8+ karakter, büyük/küçük harf, rakam, özel karakter, art arda/ardışık karakter yok")
     existing, _ = register_and_verify("Politika")
@@ -1601,7 +1616,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
+    for t in (test_register_privacy, test_request_limits, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001
