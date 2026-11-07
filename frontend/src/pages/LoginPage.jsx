@@ -266,7 +266,7 @@ export default function LoginPage() {
             </label>
             <label className="terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => onConsentChange('terms', e.target.checked)} required />
-              <span>18 yaşını doldurdum ve <button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
+              <span><button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
             </label>
           </>
         )}
