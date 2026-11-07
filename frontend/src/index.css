@@ -683,14 +683,15 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .sform .fl, .evform .fl { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink); min-width: 0; }
 .sform .opt, .evform .opt { font-weight: 500; color: var(--ink-soft); }
 .sform .evsum, .sform .inline-error { margin: 0; }
-.durrow { display: flex; gap: 8px; align-items: center; }
-.durrow .evchips { flex: 1; min-width: 0; flex-wrap: nowrap; gap: 6px; }
+/* Süre çipleri ve dk alanı: sığmazsa dk alanı alt satıra geçer (4 çip + alan 390 px'e sığmaz) */
+.durrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.durrow .evchips { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; gap: 6px; }
 .durrow .evchips button { padding: 0 10px; white-space: nowrap; }
 .durrow input { width: 76px; flex: none; font-family: var(--f-mono); text-align: center; }
 .sform .evtimes.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .sform .evtimes input { font-family: var(--f-mono); background: var(--surface); }
-.endout { display: flex; align-items: center; min-height: 48px; padding: 0 14px; border: none; border-radius: var(--radius-sm); font-family: var(--f-mono); font-size: 16px; color: var(--ink); background: var(--chip); }
-.endout.empty { color: var(--ink-faint); }
+/* Bitiş, başlangıç seçilmeden girilemez */
+.sform input:disabled { background: var(--chip); border-style: dashed; color: var(--ink-faint); }
 .frm-act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .frm-act .go { min-height: 48px; padding: 0 24px; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: 15px; }
 .frm-act .btn-ghost { min-height: 44px; padding: 0 16px; }

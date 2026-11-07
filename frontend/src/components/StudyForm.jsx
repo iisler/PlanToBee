@@ -3,7 +3,7 @@ import TimeInput from './TimeInput';
 import { STATUS_ORDER, STATUS_SHORT } from '../utils/format';
 import { clashText, hm, overlapping, toMin } from '../utils/timeline';
 
-const CHIPS = [30, 40, 60];
+const CHIPS = [30, 40, 60, 120];
 
 export const EMPTY_STUDY = { subject: '', topic: '', minutes: '', startTime: '', status: 'todo' };
 
@@ -13,7 +13,7 @@ export const studyDraft = (entry) => ({
   startTime: entry.startTime || '', status: entry.status,
 });
 
-// Ders formu (Görev 10; Görev 16: ders çipleri): Ders · Konu · Süre (çipler + dk) · Başlangıç (isteğe bağlı) | Bitiş (salt okunur) · özet ·
+// Ders formu (Görev 10; Görev 16: ders çipleri): Ders · Konu · Süre (çipler + dk) · Başlangıç (isteğe bağlı) | Bitiş (girilince süre ondan hesaplanır; 07.11) · özet ·
 // çakışma uyarısı · hata · eylemler. To-do kartında satır/kart içinde, Bee'de alt sayfada kullanılır.
 // Denetimli bileşen: value ({ subject, topic, minutes, startTime, status }) ve onChange(kısmi değer) üst bileşende;
 // böylece To-do'nun ekleme formu gün değişince açık kalır, Bee sayfasında Ders <-> Aktivite geçişinde başlangıç korunur.
@@ -41,6 +41,17 @@ export default function StudyForm({
   const hasStart = S != null;
   const E = hasStart && minsOk ? S + mins : null;
   const end = E != null ? hm(E) : null;
+
+  // Bitiş girilince süre ondan hesaplanır; gece yarısını geçebilir (23:00 → 01:00 = 120 dk). Saklanan yine başlangıç ve
+  // süredir, bitiş alanı her zaman ikisinden türetilir. Başlangıç yokken bitiş girilemez.
+  function setEnd(v) {
+    setError('');
+    const e = toMin(v);
+    if (e == null || S == null) return;
+    const diff = (e - S + 1440) % 1440;
+    if (diff === 0) { setError('Bitiş başlangıçla aynı olamaz.'); return; }
+    onChange({ minutes: String(diff) });
+  }
 
   let summary;
   if (!hasStart) summary = <>Saat seçmezsen ders ajandada “Saati yok” bölümünde görünür.</>;
@@ -102,10 +113,11 @@ export default function StudyForm({
           <span>Başlangıç <span className="opt">(isteğe bağlı)</span></span>
           <TimeInput value={value.startTime} onChange={v => { setError(''); onChange({ startTime: v }); }} label="Başlangıç (isteğe bağlı)" />
         </label>
-        <div className="fl">
-          <span aria-hidden="true">Bitiş</span>
-          <output className={`endout${end ? '' : ' empty'}`} aria-hidden="true">{end ?? '–'}</output>
-        </div>
+        <label>
+          <span>Bitiş</span>
+          <TimeInput value={end ?? ''} onChange={setEnd} label="Bitiş" disabled={!hasStart}
+            title={hasStart ? undefined : 'Önce başlangıç saatini seç'} />
+        </label>
       </div>
 
       <p className="evsum" aria-live="polite">{summary}</p>
