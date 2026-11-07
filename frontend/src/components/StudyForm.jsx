@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import TimeInput from './TimeInput';
 import { STATUS_ORDER, STATUS_SHORT } from '../utils/format';
 import { clashText, hm, overlapping, toMin } from '../utils/timeline';
@@ -13,7 +13,7 @@ export const studyDraft = (entry) => ({
   startTime: entry.startTime || '', status: entry.status,
 });
 
-// Ders formu (Görev 10): Ders · Konu · Süre (çipler + dk) · Başlangıç (isteğe bağlı) | Bitiş (salt okunur) · özet ·
+// Ders formu (Görev 10; Görev 16: ders çipleri): Ders · Konu · Süre (çipler + dk) · Başlangıç (isteğe bağlı) | Bitiş (salt okunur) · özet ·
 // çakışma uyarısı · hata · eylemler. To-do kartında satır/kart içinde, Bee'de alt sayfada kullanılır.
 // Denetimli bileşen: value ({ subject, topic, minutes, startTime, status }) ve onChange(kısmi değer) üst bileşende;
 // böylece To-do'nun ekleme formu gün değişince açık kalır, Bee sayfasında Ders <-> Aktivite geçişinde başlangıç korunur.
@@ -27,6 +27,7 @@ export default function StudyForm({
   onSubmit, onCancel, busy = false, extra, submitLabel, subjectRef, minutesRef,
 }) {
   const [error, setError] = useState('');
+  const subjectId = useId();
   const set = (k) => (e) => { setError(''); onChange({ [k]: e.target.value }); };
   const edit = mode === 'edit';
 
@@ -64,13 +65,16 @@ export default function StudyForm({
 
   return (
     <form className="sform" onSubmit={submit} noValidate>
-      <label className="fl">Ders
-        <select ref={subjectRef} value={subject} onChange={set('subject')}
-          aria-invalid={error === 'Ders seç.' ? true : undefined}>
-          {!edit && <option value="">Ders seç</option>}
-          {options.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </label>
+      <div className="fl">
+        <span id={subjectId}>Ders</span>
+        {/* Görev 16: açılır liste yerine tek dokunuşla seçilen çipler; seçili çip bal sarısı ve koyu çerçeveli */}
+        <div className="subj-chips" role="group" aria-labelledby={subjectId} ref={subjectRef} tabIndex={-1}>
+          {options.map(s => (
+            <button key={s} type="button" className={s === subject ? 'on' : ''} aria-pressed={s === subject}
+              onClick={() => { setError(''); onChange({ subject: s }); }}>{s}</button>
+          ))}
+        </div>
+      </div>
       <label className="fl">
         <span>Konu <span className="opt">(isteğe bağlı)</span></span>
         <input placeholder="ör. Paragraf soruları" maxLength={200} value={value.topic} onChange={set('topic')} />

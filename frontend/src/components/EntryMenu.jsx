@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
 import Sheet from './Sheet';
 import { auditLine, dkey, STATUS_SHORT } from '../utils/format';
-import { eventLabel, eventMeta, kindInfo } from '../utils/events';
+import { eventLabel, eventMeta } from '../utils/events';
 import { dayMonthAcc, dayMonthWeekday, isOccurrence, recurringLine } from '../utils/recurrence';
 
 export const READ_ONLY_STUDY_TEXT = 'Durumu daireye dokunarak değiştirebilirsin. Düzenleme ve silme yalnızca ekleyen kişi ya da bir ebeveyn içindir.';
@@ -27,7 +27,7 @@ export default function EntryMenu({ kind, entry, myId, onEdit, onDelete, onEditA
 
   const title = study
     ? [entry.subject, entry.startTime && `${entry.startTime}–${entry.endTime ?? ''}`.replace(/–$/, ''), `${entry.minutes} dk`].filter(Boolean).join(' · ')
-    : [`${series ? `${kindInfo(entry.kind).icon} ` : ''}${eventLabel(entry)}`, eventMeta(entry)].filter(Boolean).join(' · ');
+    : [eventLabel(entry), eventMeta(entry)].filter(Boolean).join(' · ');
   const sub = [
     series ? recurringLine(entry.recurring) : '',
     study ? entry.topic : entry.note,

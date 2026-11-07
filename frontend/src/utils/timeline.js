@@ -1,5 +1,5 @@
 import { formatDuration } from './format';
-import { eventLabel, isTraining, kindInfo } from './events';
+import { eventLabel, isTraining } from './events';
 
 // Saat çizelgesi ortak hesabı (Görev 09). Gün çizelgesi (Timeline) ve Hafta ızgarası (WeekSheet) aynı kuralları kullanır:
 // pencere 07:00–22:00; bitiş = endTime ?? derivedEndTime; ikisi de yoksa 60 dk ("süre belirsiz");
@@ -321,4 +321,3 @@ export function clashText(list) {
 // başlangıç + süre (24 saatte sarar)
 export const addMinutes = (t, mins) => { const s = toMin(t); return s == null ? '' : hm(s + mins); };
 
-export const iconOf = (ev) => (ev.isStudy ? '📚' : kindInfo(ev.kind).icon);

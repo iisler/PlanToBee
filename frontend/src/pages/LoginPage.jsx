@@ -221,18 +221,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout
-      subtitle="Haftalık plan ve takip platformu"
-      footer={(
-        <>
-          {mode === 'login' && (
-            <div className="auth-links">
-              <Link className="auth-link" to="/forgot-password">Şifremi unuttum</Link>
-            </div>
-          )}
-        </>
-      )}
-    >
+    <AuthLayout subtitle="Haftalık plan ve takip platformu">
       {deletedInfo && <div className="auth-info deleted-info" role="status">Hesabın ve tüm verilerin silindi.</div>}
       <div className="auth-tabs">
         <button className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => switchMode('login')}>Giriş</button>
@@ -240,21 +229,31 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {/* Görev 16: her alanın üstünde görünür etiket */}
         {mode === 'register' && (
-          <input id="displayName" aria-label="Kullanıcı adı" placeholder="Kullanıcı adı" autoComplete="nickname" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
+          <div className="auth-fl">
+            <label htmlFor="displayName">Kullanıcı adı</label>
+            <input id="displayName" autoComplete="nickname" maxLength={50} value={form.displayName} onChange={set('displayName')} required />
+          </div>
         )}
-        <input id="email" type="email" aria-label="E-posta" placeholder="E-posta" autoComplete="email" value={form.email} onChange={set('email')} required />
-        <PasswordInput
-          id="password"
-          aria-label="Şifre"
-          aria-describedby={mode === 'register' ? 'register-pw-rules' : undefined}
-          placeholder={mode === 'login' ? 'Şifre' : `Şifre (en az ${PASSWORD_MIN_LENGTH} karakter)`}
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          minLength={mode === 'login' ? undefined : PASSWORD_MIN_LENGTH}
-          value={form.password}
-          onChange={set('password')}
-          required
-        />
+        <div className="auth-fl">
+          <label htmlFor="email">E-posta</label>
+          <input id="email" type="email" placeholder="ornek@eposta.com" autoComplete="email" value={form.email} onChange={set('email')} required />
+        </div>
+        <div className="auth-fl">
+          <label htmlFor="password">Şifre</label>
+          <PasswordInput
+            id="password"
+            aria-describedby={mode === 'register' ? 'register-pw-rules' : undefined}
+            placeholder={mode === 'login' ? 'Şifren' : `En az ${PASSWORD_MIN_LENGTH} karakter`}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            minLength={mode === 'login' ? undefined : PASSWORD_MIN_LENGTH}
+            value={form.password}
+            onChange={set('password')}
+            required
+          />
+        </div>
+        {mode === 'login' && <Link className="auth-link auth-forgot" to="/forgot-password">Şifremi unuttum</Link>}
         {mode === 'register' && <PasswordRules id="register-pw-rules" password={form.password} />}
         {mode === 'register' && (
           <>
@@ -266,7 +265,7 @@ export default function LoginPage() {
             </label>
             <label className="terms-check">
               <input type="checkbox" checked={acceptTerms} onChange={(e) => onConsentChange('terms', e.target.checked)} required />
-              <span>18 yaşını doldurdum ve <button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
+              <span><button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
             </label>
           </>
         )}

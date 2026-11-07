@@ -8,6 +8,7 @@ import StudyCard from '../components/StudyCard';
 import EventCard from '../components/EventCard';
 import AgendaCard from '../components/AgendaCard';
 import QuickAdd from '../components/QuickAdd';
+import DayTiles from '../components/DayTiles';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
 import { addMinutes, agendaItems, itemKey } from '../utils/timeline';
@@ -30,11 +31,15 @@ function restoreSeries({ truncated, series: s }) {
     : client.post('/series', { ...rule, kind: s.kind, startDate: s.startDate, exceptions: s.exceptions ?? [] });
 }
 
+// Hafta okları (‹ ›): çizgi ikon
+const CHEV_PREV = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6" /></svg>;
+const CHEV_NEXT = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6" /></svg>;
+
 const SECTION_NAMES = { bee: 'Ajanda', todo: 'Dersler', plan: 'Aktiviteler' };
 const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
 
-// Tek ekran plan: üstte siyah hafta alanı (aralık, ‹ › hafta okları, şerit), gün başlığı ve seçili bölümün tek kartı:
-// Bee = saat çizelgesi (dersler + aktiviteler), To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm
+// Tek ekran plan: üstte haftanın peteği (aralık, ‹ › hafta okları, petek hücreleri; Görev 16), gün başlığı ve seçili
+// bölümün kartı: Bee = özet kutuları (DayTiles) ve saat çizelgesi (dersler + aktiviteler), To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm
 // (PlanShell'de; açılışta Bee). Görev 14: bölüm seçici kalktı; Plan ve To-do alt menüdeki + ile açılır (addRequest), dönüş
 // "‹ Bugün" ya da alt menüdeki Bugün ile. Hafta paneli alt menüden açılır (weekOpen / setWeekOpen, weekBtnRef PlanShell'de). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
 // weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null), weekError: hafta ayrıntısı hata metni.
@@ -229,7 +234,7 @@ export default function DayPage({
     focusForm.current = null;
     requestAnimationFrame(() => {
       const panelEl = document.getElementById('day-panel');
-      const target = panelEl?.querySelector(section === 'todo' ? '.sform select, .sform input, .sform button, .subject-onboard button' : '.acts button');
+      const target = panelEl?.querySelector(section === 'todo' ? '.sform .subj-chips, .sform select, .sform input, .sform button, .subject-onboard button' : '.acts button');
       if (!target) return;
       target.scrollIntoView({ block: 'center' });
       target.focus({ preventScroll: true });
@@ -298,9 +303,12 @@ export default function DayPage({
     <>
       <section className="dayhero">
         <div className="weekhead">
-          <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
-          <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>‹</button>
-          <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>›</button>
+          <div className="wh-tx">
+            <span className="wh-lb">{isThisWeek ? 'Bu haftanın peteği' : 'Haftanın peteği'}</span>
+            <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
+          </div>
+          <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>{CHEV_PREV}</button>
+          <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>{CHEV_NEXT}</button>
         </div>
 
         <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays} />
@@ -342,8 +350,11 @@ export default function DayPage({
           <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events}
             draft={draft} onClearDraft={() => setDraft(null)} isToday={isToday} />
         ) : (
-          <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
-            subjects={subjects} study={study} events={events} onStep={(n) => setCurrentDate(d => addDays(d, n))} />
+          <>
+            <DayTiles entries={shown.studyEntries} items={items} isToday={isToday} />
+            <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
+              subjects={subjects} study={study} events={events} onStep={(n) => setCurrentDate(d => addDays(d, n))} />
+          </>
         )
       )}
       <span className="sr-only" aria-live="polite">{announce}</span>

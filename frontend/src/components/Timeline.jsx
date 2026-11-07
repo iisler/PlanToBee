@@ -4,9 +4,10 @@ import { creatorMark, formatDuration, nextStatus, STATUS_SHORT } from '../utils/
 import { useAuditSettings } from '../context/AuditContext';
 import AuditTag from './AuditTag';
 import RepeatMark from './RepeatMark';
+import KindIcon from './KindIcon';
 import { repeatAria } from '../utils/recurrence';
 import {
-  ariaEvent, classify, durationLong, hm, iconOf, itemKey, kindClass, layoutDay, rangeText, timeText, WE, WS,
+  ariaEvent, classify, durationLong, hm, itemKey, kindClass, layoutDay, rangeText, timeText, WE, WS,
 } from '../utils/timeline';
 
 const nowMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
@@ -76,7 +77,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onCycle }) {
   ), ' two') : (
     <button key={itemKey(r.ev)} {...common(r.ev)} className="tl-row two"
       aria-label={`${ariaEvent(r)}, ${dir === 'b' ? '07:00 öncesi' : '22:00 sonrası'}${who(r.ev)}: seçenekler`}>
-      <span className="ic" aria-hidden="true">{iconOf(r.ev)}</span>
+      <span className={`ic ${kindClass(r.ev)}`} aria-hidden="true"><KindIcon ev={r.ev} size={15} /></span>
       <span className="nm">
         <span className="t1">{eventLabel(r.ev)}<RepeatMark entry={r.ev} /><AuditTag entry={r.ev} myId={myId} /></span>
         <span className="t2"><span className="tm">{r.noEnd ? r.start : rangeText(r)}</span> · {dir === 'b' ? '↑ 07:00 öncesi' : '↓ 22:00 sonrası'}</span>
@@ -98,7 +99,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onCycle }) {
           )) : (
             <button key={itemKey(ev)} {...common(ev)} className="tl-row"
               aria-label={`${eventLabel(ev)}, saati yok${who(ev)}: seçenekler`}>
-              <span className="ic" aria-hidden="true">{iconOf(ev)}</span>
+              <span className={`ic ${kindClass(ev)}`} aria-hidden="true"><KindIcon ev={ev} size={15} /></span>
               <span className="nm">{eventLabel(ev)}<RepeatMark entry={ev} /><AuditTag entry={ev} myId={myId} /></span>
               <span className="mo" aria-hidden="true">⋯</span>
             </button>
@@ -144,7 +145,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onCycle }) {
                       ), ' two') : (
                         <button key={itemKey(r.ev)} {...common(r.ev)} className="tl-row two"
                           aria-label={`${ariaEvent(r)}${who(r.ev)}: seçenekler`}>
-                          <span className="ic" aria-hidden="true">{iconOf(r.ev)}</span>
+                          <span className={`ic ${kindClass(r.ev)}`} aria-hidden="true"><KindIcon ev={r.ev} size={15} /></span>
                           <span className="nm">
                             <span className="t1">{eventLabel(r.ev)}<RepeatMark entry={r.ev} /><AuditTag entry={r.ev} myId={myId} /></span>
                             <span className="t2 tm">{timeText(r, 1)}</span>
@@ -187,7 +188,7 @@ export default function Timeline({ events, isToday, myId, onOpen, onCycle }) {
                 return (
                   <li key={it.key} style={style}>
                     <button {...common(r.ev)} className={cls} aria-label={`${ariaEvent(r)}${cut}${who(r.ev)}: seçenekler`}>
-                      <span className="ic" aria-hidden="true">{iconOf(r.ev)}</span>
+                      <span className="ic" aria-hidden="true"><KindIcon ev={r.ev} size={17} /></span>
                       <span className="tx">
                         <span className="nm">{eventLabel(r.ev)}<RepeatMark entry={r.ev} />{solo && <AuditTag entry={r.ev} myId={myId} />}</span>
                         <span className="tm">{timeText(r, level)}</span>

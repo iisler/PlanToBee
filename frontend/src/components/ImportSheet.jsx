@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import KindIcon from './KindIcon';
 import Sheet from './Sheet';
 import TimeInput from './TimeInput';
 import HoneycombSpinner from './HoneycombSpinner';
@@ -301,7 +302,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
         <label>Tür
           <select value={draft.kind ?? (format === 'grid' ? defaultKind : 'Event')}
             onChange={(e) => setEditing({ ...draft, kind: format === 'grid' && e.target.value === defaultKind ? null : e.target.value })}>
-            {ACTIVITY_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.icon} {k.label}</option>)}
+            {ACTIVITY_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
           </select>
         </label>
         <label>Başlangıç<TimeInput value={draft.start} label="Başlangıç" onChange={(v) => setEditing({ ...draft, start: v })} /></label>
@@ -403,7 +404,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                 <div className="seg" role="group" aria-labelledby={`${titleId}-kind`}>
                   {['School', 'Event'].map((k) => (
                     <button key={k} type="button" className={defaultKind === k ? 'active' : ''} aria-pressed={defaultKind === k}
-                      onClick={() => setDefaultKind(k)}>{kindInfo(k).icon} {kindInfo(k).label}</button>
+                      onClick={() => setDefaultKind(k)}><KindIcon kind={k} size={16} /> {kindInfo(k).label}</button>
                   ))}
                 </div>
               </div>
@@ -437,7 +438,7 @@ export default function ImportSheet({ subjects, onClose, onDone, returnFocusRef 
                             {r.title || <i>Adsız</i>}
                             {(r.kind || r.merged > 1 || r.note) && (
                               <small className="sub">
-                                {[r.kind && `${kindInfo(r.kind).icon} ${kindInfo(r.kind).label}`, r.merged > 1 && `${r.merged} ders saati`, r.note]
+                                {[r.kind && kindInfo(r.kind).label, r.merged > 1 && `${r.merged} ders saati`, r.note]
                                   .filter(Boolean).join(' · ')}
                               </small>
                             )}

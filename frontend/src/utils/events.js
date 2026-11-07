@@ -3,13 +3,13 @@ import { formatDuration } from './format';
 // Aktivite türleri (sunucudaki EventKind). 'Training' Spor, 'Event' Diğer'dir (eski "etkinlik" kayıtları da Diğer'dir).
 // Ad boş bırakılırsa türün adı kullanılır; yalnızca Diğer'de ad zorunludur.
 export const ACTIVITY_KINDS = [
-  { kind: 'Training', icon: '🏅', label: 'Spor', placeholder: 'ör. Voleybol antrenmanı, Maç' },
-  { kind: 'Music', icon: '🎵', label: 'Müzik', placeholder: 'ör. Piyano dersi' },
-  { kind: 'Concert', icon: '🎤', label: 'Konser', placeholder: 'ör. Okul konseri' },
-  { kind: 'Meeting', icon: '👥', label: 'Buluşma', placeholder: 'ör. Arkadaşlarla sinema' },
-  { kind: 'Exam', icon: '📝', label: 'Sınav', placeholder: 'ör. Deneme sınavı' },
-  { kind: 'School', icon: '🏫', label: 'Okul', placeholder: 'ör. Okul, Kurs' },
-  { kind: 'Event', icon: '✦', label: 'Diğer', placeholder: 'ör. Veteriner randevusu', nameRequired: true },
+  { kind: 'Training', label: 'Spor', placeholder: 'ör. Voleybol antrenmanı, Maç' },
+  { kind: 'Music', label: 'Müzik', placeholder: 'ör. Piyano dersi' },
+  { kind: 'Concert', label: 'Konser', placeholder: 'ör. Okul konseri' },
+  { kind: 'Meeting', label: 'Buluşma', placeholder: 'ör. Arkadaşlarla sinema' },
+  { kind: 'Exam', label: 'Sınav', placeholder: 'ör. Deneme sınavı' },
+  { kind: 'School', label: 'Okul', placeholder: 'ör. Okul, Kurs' },
+  { kind: 'Event', label: 'Diğer', placeholder: 'ör. Veteriner randevusu', nameRequired: true },
 ];
 
 // Tanınmayan tür Diğer gibi gösterilir.
