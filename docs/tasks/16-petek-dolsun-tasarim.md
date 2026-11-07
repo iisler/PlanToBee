@@ -12,6 +12,9 @@ Durum: Frontend: Tamamlandı · QA: Ana oturum (aşağıda), gerçek telefonda d
 - Dersler ve Sıradaki özet kutuları kısa: başlık ve sayı aynı satırda.
 - Kayıttaki onay kutusundan "18 yaşını doldurdum" ifadesi kaldırıldı. Kullanım Koşulları'ndaki 18 yaş maddesi duruyor.
 
+- **16b (kullanıcı, 07.11):** Ders formunda bitiş saati girilebilir; girilince süre ondan hesaplanır
+  (kayıtta yine başlangıç + süre tutulur). Süre çiplerine 120 dk eklendi.
+
 ## Yapılanlar
 - Renk ve yazı: `index.css` `:root` değişkenleri yenilendi. Gövde 15 px, en küçük yazı 12 px (Hafta ızgarası 11 px).
 - Haftanın peteği (`WeekTrail`, `DayPage`): koyu hafta alanı yerine beyaz kart.
