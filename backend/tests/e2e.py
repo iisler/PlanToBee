@@ -258,11 +258,18 @@ def request_reset_code(email):
 
 
 def test_permanent_lockout_and_unlock():
-    print("Kalıcı giriş kilidi ve 'Şifremi unuttum' koduyla açma")
+    print("Kalıcı giriş kilidi, kilit e-postası ve 'Şifremi unuttum' koduyla açma")
     email, auth = register_and_verify("KaliciKilit")
     _, me = req("GET", "/auth/me", token=auth["token"])
+    before_lock = len(emails_to(email))
     codes = [login_req({"email": email, "password": "yanlis"})[0] for _ in range(5)]
     check("5. hatalı denemede kilit", codes == [401, 401, 401, 401, 429], codes)
+    # Kilitlendiği anda hesap sahibine uyarı, kilit açma kodu ve bağlantı gider (arka planda)
+    mails = wait_email(email, before_lock + 1)
+    lock_mail = mails[-1] if len(mails) > before_lock else ""
+    check("kilitlenince e-posta gider: uyarı, 6 haneli kod ve bağlantı",
+          "kilitlendi" in lock_mail and re.search(r"Kilidi açma kodun:\s*\d{6}", lock_mail) is not None
+          and "reset-password?" in lock_mail, lock_mail[:300])
     s, b = login_req({"email": email, "password": "Sifre.2468"})
     check("kilitliyken doğru şifre de reddedilir (429 locked_out)", s == 429 and code_of(b) == "locked_out", (s, b))
     check("kilit mesajı 'Şifremi unuttum' akışını gösteriyor", "Şifremi unuttum" in (b or {}).get("message", ""), b)
@@ -274,6 +281,10 @@ def test_permanent_lockout_and_unlock():
     ghost = new_email("ghostkilit")
     gcodes = [login_req({"email": ghost, "password": "yanlis"})[0] for _ in range(6)]
     check("olmayan hesapta da aynı kilit dizisi", gcodes == [401, 401, 401, 401, 429, 429], gcodes)
+    time.sleep(1)
+    check("kilitliyken yeni deneme ikinci kilit e-postası göndermez", len(emails_to(email)) == before_lock + 1,
+          len(emails_to(email)) - before_lock)
+    check("olmayan hesaba e-posta gitmez", len(emails_to(ghost)) == 0, len(emails_to(ghost)))
 
     # Şifremi unuttum: e-postaya kod gider (bağlantı da)
     before = len(emails_to(email))

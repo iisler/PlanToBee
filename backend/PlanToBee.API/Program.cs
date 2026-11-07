@@ -101,6 +101,10 @@ builder.Services.AddSingleton<SendThrottle>();
 builder.Services.AddSingleton<MissingAccountLockout>();
 builder.Services.AddSingleton<LoginChallenges>();
 builder.Services.AddSingleton<PasswordResetCodes>();
+// Kilit ve "Şifremi unuttum" e-postaları arka planda gider (Services/Email/EmailQueue.cs, Services/ResetEmails.cs).
+builder.Services.AddSingleton<EmailQueue>();
+builder.Services.AddHostedService<EmailQueueWorker>();
+builder.Services.AddScoped<ResetEmails>();
 builder.Services.AddScoped<MemberContext>();
 builder.Services.AddScoped<FamilyService>();
 builder.Services.AddScoped<AuthTokenService>();

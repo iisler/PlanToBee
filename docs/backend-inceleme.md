@@ -38,6 +38,8 @@ Aşağıdaki bulgular önem sırasına göre.
 ## Orta
 
 ### O1. Kalıcı hesap kilidi kötüye kullanılabilir
+**Durum:** kalıcı kilit korundu; kilitlendiği anda hesap sahibine uyarı, kilit açma kodu ve bağlantı e-postayla gidiyor (07.11, `kilit-epostasi` dalı). Kilit ekranı doğrudan kod adımıyla açılıyor. Kilit ve "Şifremi unuttum" e-postaları artık arka planda gidiyor; böylece cevap süresi hesabın var olup olmadığını ele vermiyor (önceden "Şifremi unuttum"da SMTP süresi farkı vardı).
+
 - **Nerede:** `backend/PlanToBee.API/Program.cs:72`.
 - **Sorun:** 5 hatalı şifreden sonra hesap kalıcı olarak kilitleniyor ve yalnızca "Şifremi unuttum" ile açılıyor. E-posta adresini bilen herkes, başkasının hesabını 5 denemeyle kilitleyebilir.
 - **Not:** Bu, 06.11'de bilerek verilmiş bir karar. Kilidi açma yolu var, yani zarar can sıkıcılıkla sınırlı.
@@ -111,6 +113,6 @@ Aşağıdaki bulgular önem sırasına göre.
 ## Önerilen sıra
 1. ~~**Y1:** uzunluk sınırları ve 1 MB gövde sınırı.~~ Yapıldı.
 2. **O2:** artan PIN kilidi.
-3. **O1:** kilit politikası. Bir karar gerekiyor: artan kilit mi, kalıcı kilit artı e-posta mı?
+3. ~~**O1:** kilit politikası.~~ Kalıcı kilit ve kilitlenince otomatik e-posta seçildi, yapıldı.
 4. **O4:** `/health` önbelleği.
 5. Düşük bulgular ve birim testleri, zaman buldukça.

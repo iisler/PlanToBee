@@ -33,6 +33,23 @@ public static class EmailTemplates
         ("Şifre sıfırlama kodun:", code),
         "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez. Bu kodu kimseyle paylaşma.");
 
+    // Hatalı şifre denemeleriyle hesap kilitlendiği anda sahibine kendiliğinden gider: uyarı, kilit açma kodu ve bağlantısı.
+    // Kod "Şifremi unuttum" (kilit açma) ekranında girilir; bağlantı aynı işi e-postadan yapar.
+    public static EmailMessage AccountLocked(string to, string displayName, string code, int codeMinutes, string link) => Build(
+        to,
+        "PlanToBee: Hesabın kilitlendi",
+        $"Merhaba {displayName},",
+        [
+            "Hesabına arka arkaya 5 kez hatalı şifreyle giriş denendi ve güvenliğin için hesabın kilitlendi.",
+            "Bu denemeleri sen yapmadıysan endişelenme: doğru şifre ve e-postana gelen giriş kodu olmadan hesabına girilemez. " +
+            "Yine de yeni bir şifre belirlemeni öneririz.",
+            $"Kilidi açmak için \"Şifremi unuttum\" ekranına aşağıdaki kodu girip yeni şifreni belirle. Kod {codeMinutes} dakika " +
+            "geçerlidir. İstersen aşağıdaki bağlantıyla da yeni şifre belirleyebilirsin (1 saat geçerli)."
+        ],
+        ("Kilidi aç ve yeni şifre belirle", link),
+        ("Kilidi açma kodun:", code),
+        "Bu kodu kimseyle paylaşma. Açık oturumların kilitten etkilenmez; yeni şifre belirleyince bütün cihazlarda yeniden giriş yapman gerekir.");
+
     // Kayıtlı ve doğrulanmış bir adresle yeniden kayıt olunmaya çalışıldığında hesabın sahibine gider.
     // Kayıt ekranı bu durumda da "e-posta gönderdik" der; hesabın varlığını yalnızca adresin sahibi öğrenir.
     public static EmailMessage AccountExists(string to, string displayName, string loginLink, string forgotLink) => Build(

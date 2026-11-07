@@ -24,6 +24,7 @@ public class AuthController(
     MissingAccountLockout lockout,
     LoginChallenges challenges,
     PasswordResetCodes resetCodes,
+    ResetEmails resetEmails,
     IConfiguration config,
     ILogger<AuthController> logger) : ControllerBase
 {
@@ -104,9 +105,15 @@ public class AuthController(
         }
 
         // 5 hatalı denemede hesap kalıcı olarak kilitlenir (Program.cs, AuthLockout); kilitliyken doğru şifre de
-        // reddedilir. Kilidi "Şifremi unuttum" akışı açar.
+        // reddedilir. Kilidi "Şifremi unuttum" akışı açar. Kilit bu denemeyle başladıysa hesap sahibine uyarı ve kilit
+        // açma kodu e-postayla gider (arka planda; cevap ve cevap süresi olmayan hesaptakiyle aynı kalır).
+        var wasLocked = await userManager.IsLockedOutAsync(user);
         var check = await signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
-        if (check.IsLockedOut) return LockedOut();
+        if (check.IsLockedOut)
+        {
+            if (!wasLocked) await resetEmails.QueueAsync(user, locked: true);
+            return LockedOut();
+        }
         if (!check.Succeeded) return InvalidCredentials();
 
         // İki adımlı doğrulama: şifre doğruysa oturum hemen açılmaz, e-postaya 6 haneli kod gider.
@@ -247,16 +254,8 @@ public class AuthController(
         var user = await userManager.FindByEmailAsync(dto.Email.Trim());
         if (user == null) return Ok(new { message });
 
-        // Kötüye kullanım: adres başına dakikada 1, saatte en fazla 5 e-posta. Sınır aşılsa da cevap aynıdır.
-        // Bu sınır kod denemesini de sınırlar: saatte en fazla 5 kod, her biri 5 denemelik.
-        if (!throttle.TryAcquire($"reset:{user.Id}", TimeSpan.FromHours(1), ResetMaxPerHour, TimeSpan.FromSeconds(ResetMinIntervalSeconds)))
-            return Ok(new { message });
-
-        var code = resetCodes.Create(user.Id, await userManager.GetSecurityStampAsync(user));
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var link = app.Value.Link("reset-password", ("userId", user.Id), ("token", SecureCodes.EncodeForUrl(token)));
-        await SafeSend(EmailTemplates.ResetPassword(user.Email!, user.DisplayName, code,
-            (int)PasswordResetCodes.Lifetime.TotalMinutes, link));
+        // Gönderim sınırı (adres başına dakikada 1, saatte 5) ve gönderim ResetEmails'tedir; sınır aşılsa da cevap aynıdır.
+        await resetEmails.QueueAsync(user, locked: false);
         return Ok(new { message });
     }
 
@@ -330,11 +329,6 @@ public class AuthController(
         // Şifre değişti: bütün cihazlardaki oturumlar kapanır. Oturum açılmaz; kullanıcı yeni şifresiyle giriş yapar.
         await tokens.RevokeAllAsync(user.Id);
     }
-
-    // Şifre sıfırlama e-postaları: varsayılan en az 60 sn arayla, saatte en fazla 5 (Auth:PasswordReset:MinIntervalSeconds /
-    // MaxPerHour ile değişir; yalnızca testlerde gevşetilir).
-    private int ResetMinIntervalSeconds => config.GetValue("Auth:PasswordReset:MinIntervalSeconds", 60);
-    private int ResetMaxPerHour => config.GetValue("Auth:PasswordReset:MaxPerHour", 5);
 
     private async Task<IActionResult> StartLoginCodeAsync(User user)
     {
