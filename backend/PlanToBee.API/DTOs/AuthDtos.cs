@@ -12,9 +12,11 @@ public record RegisterDto(
     bool AcceptKvkk = false,
     bool AcceptTerms = false);
 
+// Uzunluk sınırları: olmayan hesaba yapılan denemede e-posta bellekte tutulur (MissingAccountLockout); sınırsız
+// uzunlukta değerlerle bellek doldurulamasın (docs/backend-inceleme.md, Y1).
 public record LoginDto(
-    [Required(ErrorMessage = "E-posta girin")] string Email,
-    [Required(ErrorMessage = "Şifre girin")] string Password);
+    [Required(ErrorMessage = "E-posta girin"), StringLength(256, ErrorMessage = "E-posta en fazla 256 karakter olabilir")] string Email,
+    [Required(ErrorMessage = "Şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string Password);
 
 // Şifre doğruysa ve e-posta doğrulanmışsa giriş oturum açmaz; bunun yerine e-postaya 6 haneli kod gider.
 // İstemci TwoFactorRequired=true görürse kod ekranını açar ve ChallengeId ile /auth/login/verify çağırır.
@@ -28,11 +30,11 @@ public record ResendLoginCodeDto([Required, StringLength(100)] string ChallengeI
 
 public record EmailOnlyDto([Required(ErrorMessage = "E-posta girin"), StringLength(256)] string Email);
 
-public record VerifyEmailDto([Required] string UserId, [Required] string Token);
+public record VerifyEmailDto([Required, StringLength(100)] string UserId, [Required, StringLength(2000)] string Token);
 
 public record ResetPasswordDto(
-    [Required] string UserId,
-    [Required] string Token,
+    [Required, StringLength(100)] string UserId,
+    [Required, StringLength(2000)] string Token,
     [Required(ErrorMessage = "Yeni şifre girin"), StringLength(128, ErrorMessage = "Şifre en fazla 128 karakter olabilir")] string NewPassword);
 
 // "Şifremi unuttum" e-postasındaki 6 haneli kodla yeni şifre belirleme (kalıcı giriş kilidini de açar).

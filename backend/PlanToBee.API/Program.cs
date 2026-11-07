@@ -35,6 +35,10 @@ if (startup.Errors.Count > 0)
 if (!builder.Environment.IsDevelopment() && startup.Port is int port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
+// İstek gövdesi en fazla 1 MB (Kestrel varsayılanı ~30 MB). En büyük meşru istek program yüklemedir (en çok 200 seri,
+// ~200 KB). Aşan istek 413 request_too_large döner (aşağıdaki hata işleyici).
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_000_000);
+
 // E-posta adresleri veritabanında şifreli tutulur (Infrastructure/PersonalDataProtector.cs).
 builder.Services.AddSingleton(new PersonalDataProtector(startup.PersonalDataSecret));
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(startup.ConnectionString));
@@ -229,9 +233,17 @@ if (!app.Environment.IsDevelopment())
 app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
 {
     var ex = ctx.Features.Get<IExceptionHandlerFeature>()?.Error;
-    var error = ex is DbUpdateConcurrencyException
-        ? (Status: 409, Body: new ApiError("concurrency_conflict", "Kayıt bu sırada değişti. Sayfayı yenileyip tekrar dene."))
-        : (Status: 500, Body: new ApiError("server_error", "Beklenmeyen bir hata oluştu. Biraz sonra tekrar dene."));
+    var error = ex switch
+    {
+        DbUpdateConcurrencyException =>
+            (Status: 409, Body: new ApiError("concurrency_conflict", "Kayıt bu sırada değişti. Sayfayı yenileyip tekrar dene.")),
+        // Gövde 1 MB sınırını aştı (Kestrel) ya da istek okunamadı: istemci hatasıdır, 500 sayılmaz.
+        Microsoft.AspNetCore.Http.BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge } =>
+            (Status: 413, Body: new ApiError("request_too_large", "İstek çok büyük.")),
+        Microsoft.AspNetCore.Http.BadHttpRequestException bad =>
+            (Status: bad.StatusCode, Body: new ApiError("bad_request", "İstek okunamadı.")),
+        _ => (Status: 500, Body: new ApiError("server_error", "Beklenmeyen bir hata oluştu. Biraz sonra tekrar dene."))
+    };
     ctx.Response.StatusCode = error.Status;
     ctx.Response.Headers.CacheControl = "no-store";
     await ctx.Response.WriteAsJsonAsync(error.Body);
