@@ -204,6 +204,35 @@ def test_login_lockout_parity():
     check("olmayan hesapta kilit mesajı", s == 429 and code_of(b) == "locked_out", (s, b))
 
 
+def get_json(url, headers=None):
+    """Kök adresteki (API öneki olmadan) GET; /health gibi uç noktalar için."""
+    r = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(r, timeout=30) as res:
+            return res.status, json.loads(res.read() or b"null")
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b"null")
+
+
+def test_health():
+    print("Sağlık: veritabanı yalnızca anahtarla kontrol edilir")
+    root = API.rsplit("/api", 1)[0]
+    s, b = get_json(root + "/health/live")
+    check("/health/live 200 ve veritabanına dokunmaz", s == 200 and "database" not in (b or {}), (s, b))
+    key = os.environ.get("Health__Key")
+    if not key:
+        print("  (Health__Key ayarlı değil; anahtar kontrolleri atlandı)")
+        return
+    s, b = get_json(root + "/health")
+    check("anahtarsız /health veritabanına dokunmaz (unchecked)", s == 200 and (b or {}).get("database") == "unchecked", (s, b))
+    s, b = get_json(root + "/health", {"X-Health-Key": "yanlis"})
+    check("yanlış anahtarla da veritabanı kontrol edilmez", s == 200 and (b or {}).get("database") == "unchecked", (s, b))
+    s, b = get_json(root + "/health", {"X-Health-Key": key})
+    check("başlıktaki doğru anahtarla veritabanı kontrol edilir", s == 200 and (b or {}).get("database") == "ok", (s, b))
+    s, b = get_json(root + "/health?key=" + urllib.parse.quote(key))
+    check("anahtar adres parametresiyle de verilebilir", s == 200 and (b or {}).get("database") == "ok", (s, b))
+
+
 def test_request_limits():
     print("İstek sınırları: uzun giriş alanları ve 1 MB'ı aşan gövde reddedilir")
     s, b = req("POST", "/auth/login", {"email": "a" * 300 + "@ornek.com", "password": "yanlis"})
@@ -1627,7 +1656,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_register_privacy, test_request_limits, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
+    for t in (test_health, test_register_privacy, test_request_limits, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

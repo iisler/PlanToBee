@@ -140,6 +140,11 @@ public class StartupValidation
             v.Warnings.Add("ForwardedHeaders:Enabled=false: proxy arkasında tüm istekler proxy'nin IP'sinden geliyormuş gibi görünür " +
                            "ve IP bazlı sınırlar bütün kullanıcılar arasında paylaşılır. Render'da true olmalı.");
 
+        // ---- Sağlık kontrolü anahtarı (isteğe bağlı) ----
+        if (strict && string.IsNullOrWhiteSpace(config["Health:Key"]))
+            v.Warnings.Add("Health:Key (Health__Key) ayarlı değil: /health veritabanını kontrol etmez, yalnızca API'nin ayakta " +
+                           "olduğunu söyler. Veritabanını elle kontrol etmek için anahtar ekleyin (docs/DEPLOY.md).");
+
         // ---- Rate limit (isteğe bağlı) ----
         foreach (var key in new[] { "Auth", "Pin", "Session", "Api" })
         {
