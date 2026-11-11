@@ -1,21 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
-import { errorCode, errorText } from '../api/errors';
+import { errorText } from '../api/errors';
 import useMutation, { patchEntry, removeEntry } from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
-import WeekSheet from '../components/WeekSheet';
-import StudyCard from '../components/StudyCard';
-import EventCard from '../components/EventCard';
-import AgendaCard from '../components/AgendaCard';
+import NowCard from '../components/NowCard';
+import DayFlow from '../components/DayFlow';
 import QuickAdd from '../components/QuickAdd';
-import DayTiles from '../components/DayTiles';
-import { addDays, dayTitle, dkey, mondayOf, MONTHS, nextStatus, STATUS_SHORT, WEEKDAYS_FULL, weekRangeLabel } from '../utils/format';
+import Loading from '../components/Loading';
+import { addDays, dayTitle, dkey, mondayOf, MONTHS, STATUS_SHORT, WEEKDAYS_FULL } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
 import { addMinutes, agendaItems, itemKey } from '../utils/timeline';
-import { dayMonth, isOccurrence, isoDay, parseKey } from '../utils/recurrence';
+import { dayMonth, isOccurrence } from '../utils/recurrence';
 import { useNotice } from '../context/NoticeContext';
 import { holidayLine, holidayTone } from '../utils/holidays';
-import Loading from '../components/Loading';
 
 // Aktivite listesinde anahtarla değiştirme / silme (tekrarlanan sanal kayıtların id'si 0'dır, Görev 11)
 const mapEvents = (d, fn) => ({ ...d, events: d.events.map(fn) });
@@ -31,37 +28,35 @@ function restoreSeries({ truncated, series: s }) {
     : client.post('/series', { ...rule, kind: s.kind, startDate: s.startDate, exceptions: s.exceptions ?? [] });
 }
 
-// Hafta okları (‹ ›): çizgi ikon
-const CHEV_PREV = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6" /></svg>;
-const CHEV_NEXT = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6" /></svg>;
+// Seçili günün bugüne göre yeri (başlığın üstündeki küçük satır)
+function relativeDay(date, today) {
+  const diff = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  if (diff === 0) return 'Bugün';
+  if (diff === 1) return 'Yarın';
+  if (diff === -1) return 'Dün';
+  return diff > 0 ? `${diff} gün sonra` : `${-diff} gün önce`;
+}
 
-const SECTION_NAMES = { bee: 'Ajanda', todo: 'Dersler', plan: 'Aktiviteler' };
-const EMPTY_ADD_FORM = { open: false, subject: '', topic: '', minutes: '', startTime: '', subjectsOpen: false };
-
-// Tek ekran plan: üstte haftanın peteği (aralık, ‹ › hafta okları, petek hücreleri; Görev 16), gün başlığı ve seçili
-// bölümün kartı: Bee = özet kutuları (DayTiles) ve saat çizelgesi (dersler + aktiviteler), To-do = dersler, Plan = aktiviteler. section / setSection: seçili bölüm
-// (PlanShell'de; açılışta Bee). Görev 14: bölüm seçici kalktı; Plan ve To-do alt menüdeki + ile açılır (addRequest), dönüş
-// "‹ Bugün" ya da alt menüdeki Bugün ile. Hafta paneli alt menüden açılır (weekOpen / setWeekOpen, weekBtnRef PlanShell'de). Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
-// weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null), weekError: hafta ayrıntısı hata metni.
-// layerReset değişince (bildirimden gün açıldı) açık ⋯ menüleri kapanır.
-// banner: hafta alanının altında gösterilecek bant (bildirim izni); onAdded: ders ya da aktivite eklendi.
+// Bugün ekranı (Görev 17 "Akış"): üstte gün başlığı (sağında sesle ekleme ve profil düğmesi), haftanın peteği, Şimdi kartı
+// (components/NowCard.jsx) ve günün akışı (components/DayFlow.jsx: süzgeç çipleri, saatsiz kayıtlar, sıralı liste).
+// Ekleme alt menüdeki + ile açılan Ekle sayfasındadır (PlanShell); burada yalnızca durum, düzenleme ve silme var.
+// Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
+// weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null). refreshKey artınca gün sunucudan yeniden okunur
+// (Ekle sayfasından ya da Dersler sayfasından değişiklik). layerReset değişince (bildirimden gün açıldı) açık ⋯ menüleri kapanır.
+// banner: peteğin altında gösterilecek bant (bildirim izni). onQuickAdd / onQuickEdit: sesle ekleme (PlanShell).
+// onOpenAdd('study' | 'event'): Ekle sayfasını bu gün için açar. avatar: profil düğmesi.
 export default function DayPage({
-  currentDate, setCurrentDate, weekDays, weekError, onRetryWeek, onDayChanged, myId,
-  subjects, onAddSubject, onDeleteSubject, onDataChanged, onAccessChanged, layerReset, section, setSection,
-  weekOpen, setWeekOpen, weekBtnRef, addRequest, onAddHandled, banner, onAdded,
+  currentDate, setCurrentDate, weekDays, onDayChanged, myId, subjects, onDataChanged, onAccessChanged, layerReset,
+  refreshKey, banner, onQuickAdd, onQuickEdit, onOpenAdd, avatar,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
-  // "+ Ders ekle" formu gün değişince de açık kalır (D1): durumu burada tutulur
-  const [addForm, setAddForm] = useState(EMPTY_ADD_FORM);
   const headingRef = useRef(null);
-  const focusHeading = useRef(false);
   const date = dkey(currentDate);
   const today = new Date();
   const isToday = dkey(today) === date;
   const monday = mondayOf(currentDate);
-  const isThisWeek = dkey(mondayOf(today)) === dkey(monday);
 
   // Geç gelen yanıtlar yalnızca hâlâ seçili güne aitse yazılır
   const dateRef = useRef(date);
@@ -73,7 +68,7 @@ export default function DayPage({
       .then(r => { if (active) { setDay(r.data); setLoadError(''); } })
       .catch(err => { if (active) setLoadError(errorText(err)); });
     return () => { active = false; };
-  }, [date, retry]);
+  }, [date, retry, refreshKey]);
 
   const reload = useCallback(async () => {
     try {
@@ -85,42 +80,22 @@ export default function DayPage({
   }, [date, onDataChanged]);
 
   // Gösterilen gün: sunucudan gelen gün verisi; henüz gelmediyse haftalık veride aynı gün (aynı DayDto biçimi).
-  // Böylece aynı haftada gün değiştirmek beklemeden açılır, kartlar (ve açık ekleme formu) yerinde kalır.
+  // Böylece aynı haftada gün değiştirmek beklemeden açılır.
   const shown = day && day.date === date ? day : weekDays?.find(d => d.date === date) ?? null;
-  // İyimser değişiklik ve geri alma hem gün verisine hem haftalık veriye (şerit, panel) yazılır
+  // İyimser değişiklik ve geri alma hem gün verisine hem haftalık veriye (petek, Hafta, Dersler) yazılır
   const setShown = useCallback((d) => {
     setDay(d);
     if (d) onDayChanged(d);
   }, [onDayChanged]);
   const mutate = useMutation({ state: shown, setState: setShown, reload, onAccessChanged });
 
-  // To-do ya da Plan bölümünde (alt menüdeki + ile açılır) ekleme başarılı olunca Gün ekranına (Bee) dönülür:
-  // ders formu kapanır, sayfa en üste kayar ve odak gün başlığına gider. Bee'deki eklemede bir şey değişmez.
-  const sectionRef = useRef(section);
-  useEffect(() => { sectionRef.current = section; });
-  const backToDay = useCallback(() => {
-    if (sectionRef.current === 'bee') return;
-    setAddForm(EMPTY_ADD_FORM);
-    setSection('bee');
-    window.scrollTo(0, 0);
-    requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
-  }, [setSection]);
-
-  // Ders ve aktivite işlemleri tek yerde: Bee ve To-do aynı gün verisini (shown) değiştirir; durum iki bölümde senkron.
-  // add() başarılıysa sunucunun döndürdüğü kaydı (odak için), aksi halde null döner.
+  // Ders ve aktivite işlemleri tek yerde: Şimdi kartı ve akış listesi aynı gün verisini (shown) değiştirir.
   const [announce, setAnnounce] = useState('');
   const study = useMemo(() => ({
-    cycle(entry) {
-      const status = nextStatus(entry.status);
+    setStatus(entry, status) {
       setAnnounce(`${entry.subject}: ${STATUS_SHORT[status]}`);
       return mutate(d => patchEntry(d, 'studyEntries', entry.id, { status }),
         () => client.patch(`/days/${date}/entries/${entry.id}/status`, { status }));
-    },
-    async add(body) {
-      let created = null;
-      const ok = await mutate(null, async () => { created = (await client.post(`/days/${date}/entries`, body)).data; });
-      if (ok) { onAdded?.(); backToDay(); }
-      return ok ? created ?? {} : null;
     },
     save(entry, body) {
       const st = body.startTime || null;
@@ -131,20 +106,9 @@ export default function DayPage({
       return mutate(d => removeEntry(d, 'studyEntries', entry.id), (cfg) => client.delete(`/days/${date}/entries/${entry.id}`, cfg),
         { undo: `${entry.subject} kaydı silindi` });
     },
-  }), [date, mutate, onAdded, backToDay]);
+  }), [date, mutate]);
   const { notify } = useNotice();
   const events = useMemo(() => ({
-    // body.repeat varsa (Görev 11) seri eklenir; dönüş, seri bu güne düşüyorsa bugünkü tekrarın anahtar alanları
-    async add({ repeat, ...body }) {
-      let created = null;
-      const ok = await mutate(null, async () => {
-        if (!repeat) { created = (await client.post(`/days/${date}/events`, body)).data; return; }
-        const sr = (await client.post('/series', { ...body, ...repeat })).data;
-        created = repeat.daysOfWeek.includes(isoDay(date)) ? { id: 0, seriesId: sr.id, occurrenceDate: date } : {};
-      });
-      if (ok) { onAdded?.(); backToDay(); }
-      return ok ? created ?? {} : null;
-    },
     // scope: yok (tek aktivite) · 'one' (o günü seriden ayır) · 'all' (kuralı düzenle). Dönüş: kaydın itemKey'i ya da null.
     async save(ev, { repeat, ...body }, scope) {
       if (scope === 'one') {
@@ -182,67 +146,10 @@ export default function DayPage({
         });
       });
     },
-  }), [date, mutate, notify, onAdded, backToDay]);
+  }), [date, mutate, notify]);
   const items = useMemo(() => (shown ? agendaItems(shown.studyEntries, shown.events) : []), [shown]);
 
-  // Sesle ekleme (Görev 13): gün başlığının sağındaki 🎤, her bölümde. type 'study' (ders, To-do) | 'event' (aktivite, Plan).
-  // Söylenen gün seçili günden farklıysa kayıt o güne eklenir ve o gün açılır; bölüm değişmez, bildirim ne eklendiğini söyler.
-  // "Düzenle" ilgili bölümü açar ve ekleme formunu o günde dolu açar: ders formu zaten burada (addForm), aktivite taslağı
-  // da burada tutulur (başka haftaya geçerken kart yeniden yüklenir).
-  const [draft, setDraft] = useState(null);
-  async function quickAdd(key, type, body) {
-    const name = type === 'study' ? body.subject : body.title;
-    const target = parseKey(key);
-    if (key === date) {
-      if (!(await (type === 'study' ? study : events).add(body))) return false;
-    } else {
-      try {
-        await client.post(`/days/${key}/${type === 'study' ? 'entries' : 'events'}`, body);
-      } catch (err) {
-        notify(errorText(err));
-        if (errorCode(err) === 'plan_read_only') onAccessChanged?.();
-        return false;
-      }
-      onAdded?.();
-      if (dkey(mondayOf(target)) === dkey(monday)) onDataChanged(); // başka haftaya geçince hafta zaten yeniden yüklenir
-      setCurrentDate(target);
-    }
-    notify(`${name} eklendi: ${dayTitle(target)}`, 'info');
-    return true;
-  }
-  function quickEdit(key, type, d) {
-    if (type === 'study') setAddForm({ ...EMPTY_ADD_FORM, ...d, open: true });
-    else setDraft(d);
-    setSection(type === 'study' ? 'todo' : 'plan');
-    if (key !== date) setCurrentDate(parseKey(key));
-  }
-
-  // Alt menüdeki + → Plan / To-do (Görev 14): ilgili bölüm açılır, ekleme formu seçili gün için hazırlanır ve odak formun
-  // ilk öğesine (aktivite türü ikonları / ders seçimi) gider. Ders formu açık tutulur (addForm); aktivite formu kartta hep açıktır.
-  // İstek işlenince onAddHandled ile silinir (Ailem'den gelince Gün ekranı istekle birlikte kurulur).
-  const focusForm = useRef(null); // odak bekleyen bölüm: 'todo' | 'plan'
-  useEffect(() => {
-    if (!addRequest) return;
-    if (addRequest.type === 'study') setAddForm(f => (f.open ? f : { ...EMPTY_ADD_FORM, open: true }));
-    setSection(addRequest.type === 'study' ? 'todo' : 'plan');
-    focusForm.current = addRequest.type === 'study' ? 'todo' : 'plan';
-    onAddHandled();
-  }, [addRequest, setSection, onAddHandled]);
-  const ready = !!shown;
-  useEffect(() => {
-    if (focusForm.current !== section || !ready || (section === 'todo' && !addForm.open)) return;
-    focusForm.current = null;
-    requestAnimationFrame(() => {
-      const panelEl = document.getElementById('day-panel');
-      const target = panelEl?.querySelector(section === 'todo' ? '.sform .subj-chips, .sform select, .sform input, .sform button, .subject-onboard button' : '.acts button');
-      if (!target) return;
-      target.scrollIntoView({ block: 'center' });
-      target.focus({ preventScroll: true });
-    });
-  }, [section, ready, addForm.open, addRequest]); // addRequest: bölüm ve form zaten hazırsa da odak taşınsın
-
-  // Bildirimden gün açılınca (layerReset arttı) açık katman kapanır ve odak gün başlığına gider.
-  // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
+  // Bildirimden gün açılınca (layerReset arttı) odak gün başlığına gider.
   const lastReset = useRef(layerReset);
   useEffect(() => {
     if (lastReset.current === layerReset) return;
@@ -250,119 +157,45 @@ export default function DayPage({
     headingRef.current?.focus({ preventScroll: true });
   }, [layerReset]);
 
-  // Hafta panelinde güne dokununca: panel kapanır, sayfa en üste kayar ve odak gün başlığına gider.
-  // (Sheet'in "odak açan düğmeye döner" temizliği bu etkiden önce çalışır.)
-  useEffect(() => {
-    if (!weekOpen && focusHeading.current) {
-      focusHeading.current = false;
-      window.scrollTo(0, 0);
-      headingRef.current?.focus({ preventScroll: true });
-    }
-  }, [weekOpen]);
-
-  function pickFromSheet(d) {
-    focusHeading.current = true;
-    setCurrentDate(new Date(d));
-    setWeekOpen(false);
-  }
-
   function goToday() {
     setCurrentDate(new Date());
-    // Düğme bu haftada gizlendiği için odak gün başlığına taşınır
+    // Düğme bugünde gizlendiği için odak gün başlığına taşınır
     requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
   }
 
-  const range = weekRangeLabel(monday);
-
-  // Hafta aralığı başlık satırına sığmazsa (360 px'te "24 – 30 Ağustos") yazı 0,5 px adımlarla en çok 13 px'e küçülür;
-  // düğmeler küçülmez. (React Native'de Text adjustsFontSizeToFit karşılığı.)
-  const rangeRef = useRef(null);
-  useLayoutEffect(() => {
-    const el = rangeRef.current;
-    if (!el) return undefined;
-    const fit = () => {
-      el.style.fontSize = '';
-      let size = parseFloat(getComputedStyle(el).fontSize);
-      while (el.scrollWidth > el.clientWidth && size > 13) {
-        size -= 0.5;
-        el.style.fontSize = `${size}px`;
-      }
-    };
-    fit();
-    let alive = true;
-    document.fonts?.ready.then(() => { if (alive) fit(); });
-    window.addEventListener('resize', fit);
-    return () => { alive = false; window.removeEventListener('resize', fit); };
-  }, [range]);
   const dayName = WEEKDAYS_FULL[(currentDate.getDay() + 6) % 7];
   const dateLabel = `${dayName} ${currentDate.getDate()} ${MONTHS[currentDate.getMonth()]}`;
-  const common = { date, myId, menuReset: layerReset };
-  const panel = { role: 'region', id: 'day-panel', 'aria-label': SECTION_NAMES[section], tabIndex: -1 };
+  const ready = !!shown;
 
   return (
     <>
-      <section className="dayhero">
-        <div className="weekhead">
-          <div className="wh-tx">
-            <span className="wh-lb">{isThisWeek ? 'Bu haftanın peteği' : 'Haftanın peteği'}</span>
-            <div className="range" ref={rangeRef} aria-live="polite">{range}</div>
-          </div>
-          <button type="button" className="navbtn" aria-label="Önceki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), -7))}>{CHEV_PREV}</button>
-          <button type="button" className="navbtn" aria-label="Sonraki hafta" onClick={() => setCurrentDate(d => addDays(mondayOf(d), 7))}>{CHEV_NEXT}</button>
+      <QuickAdd date={date} subjects={subjects} onAdd={onQuickAdd} onEdit={onQuickEdit} trailing={avatar}>
+        <div className="pg-title">
+          <span className="pg-over">{relativeDay(currentDate, today)}</span>
+          <h1 className="dayhead" ref={headingRef} tabIndex={-1}>{dayTitle(currentDate, today)}</h1>
         </div>
-
-        <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays} />
-        {!isThisWeek && <button type="button" className="today-btn" onClick={goToday}>Bugüne dön</button>}
-      </section>
-
-      {banner}
-      {section !== 'bee' && (
-        <div className="secthead">
-          <button type="button" className="btn-ghost small" onClick={() => setSection('bee')}>‹ Bugün</button>
-          <span className="secthead-tx"><b>{section === 'todo' ? 'To-do' : 'Plan'}</b> · {SECTION_NAMES[section]}</span>
-        </div>
-      )}
-
-      <QuickAdd date={date} subjects={subjects} onAdd={quickAdd} onEdit={quickEdit}>
-        <h2 className="dayhead" ref={headingRef} tabIndex={-1}>
-          {dayTitle(currentDate, today)}{isToday && <span className="today-pill">bugün</span>}
-        </h2>
       </QuickAdd>
 
-      {section === 'bee' && holidayLine(shown) && (
-        <p className={`holstrip ${holidayTone(shown)}`}>{holidayLine(shown)}</p>
-      )}
+      <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays}
+        onStepWeek={(n) => setCurrentDate(d => addDays(mondayOf(d), 7 * n))} />
+      {!isToday && <button type="button" className="today-btn" onClick={goToday}>Bugüne dön</button>}
+
+      {banner}
+      {holidayLine(shown) && <p className={`holstrip ${holidayTone(shown)}`}>{holidayLine(shown)}</p>}
 
       {loadError && !ready ? (
         <div className="load-error" role="alert">
           <p>Gün yüklenemedi: {loadError}</p>
           <button className="btn" onClick={() => { setLoadError(''); setRetry(n => n + 1); }}>Tekrar dene</button>
         </div>
-      ) : !ready ? (
-        // Hafta paneli açıkken tam ekran yükleniyor katmanı panelin üstünü kapatmasın
-        weekOpen ? <div className="loading-placeholder" aria-hidden="true" /> : <Loading />
-      ) : (
-        section === 'todo' ? (
-          <StudyCard {...common} panel={panel} dateLabel={dateLabel} entries={shown.studyEntries} items={items} actions={study}
-            subjects={subjects} onAddSubject={onAddSubject} onDeleteSubject={onDeleteSubject}
-            addForm={addForm} setAddForm={setAddForm} />
-        ) : section === 'plan' ? (
-          <EventCard {...common} panel={panel} events={shown.events} items={items} actions={events}
-            draft={draft} onClearDraft={() => setDraft(null)} isToday={isToday} />
-        ) : (
-          <>
-            <DayTiles entries={shown.studyEntries} items={items} isToday={isToday} />
-            <AgendaCard {...common} panel={panel} items={items} isToday={isToday} dateLabel={dateLabel}
-              subjects={subjects} study={study} events={events} onStep={(n) => setCurrentDate(d => addDays(d, n))} />
-          </>
-        )
+      ) : !ready ? <Loading /> : (
+        <>
+          <NowCard entries={shown.studyEntries} items={items} isToday={isToday} onStatus={study.setStatus} onAdd={onOpenAdd} />
+          <DayFlow date={date} items={items} isToday={isToday} myId={myId} menuReset={layerReset} subjects={subjects}
+            study={study} events={events} dateLabel={dateLabel} onStep={(n) => setCurrentDate(d => addDays(d, n))} />
+        </>
       )}
       <span className="sr-only" aria-live="polite">{announce}</span>
-
-      {weekOpen && (
-        <WeekSheet monday={monday} days={weekDays} error={weekError} onRetry={onRetryWeek}
-          onPick={pickFromSheet} onClose={() => setWeekOpen(false)} returnFocusRef={weekBtnRef} />
-      )}
     </>
   );
 }

@@ -4,11 +4,11 @@ import StudyForm, { studyDraft } from './StudyForm';
 import EventForm from './EventForm';
 import { itemKey, studyItem } from '../utils/timeline';
 
-// Bee (Ajanda) düzenleme sayfası (Görev 10). ⋯ → Düzenle ile açılır. sheet:
+// Düzenleme sayfası (Görev 10). ⋯ → Düzenle ile açılır. sheet:
 // - { mode: 'study', entry }: "Dersi düzenle" (ders formu + Durum).
 // - { mode: 'event', entry, scope }: "Aktiviteyi düzenle" (tekrarlanan kayıtta scope 'one' | 'all').
-// Ajandadan ekleme yok (Görev 14b): ekleme alt menüdeki + ile Plan / To-do bölümünde yapılır.
-// onDone(itemKey): başarılı kayıttan sonra; sayfa kapanır, odak o öğeye gider (AgendaCard).
+// Ekleme burada değil, alt menüdeki + ile açılan Ekle sayfasındadır (AddSheet, Görev 17).
+// onDone(itemKey): başarılı kayıttan sonra; sayfa kapanır, odak o öğeye gider (DayFlow).
 export default function AgendaSheet({ sheet, items, subjects, study, events, dateLabel, onClose, onDone, returnFocusRef }) {
   const titleId = useId();
   const [draft, setDraft] = useState(() => (sheet.mode === 'study' ? studyDraft(sheet.entry) : null));

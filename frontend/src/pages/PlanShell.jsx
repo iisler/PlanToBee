@@ -5,10 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useNotice } from '../context/NoticeContext';
 import DayPage from './DayPage';
 import FamilyPage from './FamilyPage';
+import WeekPage from './WeekPage';
+import LessonsPage from './LessonsPage';
+import AddSheet from '../components/AddSheet';
 import TabBar from '../components/TabBar';
 import ProfileSheet from '../components/ProfileSheet';
 import ImportSheet from '../components/ImportSheet';
-import { addDays, dkey, mondayOf } from '../utils/format';
+import { addDays, dayTitle, dkey, initial, mondayOf } from '../utils/format';
+import { patchEntry } from '../hooks/useMutation';
 import { parseKey } from '../utils/recurrence';
 import { AuditContext } from '../context/AuditContext';
 import PushPrompt from '../components/PushPrompt';
@@ -54,8 +58,10 @@ function putWeek(weeks, key, center, entry) {
   return next;
 }
 
-// Profil seçilmiş aile hesabının ana ekranı. Gün ve hafta planı ailenin ortak planıdır;
+// Profil seçilmiş aile hesabının ana ekranı (Görev 17 "Akış"). Gün ve hafta planı ailenin ortak planıdır;
 // her profil görür ve ekler, kayıtlarda ekleyen profil görünür.
+// Alt menü: Bugün (DayPage) · Hafta (WeekPage) · + (AddSheet) · Dersler (LessonsPage) · Aile (FamilyPage).
+// Profil paneli her sayfanın sağ üstündeki baş harf düğmesinden açılır.
 export default function PlanShell() {
   const { user, logout, accountDeleted, refreshMe, startSwitch } = useAuth();
   const { notify } = useNotice();
@@ -63,33 +69,27 @@ export default function PlanShell() {
   const [familyError, setFamilyError] = useState('');
   const [linkDate] = useState(() => dateFromUrl(window.location.href));
   const [currentDate, setCurrentDate] = useState(() => linkDate ?? new Date());
-  // Görünüm: 'plan' (tek ekran plan) | 'family' (Ailem) | 'notifications' (Bildirimler)
+  // Görünüm: 'plan' (Bugün) | 'week' (Hafta) | 'lessons' (Dersler) | 'family' (Aile) | 'notifications' | 'delete-account'
   const [view, setView] = useState('plan');
-  // Gün ekranının bölümü (Görev 10): 'bee' (Ajanda) | 'todo' (Dersler) | 'plan' (Aktiviteler). Açılışta ve bildirimden
-  // gelince herkes için Bee; oturum içinde (gün değişince, Ailem'e gidip dönünce) korunur, kalıcı saklanmaz.
-  const [section, setSection] = useState('bee');
   // Hafta ayrıntıları pazartesiye göre: { [pzt]: { days: 7 DayDto | null, error } }; seçili hafta ve iki komşusu
   const [weeks, setWeeks] = useState({});
-  // Bildirimden gün açılınca artar: açık Hafta paneli ve ⋯ menüleri kapanır
+  // Bildirimden gün açılınca artar: açık ⋯ menüleri ve sayfalar kapanır
   const [layerReset, setLayerReset] = useState(0);
-  // Hafta paneli (alt menüdeki Hafta), açıldığı andaki layerReset değeriyle tutulur: bildirimden gün açılınca kendiliğinden kapanır
-  const [weekOpenAt, setWeekOpenAt] = useState(null);
-  const weekOpen = weekOpenAt === layerReset;
-  const setWeekOpen = useCallback((open) => setWeekOpenAt(open ? layerReset : null), [layerReset]);
-  // Alt menüdeki + → Plan / To-do: Gün ekranına iletilen ekleme isteği ({ type: 'event' | 'study' }); işlenince silinir
-  const [addRequest, setAddRequest] = useState(null);
-  const clearAddRequest = useCallback(() => setAddRequest(null), []);
+  // Gün ekranı dışından (Ekle sayfası, Dersler) veri değişince artar: gün sunucudan yeniden okunur
+  const [refreshKey, setRefreshKey] = useState(0);
+  // Ekle sayfası (alt menüdeki +): null | { type, date, study?, event? }
+  const [addSheet, setAddSheet] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Program yükleme paneli (+ → Program yükle, Görev 15)
+  // Program yükleme paneli (Ekle → Program yükle, Görev 15)
   const [importOpen, setImportOpen] = useState(false);
-  const weekBtnRef = useRef(null);
+  const addBtnRef = useRef(null);
   const profileBtnRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
-  const familyHeadingRef = useRef(null);
+  const headingRef = useRef(null);
 
-  // Ailem (alt menü) ya da Bildirimler (Profil paneli) açılınca odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
+  // Sayfa değişince odak sayfa başlığına taşınır (klavye ve ekran okuyucu kullanıcıları için)
   useEffect(() => {
-    if (view === 'family' || view === 'notifications' || view === 'delete-account') familyHeadingRef.current?.focus();
+    if (view !== 'plan') headingRef.current?.focus({ preventScroll: true });
   }, [view]);
 
   const loadFamily = useCallback(async () => {
@@ -128,11 +128,11 @@ export default function PlanShell() {
       if (e.data?.type !== 'plantobee:open') return;
       const d = dateFromUrl(e.data.url);
       if (!d) return;
-      // Önce açık katman kapanır, sonra plan görünümünde o gün seçilir (şerit o günün haftasını gösterir)
+      // Önce açık katmanlar kapanır, sonra Bugün ekranında o gün seçilir
       setLayerReset(n => n + 1);
       setProfileOpen(false);
+      setAddSheet(null);
       setView('plan');
-      setSection('bee');
       setCurrentDate(d);
       window.scrollTo(0, 0);
     };
@@ -147,9 +147,9 @@ export default function PlanShell() {
   const hideInitials = user.profile.role === 'Child';
   const auditSettings = useMemo(() => ({ hideInitials }), [hideInitials]);
 
-  // Seçili haftanın ayrıntısı (şerit, Hafta paneli ve gün kartı), hafta başına tek istek. Her ekleme, değiştirme, silme ve
-  // durum değişikliğinden sonra yeniden çekilir. Bir haftaya yalnızca onun en son isteğinin yanıtı yazılır; seçili haftadan
-  // uzaklaşılmışsa yanıt atılır. Seçili hafta yüklenince önceki ve sonraki hafta da sessizce çekilir: gün kaydırırken (Bee)
+  // Seçili haftanın ayrıntısı (petek, Hafta ve Dersler sayfaları, gün ekranı), hafta başına tek istek. Her ekleme, değiştirme,
+  // silme ve durum değişikliğinden sonra yeniden çekilir. Bir haftaya yalnızca onun en son isteğinin yanıtı yazılır; seçili
+  // haftadan uzaklaşılmışsa yanıt atılır. Seçili hafta yüklenince önceki ve sonraki hafta da sessizce çekilir: gün kaydırırken
   // ya da ‹ › ile hafta değişince yeni hafta beklemeden açılır, ardından sunucudan yenilenir.
   const weekReq = useRef({});
   const weekKey = dkey(mondayOf(currentDate));
@@ -161,7 +161,7 @@ export default function PlanShell() {
       const res = await client.get(`/days/week/${key}/details`);
       if (weekReq.current[key] === id) setWeeks(w => putWeek(w, key, weekKeyRef.current, () => ({ days: weekDaysFrom(res.data, key), error: '' })));
     } catch (err) {
-      // Aynı haftanın önceki verisi varsa korunur; yoksa şerit boş sayaçlarla kalır, panel "Tekrar dene" gösterir.
+      // Aynı haftanın önceki verisi varsa korunur; yoksa petek boş kalır, sayfalar "Tekrar dene" gösterir.
       // Komşu haftanın (quiet) hatası yazılmaz: o haftaya geçilince yeniden istenir.
       if (weekReq.current[key] === id && !quiet) {
         setWeeks(w => putWeek(w, key, weekKeyRef.current, (old) => ({ days: old?.days ?? null, error: errorText(err) })));
@@ -178,7 +178,7 @@ export default function PlanShell() {
       fetchWeek(dkey(addDays(mon, -7)), true);
     });
   }, [weekKey, loadWeek, fetchWeek]);
-  // Gün kartındaki iyimser değişiklik (silme, durum) haftalık veriye de uygulanır: şerit ve panel beklemeden güncellenir,
+  // İyimser değişiklik (silme, durum) haftalık veriye de uygulanır: petek ve sayfalar beklemeden güncellenir,
   // "Geri al" ya da hata olursa aynı yoldan eski haline döner. Sonraki yenileme sunucudaki veriyle değiştirir.
   const replaceWeekDay = useCallback((day) => {
     setWeeks(w => {
@@ -206,6 +206,10 @@ export default function PlanShell() {
     refreshMe().catch(() => {});
     loadSubjects();
   }, [loadFamily, loadSubjects, refreshMe]);
+  const failed = (err) => {
+    notify(errorText(err));
+    if (errorCode(err) === 'plan_read_only') onAccessChanged();
+  };
 
   async function addSubject(name) {
     try {
@@ -213,8 +217,7 @@ export default function PlanShell() {
       setSubjects(s => [...s, res.data]);
       return true;
     } catch (err) {
-      notify(errorText(err));
-      if (errorCode(err) === 'plan_read_only') onAccessChanged();
+      failed(err);
       return false;
     }
   }
@@ -226,9 +229,60 @@ export default function PlanShell() {
       await client.delete(`/subjects/${subject.id}`);
     } catch (err) {
       setSubjects(snapshot);
-      notify(errorText(err));
-      if (errorCode(err) === 'plan_read_only') onAccessChanged();
+      failed(err);
     }
+  }
+
+  // Gün ekranı dışından yapılan değişiklikten sonra: hafta ve (açıksa) gün yeniden okunur
+  const refresh = useCallback(() => {
+    loadWeek();
+    setRefreshKey(n => n + 1);
+  }, [loadWeek]);
+
+  // Ekle sayfası ve sesle ekleme: kayıt seçilen güne eklenir (body.repeat varsa seri, Görev 11). Bugün ekranındaysa o gün
+  // açılır; başka sayfada yer değişmez, bildirim ne eklendiğini söyler. Dönüş: başarılıysa true.
+  async function addEntry(key, type, { repeat, ...body }) {
+    try {
+      if (type === 'study') await client.post(`/days/${key}/entries`, body);
+      else if (repeat) await client.post('/series', { ...body, ...repeat });
+      else await client.post(`/days/${key}/events`, body);
+    } catch (err) {
+      failed(err);
+      return false;
+    }
+    const target = parseKey(key);
+    onAdded();
+    if (view === 'plan') setCurrentDate(target);
+    const monday = dkey(mondayOf(target));
+    if (monday !== weekKeyRef.current) fetchWeek(monday, true);
+    refresh();
+    notify(`${type === 'study' ? body.subject : body.title} eklendi: ${dayTitle(target)}`, 'info');
+    return true;
+  }
+  const openAdd = (type = 'study', extra = {}) => setAddSheet({ type, date: dkey(view === 'plan' ? currentDate : new Date()), ...extra });
+  // Sesle eklemedeki "Düzenle": Ekle sayfası o gün ve o taslakla açılır
+  const quickEdit = (key, type, draft) => setAddSheet({ type, date: key, [type]: draft });
+
+  // Dersler sayfası: başka bir günün dersinin durumu (iyimser; hata olursa sunucudaki hâl geri gelir)
+  async function setLessonStatus(day, entry, status) {
+    replaceWeekDay(patchEntry(day, 'studyEntries', entry.id, { status }));
+    try {
+      await client.patch(`/days/${day.date}/entries/${entry.id}/status`, { status });
+    } catch (err) {
+      failed(err);
+    }
+    refresh();
+  }
+  // Geride kalan dersi bugüne taşır: bugüne saatsiz olarak eklenir, eski günden silinir.
+  async function moveToToday(day, entry) {
+    try {
+      await client.post(`/days/${dkey(new Date())}/entries`, { subject: entry.subject, topic: entry.topic ?? '', minutes: entry.minutes, startTime: '' });
+      await client.delete(`/days/${day.date}/entries/${entry.id}`);
+      notify(`${entry.subject} bugüne alındı`, 'info');
+    } catch (err) {
+      failed(err);
+    }
+    refresh();
   }
 
   function changeView(v) {
@@ -237,30 +291,24 @@ export default function PlanShell() {
     window.scrollTo(0, 0);
   }
 
-  // Alt menü (Görev 14). Bugün: Bee ana ekranı; zaten oradaysa bugüne döner.
-  // Hafta paneli açıkken alt menü görünür kalır (Görev 14c); başka bir düğmeye basınca panel kapanır, Hafta'ya basınca kapanır.
+  // Alt menü. Bugün: gün ekranı; zaten oradaysa bugüne döner.
   function goToday() {
-    setWeekOpen(false);
-    if (view === 'plan' && section === 'bee') setCurrentDate(new Date());
-    else { setView('plan'); setSection('bee'); }
+    if (view === 'plan') setCurrentDate(new Date());
+    else setView('plan');
     window.scrollTo(0, 0);
   }
-  function openWeek() {
-    if (weekOpen) { setWeekOpen(false); return; }
-    setView('plan');
-    setWeekOpen(true);
+  // Hafta ya da Dersler sayfasında bir güne dokununca o gün Bugün ekranında açılır
+  function pickDay(date) {
+    setCurrentDate(new Date(date));
+    changeView('plan');
   }
-  function requestAdd(type) {
-    setView('plan');
-    if (type === 'import') { setImportOpen(true); return; }
-    setAddRequest({ type });
-  }
+  const stepWeek = (n) => setCurrentDate(d => addDays(mondayOf(d), 7 * n));
 
   // Program yüklendi: hafta yenilenir; "Geri al" o yüklemede eklenen bütün serileri siler.
   function imported({ importId, count }) {
     setImportOpen(false);
     onAdded();
-    loadWeek();
+    refresh();
     notify(`${count} kayıt eklendi`, 'info', {
       duration: 10000,
       action: {
@@ -272,47 +320,40 @@ export default function PlanShell() {
           } catch (err) {
             notify(errorText(err));
           }
-          loadWeek();
+          refresh();
         },
       },
     });
   }
 
-  // Hesap silme sayfasından Vazgeç: Ailem'e dönülür ve odak silme düğmesine verilir.
+  // Hesap silme sayfasından Vazgeç: Aile'ye dönülür ve odak silme düğmesine verilir.
   function cancelDelete() {
     changeView('family');
     setTimeout(() => document.getElementById('delete-account-open')?.focus(), 0);
   }
 
-  // Üst başlık (Görev 14): solda logo ve PlanToBee, sağda "Hoş geldin, [ad]" (eşit boyutta). Profil menüsü alt menüdedir.
+  // Profil düğmesi: her sayfanın sağ üstünde profilin baş harfi (cihazı kimin kullandığını da gösterir)
   const name = user.profile.displayName;
-  const header = (
-    <header className="top">
-      <h1><img className="logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />PlanToBee</h1>
-      <p className="hello">Hoş geldin, <b>{name}</b></p>
-    </header>
+  const avatar = (
+    <button type="button" ref={profileBtnRef} className="avbtn" aria-haspopup="dialog" aria-label={`Profil: ${name}`} onClick={() => setProfileOpen(true)}>
+      {initial(name)}
+    </button>
   );
-  const active = profileOpen ? 'profile'
-    : view === 'plan' ? (weekOpen ? 'week' : section === 'bee' ? 'today' : null)
-    : view === 'notifications' ? 'profile' : 'family';
+  const monday = mondayOf(currentDate);
+  const active = view === 'plan' ? 'today' : view === 'week' ? 'week' : view === 'lessons' ? 'lessons' : view === 'notifications' ? null : 'family';
+  const pageTitle = { family: 'Aile', notifications: 'Bildirimler', 'delete-account': 'Hesabı sil' }[view];
 
   return (
     <AuditContext.Provider value={auditSettings}>
       <div className="wrap">
-        {header}
-
-        {/* Ailem alt menüden, Bildirimler Profil panelinden açılır; nerede olunduğu başlıkla belirtilir */}
-        {(view === 'family' || view === 'notifications') && (
-          <div className="pagehead">
-            <button className="btn-ghost small" onClick={() => changeView('plan')}>‹ Plana dön</button>
-            <h2 ref={familyHeadingRef} tabIndex={-1}>{view === 'family' ? 'Ailem' : 'Bildirimler'}</h2>
-          </div>
-        )}
-        {view === 'delete-account' && (
-          <div className="pagehead">
-            <button className="btn-ghost small" onClick={cancelDelete}>‹ Ailem</button>
-            <h2 ref={familyHeadingRef} tabIndex={-1}>Hesabı sil</h2>
-          </div>
+        {pageTitle && (
+          <header className="pghead">
+            {view === 'delete-account'
+              ? <button className="btn-ghost small" onClick={cancelDelete}>‹ Aile</button>
+              : view === 'notifications' && <button className="btn-ghost small" onClick={() => changeView('plan')}>‹ Bugün</button>}
+            <div className="pg-title"><h1 ref={headingRef} tabIndex={-1}>{pageTitle}</h1></div>
+            {avatar}
+          </header>
         )}
 
         {familyError && !family && (
@@ -324,29 +365,34 @@ export default function PlanShell() {
 
         {view === 'plan' && (
           <DayPage
-            weekOpen={weekOpen}
-            setWeekOpen={setWeekOpen}
-            weekBtnRef={weekBtnRef}
-            addRequest={addRequest}
-            onAddHandled={clearAddRequest}
             banner={hasOthers && pushReady ? <PushPrompt /> : null}
-            onAdded={onAdded}
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
             weekDays={weekDays}
-            weekError={weekError}
-            onRetryWeek={loadWeek}
             onDayChanged={replaceWeekDay}
             layerReset={layerReset}
-            section={section}
-            setSection={setSection}
+            refreshKey={refreshKey}
             myId={myId}
             subjects={subjects}
-            onAddSubject={addSubject}
-            onDeleteSubject={deleteSubject}
             onDataChanged={loadWeek}
             onAccessChanged={onAccessChanged}
+            onQuickAdd={addEntry}
+            onQuickEdit={quickEdit}
+            onOpenAdd={openAdd}
+            avatar={avatar}
           />
+        )}
+        {view === 'week' && (
+          <WeekPage monday={monday} days={weekDays} error={weekError} onRetry={loadWeek} onStep={stepWeek} onPick={pickDay} headingRef={headingRef}>
+            {avatar}
+          </WeekPage>
+        )}
+        {view === 'lessons' && (
+          <LessonsPage monday={monday} days={weekDays} error={weekError} onRetry={loadWeek} onStep={stepWeek} onPick={pickDay}
+            onStatus={setLessonStatus} onMove={moveToToday} subjects={subjects} onAddSubject={addSubject} onDeleteSubject={deleteSubject}
+            headingRef={headingRef}>
+            {avatar}
+          </LessonsPage>
         )}
         {view === 'notifications' && <NotificationsCard />}
         {view === 'family' && !(familyError && !family) && (
@@ -363,10 +409,13 @@ export default function PlanShell() {
         )}
       </div>
 
-      <TabBar active={active} name={name} weekRef={weekBtnRef} profileRef={profileBtnRef}
-        onToday={goToday} onWeek={openWeek} onAdd={requestAdd} onAddOpen={() => setWeekOpen(false)}
-        onFamily={() => { setWeekOpen(false); changeView('family'); }}
-        onProfile={() => { setWeekOpen(false); setProfileOpen(true); }} />
+      <TabBar active={active} addRef={addBtnRef} onToday={goToday} onWeek={() => changeView('week')} onAdd={() => openAdd()}
+        onLessons={() => changeView('lessons')} onFamily={() => changeView('family')} />
+      {addSheet && (
+        <AddSheet key={layerReset} init={addSheet} subjects={subjects} weekDays={weekDays} onAddSubject={addSubject} onDeleteSubject={deleteSubject}
+          onSubmit={addEntry} onImport={() => { setAddSheet(null); setImportOpen(true); }}
+          onClose={() => setAddSheet(null)} returnFocusRef={addBtnRef} />
+      )}
       {importOpen && (
         <ImportSheet subjects={subjects} onClose={() => setImportOpen(false)} onDone={imported} />
       )}

@@ -1,4 +1,4 @@
-/* PlanToBee — açık bej zemin, bal sarısı + siyah marka; mavi mürekkep (ders), çim yeşili (spor), mercan (aktivite) */
+/* PlanToBee — kırık beyaz zemin, bal sarısı + siyah marka; mavi (ders), çim yeşili (spor), mercan (aktivite), nötr gri (okul) */
 :root {
   /* Kırık beyaz tema (Görev 16 "Petek dolsun", 07.11): beyaz kartlar ince kenar çizgisiyle ayrılır. Bal sarısı yalnızca
      petek dolumunda, seçili ve bugün durumunda, + düğmesinin hafif parlamasında. Cihaz koyu modda olsa da açık tema kullanılır. */
@@ -38,6 +38,12 @@
   --wax: #EEEAE2;         /* petek hücresinin dolmamış kısmı */
   --wax-empty: #F5F3EE;   /* planı olmayan günün hücresi */
   --on-accent: #FFFFFF;
+  /* Görev 17: koyu Şimdi kartının üstündeki ikincil yazı, soluk dolgu ve dolmamış petek; Okul (sabit zaman) için nötr tonlar */
+  --on-dark-soft: #CFC8BA;
+  --on-dark-wash: rgba(255, 255, 255, .14);
+  --wax-dark: #3D362B;
+  --school-soft: #E9E4DA;
+  --school-line: #B9AF9C;
   --hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 
   --radius: 24px;
@@ -46,7 +52,6 @@
 
   --f-display: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
   --f-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   /* Alt menü yüksekliği (Görev 14): üst çizgi + 6 px + 52 px düğme + alt boşluk (iPhone alt çizgisi) */
   --tabbar-h: calc(59px + max(8px, env(safe-area-inset-bottom)));
 }
@@ -64,93 +69,32 @@ button { cursor: pointer; }
 .wrap { max-width: 560px; margin: 0 auto; padding: 12px 16px calc(104px + env(safe-area-inset-bottom)); }
 h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
 
-/* Header */
-/* Üst başlık (Görev 14): solda logo + PlanToBee, sağda "Hoş geldin, [ad]"; ikisi aynı boyutta. Uzun ad "…" ile kısalır. */
-header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin: 0 4px 12px; }
-header.top h1 { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-header.top h1 .logo { width: 24px; height: 24px; display: block; flex-shrink: 0; }
-header.top .hello { margin: 0; min-width: 0; font-family: var(--f-display); font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
-header.top .hello b { color: var(--ink); font-weight: 800; }
-
-
-
 /* Haftanın peteği (Görev 16; pages/DayPage.jsx + components/WeekTrail.jsx): üstte "Bu haftanın peteği", hafta aralığı,
    ‹ › hafta okları; altında 7 petek hücresi. Hücre o günün dersleri tamamlandıkça alttan bal rengiyle dolar; seçili gün
    koyu çerçeveli, bugün gri çerçeveli. En altta haftanın özeti. */
-.dayhero { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 12px 12px; margin-bottom: 14px; box-shadow: var(--shadow); }
-.weekhead { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; padding-left: 4px; }
-.weekhead .wh-tx { flex: 1; min-width: 0; }
-.weekhead .wh-lb { display: block; font-size: 12px; font-weight: 700; line-height: 1.3; color: var(--ink-soft); }
-.weekhead .range { font-family: var(--f-display); font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.weekhead button { width: 44px; height: 44px; flex-shrink: 0; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-.weekhead button svg { width: 20px; height: 20px; }
-.weekhead button:hover { background: var(--surface-2); }
-/* Dar ekranda (360 px) aralık küçülür, düğmeler küçülmez. Yine sığmazsa DayPage yazıyı en çok 13 px'e kadar küçültür. */
-@media (max-width: 374px) { .weekhead .range { font-size: 18px; } }
 /* "Bugüne dön": başka haftadayken petek özetinin altında, sağda. Dokunma alanı ::before ile 44 px. */
 .today-btn { position: relative; display: block; width: fit-content; margin: 8px 2px 0 auto; padding: 2px 4px; border: none; background: none; color: var(--ink); font-size: 13px; font-weight: 700; line-height: 18px; text-decoration: underline; text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .today-btn::before { content: ''; position: absolute; inset: -13px -10px; }
-
-/* Petek: 7 eşit hücre (minmax(0, 1fr): içerik genişleyince hücreler eşitsizleşip taşmasın) */
-.trail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
-.trail-dot { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; padding: 2px 0 4px; border-radius: 12px; color: var(--ink-soft); }
-.trail-dot:hover { background: var(--surface-2); }
-.trail-dot .hex { width: 40px; height: 45px; display: grid; place-items: center; clip-path: var(--hex); }
-.trail-dot .hex-in { position: relative; width: 34px; height: 39px; overflow: hidden; display: grid; place-items: center; clip-path: var(--hex); background: var(--wax); }
-.trail-dot .hex-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--honey); }
-.trail-dot .num { position: relative; font-family: var(--f-display); font-size: 15px; font-weight: 800; line-height: 1; color: var(--ink); }
-.trail-dot .wk { font-size: 12px; font-weight: 600; line-height: 1.2; }
-/* Ders sayacı "2/3": ders yoksa "–"; yüklenirken boş (yükseklik sabit) */
-.trail-dot .cnt { font-family: var(--f-mono); font-size: 12px; line-height: 15px; height: 15px; white-space: nowrap; }
-.trail-dot .cnt.full { color: var(--ink); font-weight: 600; }
-/* Aktivite noktaları: en çok 4 (spor yeşil, diğerleri mercan); tam liste hücrenin erişilebilir adında */
-.trail-dot .dots { display: flex; gap: 3px; height: 6px; }
-.trail-dot .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--event); }
-.trail-dot .dots i.sport { background: var(--sport); }
-.trail-dot.selected .hex { background: var(--ink); }
-.trail-dot.selected .wk { color: var(--ink); font-weight: 800; }
-.trail-dot.istoday:not(.selected) .hex { background: var(--line-field); }
-.trail-dot.istoday .wk { color: var(--ink); }
-.trail-dot.empty .hex-in { background: var(--wax-empty); }
-.trail-dot.empty .num { color: var(--ink-faint); }
-.trail-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 10px 4px 0; border-top: 1px solid var(--line); font-size: 13px; }
-.trail-foot .tf-a { display: flex; align-items: center; gap: 6px; font-weight: 700; }
-.trail-foot .tf-a i { width: 12px; height: 14px; flex-shrink: 0; background: var(--honey); clip-path: var(--hex); }
-.trail-foot .tf-b { color: var(--ink-soft); text-align: right; }
-
-/* Seçili günün başlığı: "Cumartesi, 10 Ekim" + "bugün" */
-.dayhead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 4px 4px 10px; font-size: 24px; font-weight: 800; }
-.dayhead:focus { outline: none; }
-.dayhead:focus-visible { outline: 2px solid var(--ink); }
-.today-pill { font-family: var(--f-body); font-size: 12px; font-weight: 700; line-height: 1.4; letter-spacing: 0; background: var(--ink); color: var(--honey); border-radius: 999px; padding: 3px 10px; }
 
 /* Cards */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .card-head h2 { font-size: 18px; font-weight: 700; }
-.card-head .total { font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
-.icon { width: 19px; height: 19px; flex-shrink: 0; }
+.card-head .total { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
 
 /* Kart satırı (ders ve aktivite): solda durum dairesi ya da ikon, ortada ad ve konu/not, sağda süre/saat ve ⋯ */
 .entry { display: flex; align-items: center; gap: 6px; min-height: 56px; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .entry:last-child { border-bottom: none; }
 .entry .info { flex: 1; min-width: 0; }
-.entry .info .subj { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
-.entry .info .subj.done { text-decoration: line-through; color: var(--ink-soft); }
 .entry .info .topic { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
 .entry .info .audit-initial { margin-left: 6px; }
-.entry .mins, .entry .when { font-family: var(--f-mono); font-size: 13px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.entry .mins, .entry .when { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .entry .mins { color: var(--study); }
 .entry .when.sport { color: var(--sport-deep); }
 .entry .when.evt { color: var(--event-deep); }
 /* Durum dairesi: Yapılacak boş, Devam Ediyor yarım dolu, Tamamlandı mavi dolu ✓ (dokunma alanı 44 px) */
 .entry .st { width: 44px; height: 44px; flex-shrink: 0; margin-left: -8px; border: none; background: none; padding: 0; display: grid; place-items: center; border-radius: 12px; }
 .entry .st i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--ink-faint); display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700; line-height: 1; color: var(--on-accent); }
-.entry .st-inprogress i { border-color: var(--study); background: linear-gradient(90deg, var(--study) 50%, transparent 50%); }
-.entry .st-done i { border-color: var(--study); background: var(--study); }
-.entry .more { width: 44px; height: 44px; flex-shrink: 0; margin-right: -10px; border: none; background: none; padding: 0; border-radius: 12px; color: var(--ink-soft); font-size: 20px; line-height: 1; }
-.entry .st:hover, .entry .more:hover { background: var(--surface-2); }
-.entry .more:hover { color: var(--ink); }
 
 .subject-addrow input, .auth-card input {
   border: 1px solid var(--line-field); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; background: var(--surface-2); min-width: 0; min-height: 42px;
@@ -160,13 +104,7 @@ header.top .hello b { color: var(--ink); font-weight: 800; }
 }
 
 .btn, .subject-addrow button, .auth-submit { background: var(--ink); color: var(--on-accent); border: none; border-radius: var(--radius-sm); padding: 9px 16px; min-height: 44px; font-size: 15px; font-weight: 700; }
-.empty-note { color: var(--ink-faint); font-size: 13px; padding: 12px; margin-bottom: 4px; text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
 
-/* "+ Ders ekle" (form: .sform, Görev 10) */
-.add-study { display: inline-flex; align-items: center; min-height: 44px; margin-top: 10px; padding: 0 16px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; }
-
-.manage-toggle { background: none; border: none; color: var(--ink-soft); font-size: 13px; font-weight: 600; padding: 10px 4px; margin-top: 4px; min-height: 44px; display: inline-flex; gap: 6px; align-items: center; }
-.manage-toggle:hover { color: var(--ink); }
 .subject-panel { margin-top: 10px; padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm); }
 .subject-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; padding: 2px 2px 2px 11px; border-radius: 999px; background: var(--study-soft); color: var(--study); margin: 0 6px 6px 0; }
 .subject-chip .x { position: relative; font-weight: 700; background: none; border: none; color: inherit; font-size: 16px; line-height: 1; width: 36px; height: 36px; border-radius: 50%; padding: 0; }
@@ -175,7 +113,6 @@ header.top .hello b { color: var(--ink); font-weight: 800; }
 .subject-chip .x:hover { background: var(--study); color: var(--on-accent); }
 .subject-addrow { display: flex; gap: 8px; margin-top: 6px; }
 .subject-addrow input { flex: 1; background: var(--surface); }
-
 
 /* Yükleniyor katmanı (components/Loading.jsx): arka plan karartılır ve tıklanamaz, ortada büyük petek */
 .loading-placeholder { min-height: 120px; }
@@ -212,15 +149,8 @@ header.top .hello b { color: var(--ink); font-weight: 800; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 2s !important; } }
 
-
-
-/* Oturum ve hata durumları */
-
 .load-error { background: var(--danger-soft); color: var(--danger); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .load-error p { margin: 0; flex: 1 1 100%; font-size: 13.5px; }
-.pagehead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.pagehead h2 { font-size: 22px; font-weight: 800; }
-.pagehead h2:focus { outline: none; }
 .inline-error { font-size: 12.5px; color: var(--danger); margin-top: 6px; }
 
 /* ---------- Aile hesabı ---------- */
@@ -241,7 +171,6 @@ header.top .hello b { color: var(--ink); font-weight: 800; }
 /* "Geri al" gibi eylem düğmesi: koyu bildirimde bal sarısı, yazılı düğme */
 .notice button.notice-action { width: auto; height: 40px; margin: -10px 0; padding: 0 12px; border-radius: 10px; font-family: var(--f-body); font-size: 14px; font-weight: 700; color: var(--honey); opacity: 1; }
 .notice button.notice-action:hover { background: rgba(255, 255, 255, .08); }
-
 
 /* Kayıt izi */
 .audit-initial { display: inline-grid; place-items: center; flex-shrink: 0; width: 18px; height: 18px; margin: 0 0 0 4px; border-radius: 50%; background: var(--honey-soft); color: var(--ink); font-family: var(--f-body); font-size: 10px; font-weight: 700; line-height: 1; vertical-align: 1px; cursor: default; }
@@ -304,7 +233,7 @@ a.auth-link { text-align: center; }
 .chosen-profile { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .chosen-profile form { width: 100%; text-align: left; }
 .pin-label { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-top: 6px; }
-.pin-input { width: 100%; text-align: center; font-family: var(--f-mono); font-size: 24px; letter-spacing: .6em; padding: 10px 0 10px .6em; min-height: 52px; border: 1px solid var(--line-field); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink); }
+.pin-input { width: 100%; text-align: center; font-variant-numeric: tabular-nums; font-size: 24px; letter-spacing: .6em; padding: 10px 0 10px .6em; min-height: 52px; border: 1px solid var(--line-field); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink); }
 .pin-input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--honey); }
 .profile-edit { margin-top: 8px; }
 .member-meta .locked { color: var(--danger); font-weight: 600; }
@@ -326,15 +255,11 @@ input[type="time"].time-input { min-width: 104px; }
 .evform .acts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 7px 0 6px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--ink-soft); min-width: 0; overflow: hidden; }
 .evform .acts button.on { background: var(--honey); border-color: var(--honey); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
 .evform .evfields { display: flex; flex-direction: column; gap: 8px; }
-.entry .ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; flex-shrink: 0; align-self: center; margin-right: 4px; }
-.entry .ico.sport { background: var(--sport-soft); }
-.entry .ico.evt { background: var(--event-soft); }
 .evform .evactions { justify-content: flex-start; }
 .evform .evsubmit { border: none; border-radius: var(--radius-sm); padding: 10px 20px; min-height: 44px; font-weight: 700; font-size: 14px; color: var(--on-accent); }
 .evform .evsubmit.event { background: var(--event); }
 .evform .evsubmit.sport { background: var(--sport); }
 .evform .inline-error { margin: 0; }
-.entry-edit { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .card-head .total.sport { color: var(--sport-deep); background: var(--sport-soft); border-color: transparent; }
 /* Dar kapsayıcıda (ör. çok dar ekranda gün kartı) yedi tür tek sırada etiketleri kırpıyordu: sıra korunarak 4 + 3 */
 @container (max-width: 289px) {
@@ -343,10 +268,10 @@ input[type="time"].time-input { min-width: 104px; }
 }
 
 /* "Ekle" düğmeleri (Görev 16): birincil düğmeler koyu, yazı beyaz; bal sarısı yalnızca seçili durumda */
-.add-study, .frm-act .go, .subject-addrow button, .evform .evsubmit.add {
+.frm-act .go, .subject-addrow button, .evform .evsubmit.add {
   background: var(--ink); color: var(--on-accent);
 }
-.add-study:hover, .frm-act .go:hover, .subject-addrow button:hover, .evform .evsubmit.add:hover { filter: brightness(1.45); }
+.frm-act .go:hover, .subject-addrow button:hover, .evform .evsubmit.add:hover { filter: brightness(1.45); }
 /* Düğme içinde bekleme: küçük dönen petek + metin (components/BusyLabel.jsx) */
 .btn-busy { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: -6px 0; }
 .honeycomb.on-dark .hc-core { fill: var(--bg); }
@@ -355,7 +280,6 @@ input[type="time"].time-input { min-width: 104px; }
 @media (prefers-reduced-motion: reduce) { .honeycomb.on-dark .hc-cell { fill: rgba(251, 246, 234, .28); } .honeycomb.on-dark .hc-cell:nth-of-type(2) { fill: var(--honey); } }
 /* Bekleyen düğme soluklaşmaz: dönen petek ve metin net görünsün (düğme yine de tıklanamaz) */
 button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
-
 
 /* Bildirimler: izin kartı ve Ailem > Bildirimler */
 .push-prompt { display: flex; align-items: center; gap: 8px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 6px 6px 6px 12px; margin: 0 0 12px; }
@@ -400,7 +324,6 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
   input:not(.pin-input), select, textarea { font-size: 16px !important; }
 }
 
-
 /* Ders listesi boşken yönlendirme */
 .subject-onboard { border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 14px; text-align: center; display: flex; flex-direction: column; gap: 6px; }
 .subject-onboard b { font-family: var(--f-display); font-size: 15px; }
@@ -418,20 +341,13 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sheet-layer, .sheet { animation: none; } }
 
-/* Hafta paneli (components/WeekSheet.jsx): üstten 90 px boşluk, içerik kendi içinde kayar */
-.weeksheet { top: 90px; }
-/* Alt menünün üstünde biten katman (Hafta paneli, Görev 14c): menü görünür kalır. + menünün içindedir (Görev 16). */
-.sheet-layer.keep-tabbar { bottom: var(--tabbar-h); }
-.keep-tabbar .sheet { padding-bottom: 10px; }
 /* Hafta paneli açıkken alt menü katmanın üstünde: ortadaki + kesilmez */
-body:has(.keep-tabbar) .tabbar { z-index: 46; }
 .sheet-head { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 5px 3px; }
 .sheet-head h3 { font-size: 18px; font-weight: 800; }
 .sheet-close { min-height: 44px; min-width: 44px; padding: 0 6px; border: none; background: none; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
 .sheet-close:hover { background: var(--surface-2); }
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 5px 5px 6px; }  /* odak halkası kırpılmasın */
 .sheet-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 16px; font-family: var(--f-display); font-size: 16px; font-weight: 700; text-align: center; }
-.wsfoot { margin: 8px 0 0; font-size: 12px; color: var(--ink-soft); text-align: center; }
 
 /* ⋯ menüsü (components/EntryMenu.jsx) */
 .menusheet { background: var(--surface); padding: 8px 16px max(24px, env(safe-area-inset-bottom)); max-height: calc(100% - 90px); overflow-y: auto; }
@@ -450,7 +366,7 @@ body:has(.keep-tabbar) .tabbar { z-index: 46; }
 .delete-lead { margin: 0 0 8px; font-size: 14px; }
 .delete-list { margin: 0 0 10px; padding-left: 20px; font-size: 14px; line-height: 1.5; }
 .delete-list li { margin: 3px 0; }
-.delete-list b { font-family: var(--f-mono); font-weight: 500; font-size: 12.5px; overflow-wrap: anywhere; }
+.delete-list b { font-variant-numeric: tabular-nums; font-weight: 500; font-size: 12.5px; overflow-wrap: anywhere; }
 .delete-warn { margin: 0 0 4px; font-weight: 700; color: var(--danger); font-size: 14px; }
 .delete-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .delete-form input { font-size: 16px; }
@@ -461,71 +377,19 @@ body:has(.keep-tabbar) .tabbar { z-index: 46; }
 .auth-card .delete-card { box-shadow: none; border: none; padding: 0; margin: 0; background: none; }
 .deleted-info { margin-bottom: 12px; }
 
-/* ===== Saat çizelgesi (Görev 09) ===== */
 /* --- Gün: zaman çizelgesi --- */
 /* Bee kartında gün kaydırma (hooks/useDaySwipe): dikey hareket sayfayı kaydırır, yatay hareket kartta kalır. İçerik kart
    çerçevesinin içinde kayar; arkasında, açılan kenarda gidilecek gün yazar (eşik geçilince bal rengi). */
-.card.swipe { position: relative; overflow: hidden; overflow: clip; touch-action: pan-y pinch-zoom; }
-.swipe-body { position: relative; background: var(--surface); }
+.flow.swipe { position: relative; margin: 0 -8px 14px; padding: 0 8px; overflow: hidden; overflow: clip; touch-action: pan-y pinch-zoom; }
+.swipe-body { position: relative; background: var(--bg); }
 .swipe-hint { position: absolute; display: inline-flex; align-items: center; min-height: 32px; padding: 0 11px; border-radius: 999px; background: var(--surface-2); color: var(--ink-soft); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .swipe-hint.prev { left: 12px; }
 .swipe-hint.next { right: 12px; }
 .swipe-hint.ready { background: var(--honey); color: var(--ink); }
 
-.tl-untimed { margin: 0 0 12px; padding: 4px 2px 2px 12px; background: var(--surface-2); border-radius: 16px; }
-.tl-untimed .lb, .tl-outlb { display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); padding-top: 4px; }
-.tl-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; border: none; background: none; padding: 0; text-align: left; color: var(--ink); font-size: 14px; font-weight: 600; }
-.tl-row + .tl-row { border-top: 1px solid var(--line); }
-.tl-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-row .tm { font-family: var(--f-mono); font-size: 12px; font-weight: 500; color: var(--ink); white-space: nowrap; }
-.tl-row .tag { font-size: 11.5px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
-.tl-row .mo { width: 40px; text-align: center; color: var(--ink-soft); font-size: 20px; flex-shrink: 0; }
-.tl-out { margin: 0 0 6px; padding: 0 0 0 10px; border: 1px dashed var(--line-strong); border-radius: 14px; }
-.tl-out.after { margin: 6px 0 0; }
-.tl { position: relative; padding-left: 46px; margin-bottom: 4px; }
-.tl-ax { position: absolute; left: 0; width: 40px; text-align: right; transform: translateY(-50%); font-family: var(--f-mono); font-size: 12px; line-height: 14px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.tl-ax.now { color: var(--ink); font-weight: 700; }
-.tl-brk { position: absolute; left: 22px; width: 16px; height: 14px; transform: translateY(-50%); color: var(--line-faint); }
-.tl-track { position: relative; }
-.tl-hl { position: absolute; left: -4px; right: 0; border-top: 1px solid var(--line); }
-.tl-blk { position: absolute; display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 6px 0 0 8px; border: 2px solid transparent; border-left: 0; border-right: 0; background: var(--event-soft) padding-box; background-clip: padding-box; border-radius: 16px; text-align: left; color: var(--ink); overflow: hidden; }
-.tl-blk.sport { background-color: var(--sport-soft); }
-.tl-blk .ic { width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--event); color: var(--on-accent); }
-.tl-blk.sport .ic { background: var(--sport); }
-.tl-blk.n2 .ic { width: 24px; height: 24px; }
-.tl-blk.n2 .ic svg { width: 14px; height: 14px; }
-.tl-blk .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.tl-blk .nm { font-size: 15px; font-weight: 600; line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-blk .tm { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--event-deep); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-blk .tm b { font-weight: 600; color: var(--ink); }
-.tl-blk.sport .tm { color: var(--sport-deep); }
-.tl-blk.study .tm { color: var(--study-ink); }
-.tl-blk .mo { width: 36px; height: 30px; margin-top: -6px; flex-shrink: 0; display: grid; place-items: center; color: var(--ink-soft); font-size: 18px; }
-.tl-blk.n3 { padding-left: 9px; } .tl-blk.n3 .ic { display: none; }
-.tl-blk.noend { background-image: linear-gradient(to bottom, transparent 45%, var(--surface) 100%); }
-.tl-blk.noend::after { content: ''; position: absolute; left: 4px; right: 0; bottom: 0; border-bottom: 2px dashed var(--event); }
-.tl-blk.sport.noend::after { border-bottom-color: var(--sport); }
-.tl-blk.cut-top { border-top-left-radius: 0; border-top-right-radius: 0; }
-.tl-blk.cut-top::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: 2px dashed var(--ink-soft); }
-.tl-blk.cut-bot { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.tl-blk.cut-bot::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: 2px dashed var(--ink-soft); }
-.tl-blk.edit { outline: 2px solid var(--ink); outline-offset: -2px; }
-/* Girintili çakışan kayıt: alttaki tam genişlikli kayıttan ince bir yüzey çizgisiyle ayrılır */
-.tl-blk.over:not(:focus-visible) { outline: 2px solid var(--surface); }
-/* Sıkıştırılmış uzun kaydın ortasındaki kırılma işareti */
-.tl-blk .tl-sq { position: absolute; left: 50%; top: 62%; width: 22px; height: 18px; transform: translateX(-50%); color: var(--event); pointer-events: none; }
-.tl-blk.study .tl-sq { color: var(--study); }
-.tl-blk.sport .tl-sq { color: var(--sport); }
-/* Boşluk: yalnızca bilgi satırı (Görev 14b: ajandada "+ Ekle" yok, ekleme alt menüdeki + ile) */
-.tl-gap { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 12px; border: 1.5px dashed var(--line-strong); border-radius: 14px; background: none; color: var(--ink-soft); font-size: 13px; text-align: left; }
-.tl-gap b { font-family: var(--f-mono); font-weight: 600; font-size: 12.5px; color: var(--ink); }
 /* Şu an çizgisi blokların arkasında: blok içinde metni üstü çizili (tamamlandı) gibi göstermesin; eksende ve boşlukta görünür */
-.tl-now { position: absolute; left: -2px; right: 0; border-top: 2px solid var(--ink); z-index: 0; pointer-events: none; }
-.tl-now::before { content: ''; position: absolute; left: -6px; top: -7px; width: 11px; height: 12px; background: var(--honey); clip-path: var(--hex); }
-.tl-empty { color: var(--ink-soft); font-size: 13.5px; padding: 14px 12px; margin-bottom: 4px; text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
-.tl-empty b { color: var(--ink); font-weight: 600; }
 .tl-pre { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 4px 0 12px; margin-bottom: 8px; border-radius: 12px; background: var(--honey-soft); font-size: 13px; }
-.tl-pre b { font-family: var(--f-mono); font-weight: 600; }
+.tl-pre b { font-variant-numeric: tabular-nums; font-weight: 600; }
 .tl-pre button { min-height: 44px; border: none; background: none; font-weight: 600; text-decoration: underline; padding: 0 8px; }
 /* --- Form --- */
 .evtimes { display: grid; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 4px; align-items: end; }
@@ -538,122 +402,22 @@ body:has(.keep-tabbar) .tabbar { z-index: 46; }
 .evchips button.on { background: var(--honey); border-color: var(--honey); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
 .evchips button:disabled { color: var(--ink-faint); border: 1px dashed var(--line-strong); background: none; }
 .evsum { font-size: 13px; color: var(--ink-soft); }
-.evsum b { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.evsum b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
 .evwarn { display: flex; gap: 6px; padding: 9px 11px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 600; }
-/* --- Hafta ızgarası --- */
-.wg { display: grid; grid-template-columns: 20px repeat(7, minmax(0, 1fr)); margin: 0 -2px; }
-.wg-axis { position: relative; }
-.wg-axis span { position: absolute; right: 2px; transform: translateY(-50%); font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
-.wg-col { display: flex; flex-direction: column; min-width: 0; padding: 0 1px; border: none; background: none; color: var(--ink); border-radius: 10px; }
-.wg-hd { height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 9px 9px 0 0; }
-.wg-hd .w { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; color: var(--ink-soft); line-height: 1.2; }
-.wg-hd .n { font-family: var(--f-display); font-size: 16px; font-weight: 800; line-height: 1.1; }
-.wg-col.today .wg-hd { background: var(--honey); } .wg-col.today .wg-hd .w { color: var(--ink); font-weight: 600; }
-.wg-un { height: 20px; display: flex; align-items: center; justify-content: center; gap: 1px; font-size: 11px; background: var(--surface-2); border: 1px solid var(--line); border-bottom: none; }
-.wg-un i { font-style: normal; font-family: var(--f-mono); font-size: 11px; color: var(--ink-soft); }
-.wg-tr { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 0 0 7px 7px; }
-.wg-col.today .wg-un, .wg-col.today .wg-tr { border-color: var(--ink); }
-.wg-gl { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--line); }
-.wg-b { position: absolute; font-style: normal; border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding-top: 2px; overflow: hidden; background: var(--event); }
-.wg-b.sport { background: var(--sport); }
-.wg-b .ic { width: 16px; height: 16px; border-radius: 4px; background: var(--surface); display: grid; place-items: center; font-size: 10.5px; line-height: 1; }
-.wg-b .t { font-family: var(--f-mono); font-size: 11px; line-height: 12px; font-weight: 600; color: var(--on-accent); }
-.wg-b.noend { background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,252,245,.45) 4px 7px); background-position: 0 50%; }
-.wg-b.cut-bot { border-radius: 4px 4px 0 0; }
-.wg-b.cut-top { border-radius: 0 0 4px 4px; }
-.wg-cut { position: absolute; left: 0; right: 0; text-align: center; font-size: 10px; line-height: 10px; font-weight: 700; color: var(--ink); }
-.wg-now { position: absolute; left: -1px; right: -1px; border-top: 2px solid var(--ink); }
-.wg-foot { margin: 10px 2px 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
-.wg-foot b { color: var(--ink); font-weight: 600; }
-.wg-foot .mono { font-family: var(--f-mono); font-size: 12px; color: var(--ink); }
-.wg-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; font-size: 12px; color: var(--ink-soft); margin: 8px 0 0; }
-.wg-leg i { display: inline-block; width: 16px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
 
-.tl-row.two .nm { display: flex; flex-direction: column; white-space: normal; padding: 4px 0; }
-.tl-row.two .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-row.two .t2 { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
-.wg-un.bot { height: 16px; border: 1px solid var(--line); border-top: none; border-radius: 0 0 7px 7px; }
-.wg-col .wg-tr { border-radius: 0; }
-.wg-col.today .wg-un.bot { border-color: var(--ink); }
-
-/* Uygulama yapısı: bloklar ve boşluklar <ol> içinde <li> olarak konumlanır (li konum/yükseklik taşır) */
-.tl-list { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; height: 100%; }
-.tl-list > li { position: absolute; left: 0; right: 0; }
-.tl-list .tl-blk { inset: 0; width: 100%; }
-.tl-list .tl-gap { inset: 3px 0; }
-.tl-gap .gt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-blk:focus-visible, .tl-row:focus-visible { outline-offset: -2px; }
-.tl-row .ic { width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--event); color: var(--on-accent); }
-.tl-row .ic.sport { background: var(--sport); }
-.tl-row.edit { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 10px; }
-.tl-row .audit-initial, .tl-blk .audit-initial { vertical-align: 0; }
-/* 4+ aynı saatte: yan yana bölmek yerine liste kümesi */
-.tl-many { position: absolute; inset: 2px 0; padding: 0 0 0 10px; border: 1.5px dashed var(--line-strong); border-radius: 12px; background: var(--surface); overflow: hidden; }
-.tl-many .hd { display: block; height: 28px; line-height: 28px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); }
-.tl-many .tl-row .t2.tm { font-family: var(--f-mono); }
 /* Form: Başlangıç – Bitiş */
-.evtimes .time-input, .evtimes input[type="time"].time-input, .evform .evtimes input[type="time"].time-input { width: 100%; min-width: 0; flex: none; font-family: var(--f-mono); }
+.evtimes .time-input, .evtimes input[type="time"].time-input, .evform .evtimes input[type="time"].time-input { width: 100%; min-width: 0; flex: none; font-variant-numeric: tabular-nums; }
 /* iOS Safari: yerel saat alanı kendi genişliğinin altına inmez, sütundan taşıp yandaki alanın üstüne biner; boşken de
    yüksekliği çöker. Görünümü sıfırlanınca genişliğe uyar (dokununca saat seçici yine açılır). */
 input[type="time"].time-input { -webkit-appearance: none; appearance: none; display: block; max-width: 100%; }
 input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.3em; }
 .evform input:disabled { background: var(--bg); border-style: dashed; color: var(--ink-faint); }
-/* Hafta ızgarası renk açıklaması */
-.wg-leg .lg-sport { background: var(--sport); }
-.wg-leg .lg-evt { background: var(--event); }
-.wg-leg .lg-free { background: var(--surface); border: 1px solid var(--line-strong); }
-.wg-leg .lg-noend { background: var(--event); background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,252,245,.45) 4px 7px); }
-.wg-col:focus-visible { outline-offset: -2px; }
-.wg-col:hover .wg-tr { border-color: var(--line-strong); }
-.tl-many { padding-right: 4px; }
-.tl-many .hd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-many .tl-row.two { height: 44px; min-height: 44px; }
-.tl-many .tl-row.two .nm { padding: 0; }
-.tl-many .tl-row.two .t1 { line-height: 18px; }
-.tl-many .tl-row.two .t2 { line-height: 16px; }
-.wg-foot .nw { white-space: nowrap; }
 
 /* ===== Bee · To-do · Plan (Görev 10) ===== */
 #day-panel:focus { outline: none; }
-/* Kart üst satırı: yalnız özet */
-.card-head .sumh { font-size: 18px; font-weight: 700; color: var(--ink); }
-.card-head .sumh:focus { outline: none; }
-.card-head .sumh:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-/* Bee: ders bloğu (iki düğme: daire + seçenekler) */
-.tl-blk.study { display: flex; align-items: stretch; padding: 0; background-color: var(--study-soft); }
-.tl-st { width: 40px; flex-shrink: 0; border: none; background: none; padding: 0 0 0 4px; display: grid; place-items: center; align-self: stretch; }
-.tl-st i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--study); background: var(--surface); display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700; color: var(--on-accent); line-height: 1; }
-.tl-st.st-done i { background: var(--study); }
-.tl-st.st-inprogress i { border-color: var(--study); background: linear-gradient(90deg, var(--study) 50%, var(--surface) 50%); }
-.tl-op { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 4px; border: none; background: none; padding: 5px 0 0 2px; text-align: left; color: var(--ink); }
-.tl-blk.study.done { background-color: var(--done-bg); }
-.tl-blk.study.done .nm { text-decoration: line-through; color: var(--ink-soft); }
-.tl-blk .tm .ok { color: var(--study); font-weight: 600; }
-.tl-st:focus-visible, .tl-op:focus-visible { outline-offset: -2px; }
-/* Blok kenarındaki 2 px saydam boşluk da dokunma alanı olsun: iki düğme bloğun tüm yüksekliğini (en az 44 px) kaplar */
-.tl-blk.study { overflow: visible; }
-.tl-blk.study > .tl-st, .tl-blk.study > .tl-op { margin: -2px 0; }
-.tl-blk.study > .tl-op { padding-top: 7px; }
-.tl-blk.n3 .tl-st { width: 34px; padding-left: 4px; }
-/* Liste satırındaki ders (Saati yok şeridi, 4+ küme, pencere dışı) */
-.tl-row.srow { gap: 4px; }
-.srow .tl-st { width: 36px; height: 44px; padding: 0; margin-left: -6px; align-self: center; }
-.srow .tl-op { align-items: center; padding: 0; min-height: 44px; gap: 8px; font-size: 14px; font-weight: 600; }
-.srow .tl-op > .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.srow .nm.done, .srow .t1.done { text-decoration: line-through; color: var(--ink-soft); }
-.srow .mn { font-family: var(--f-mono); font-size: 12.5px; color: var(--study); font-weight: 500; white-space: nowrap; }
-.srow.two .tl-op > .nm { display: flex; flex-direction: column; white-space: normal; }
 /* To-do */
-.prog { height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: -6px 0 4px; }
-.prog i { display: block; height: 100%; background: var(--study); border-radius: 6px; }
 .entry .mins b { color: var(--ink); font-weight: 600; }
-/* Plan */
-.sub-lb { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); margin: 14px 2px 2px; }
-.sub-lb.add-lb { margin: 2px 2px 6px; }
-.add-lb + .evform { margin-bottom: 6px; }
 /* Sesle ekleme (Görev 13): gün başlığının sağ ucunda 🎤 (her bölümde), altında panel ve onay kartı */
-.dayhead-row { display: flex; align-items: center; gap: 8px; margin: 4px 4px 10px; }
-.dayhead-row .dayhead { flex: 1; min-width: 0; margin: 0; }
 .micbtn { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--ink); }
 .micbtn.on { background: var(--honey); border-color: var(--honey); box-shadow: inset 0 0 0 1.5px var(--ink); }
 .evform.qa { padding: 10px; margin-bottom: 14px; border-radius: 14px; background: var(--honey-soft); }
@@ -670,13 +434,12 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .qa-topic { font-weight: 500; color: var(--ink-soft); }
 .qa-what small { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
 .qa-when { font-size: 13px; color: var(--ink-soft); }
-.qa-when b { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.qa-when b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
 .entry .when { color: var(--ink); }
 .entry .when.none { font-family: var(--f-body); color: var(--ink-soft); font-weight: 500; }
-.entry .ico { width: 34px; height: 34px; border-radius: 10px; font-size: 17px; }
 /* Ders formu */
 .sform { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
-.entry + .sform, .entry-edit .sform, .addsheet .sform { border-top: 0; padding-top: 0; margin-top: 0; }
+.addsheet .sform { border-top: 0; padding-top: 0; margin-top: 0; }
 .entry + .sform { margin-top: 12px; }
 .sform select, .sform input { width: 100%; min-width: 0; min-height: 48px; font-size: 16px; border: 1.5px solid var(--line-field); border-radius: var(--radius-sm); padding: 0 14px; background: var(--surface); font-weight: 400; color: var(--ink); font-family: var(--f-body); }
 .sform select:focus, .sform input:focus { outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px var(--honey-soft); }
@@ -687,24 +450,20 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .durrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .durrow .evchips { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; gap: 6px; }
 .durrow .evchips button { padding: 0 10px; white-space: nowrap; }
-.durrow input { width: 76px; flex: none; font-family: var(--f-mono); text-align: center; }
+.durrow input { width: 76px; flex: none; font-variant-numeric: tabular-nums; text-align: center; }
 .sform .evtimes.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
-.sform .evtimes input { font-family: var(--f-mono); background: var(--surface); }
+.sform .evtimes input { font-variant-numeric: tabular-nums; background: var(--surface); }
 /* Bitiş, başlangıç seçilmeden girilemez */
 .sform input:disabled { background: var(--chip); border-style: dashed; color: var(--ink-faint); }
 .frm-act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .frm-act .go { min-height: 48px; padding: 0 24px; border: none; border-radius: var(--radius-sm); font-weight: 700; font-size: 15px; }
 .frm-act .btn-ghost { min-height: 44px; padding: 0 16px; }
-.frm-act .manage-toggle { margin: 0 0 0 auto; }
 /* Boşluktan ekleme sayfası */
 .addsheet { top: auto; max-height: 92vh; }
 .addsheet .seg { margin-bottom: 10px; background: var(--surface); }
 .addsheet .seg button { min-height: 44px; }
 .addsheet .seg button.active { background: var(--honey); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
 .addsheet .evsum { margin: 0 0 8px; }
-/* Hafta */
-.wg-b.study { background: var(--study); }
-.wg-leg .lg-study { background: var(--study); }
 
 /* KVKK: kayıt onay kutusu ve metin bağlantıları */
 .terms-check { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 6px 0; font-size: 13.5px; color: var(--ink); cursor: pointer; }
@@ -741,10 +500,9 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .repd { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
 .evform .repd input { width: 100%; background: var(--surface); }
 .repsum { font-size: 13px; color: var(--ink-soft); }
-.repsum b { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.repsum b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
 .repinfo { margin: 0; padding: 9px 11px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 13px; color: var(--ink-soft); }
 .rc { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
-.wg-b .rc2 { font-size: 9px; line-height: 1; color: var(--on-accent); }
 .mgrp { margin: 12px 0 2px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); }
 .menu-item .two { display: flex; flex-direction: column; padding: 6px 0; }
 .menu-item .two small { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
@@ -753,17 +511,6 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .holstrip { margin: -4px 4px 10px; padding: 7px 11px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .holstrip.hol { background: var(--honey-soft); color: var(--ink); box-shadow: inset 3px 0 0 var(--honey); }
 .holstrip.spc { background: var(--surface-2); color: var(--ink-soft); font-weight: 500; }
-.trail-dot, .wg-hd { position: relative; }
-.hdot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; }
-.trail-dot .hdot.hol { background: var(--honey); }
-.trail-dot .hdot.spc { background: var(--ink-faint); }
-.trail-dot.selected .hdot { background: var(--ink); }
-.trail-dot.selected .hdot.spc { background: var(--ink-soft); }
-.wg-hd .hdot { top: 3px; right: 3px; }
-.wg-hd .hdot.hol { background: var(--honey); }
-.wg-hd .hdot.spc { background: var(--ink-soft); }
-.wg-col.today .wg-hd .hdot { background: var(--ink); }
-.wg-col.today .wg-hd .hdot.spc { background: var(--ink-soft); }
 
 /* ===== Alt menü (Görev 14, components/TabBar.jsx): Bugün · Hafta · + · Ailem · Profil ===== */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -12px rgba(30, 26, 20, .25); padding: 6px 8px max(8px, env(safe-area-inset-bottom)); }
@@ -775,43 +522,20 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 /* Seçili sekme yalnız sarıyla değil koyu çerçeve ve kalın yazıyla da belli olur (WCAG 1.4.11) */
 .tab.on { color: var(--ink); font-weight: 800; }
 .tab.on .ic { background: var(--honey); box-shadow: inset 0 0 0 1.5px var(--ink); }
-.tab .pav { width: 26px; height: 26px; margin: 2px 0; border-radius: 50%; background: var(--ink); color: var(--on-accent); display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 12px; }
-.tab.on .pav { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); }
 .tab-addwrap { position: relative; display: flex; justify-content: center; }
 .tab-add { width: 52px; height: 52px; margin: 0; border-radius: 50%; border: none; background: var(--ink); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 2px 5px rgba(30, 26, 20, .18), 0 0 14px 2px rgba(246, 181, 30, .38); padding: 0; }
 .tab-add svg { width: 24px; height: 24px; transition: transform .18s ease-out; }
-.tab-add.open { background: var(--honey); color: var(--ink); }
-.tab-add.open svg { transform: rotate(45deg); }
 .tabbar :focus-visible { outline-offset: 3px; }
 /* + menüsü: düğmenin üstünde küçük menü (Plan · To-do) */
-.addpop-dim { position: fixed; inset: 0; z-index: 29; background: rgba(30, 26, 20, .35); animation: loading-in .15s ease-out; }
-.addpop { position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); width: 220px; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 14px 34px -10px rgba(30, 26, 20, .45); animation: addpop-in .16s ease-out; }
-.addpop::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; background: var(--surface); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateX(-50%) rotate(45deg); }
-.addpop li + li { border-top: 1px solid var(--line); }
-.addpop-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 10px; border: none; background: none; border-radius: 12px; text-align: left; color: var(--ink); }
-.addpop-item:hover { background: var(--surface-2); }
-.addpop-item .bub { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; }
-.addpop-item .bub svg { width: 20px; height: 20px; }
-.addpop-item .bub.evt { background: var(--event-soft); color: var(--event-deep); }
-.addpop-item .bub.study { background: var(--study-soft); color: var(--study); }
-.addpop-item b { display: block; font-family: var(--f-display); font-size: 17px; font-weight: 800; line-height: 1.15; }
-.addpop-item small { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
 @keyframes addpop-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@media (prefers-reduced-motion: reduce) { .addpop, .addpop-dim { animation: none; } .tab-add svg { transition: none; } }
 /* Profil paneli (components/ProfileSheet.jsx) */
 .profhead { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
 .profhead .av.big { width: 44px; height: 44px; font-size: 19px; }
 .profhead-tx { min-width: 0; }
 .profhead-tx h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .profhead-tx small { display: block; color: var(--ink-soft); font-size: 12.5px; }
-/* Plan ve To-do bölümünün başı: "‹ Bugün" ve bölüm adı (bölüm seçici yerine) */
-.secthead { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
-.secthead-tx { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
-.secthead-tx b { font-family: var(--f-display); font-size: 17px; font-weight: 800; color: var(--ink); }
 
 /* Program yükleme (Görev 15, components/ImportSheet.jsx): + menüsünde üçüncü seçenek, kaynak seçimi, okuma ve önizleme */
-.addpop { width: 236px; }
-.addpop-item .bub.imp { background: var(--honey-soft); color: var(--ink); }
 .impsheet.tall { height: 92vh; padding-bottom: 0; }
 .imp-src { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 12px; }
 .imp-opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); text-align: left; color: var(--ink); }
@@ -831,9 +555,9 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .imp-grid { width: 100%; border-collapse: collapse; font-size: 11.5px; background: var(--surface); border: 1px solid var(--line); }
 .imp-grid th, .imp-grid td { border: 1px solid var(--line); padding: 5px 4px; text-align: center; }
 .imp-grid th { background: var(--surface-2); font-weight: 700; }
-.imp-grid td.t { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-soft); }
+.imp-grid td.t { font-variant-numeric: tabular-nums; font-size: 10.5px; color: var(--ink-soft); }
 .imp-or { font-size: 12.5px; color: var(--ink-soft); margin: 8px 2px; }
-.mono { font-family: var(--f-mono); }
+.mono { font-variant-numeric: tabular-nums; }
 .imp-dl { display: flex; gap: 8px; flex-wrap: wrap; }
 /* Okunuyor */
 .imp-read { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px 10px 8px; }
@@ -864,7 +588,7 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .imp-row { display: flex; align-items: center; gap: 4px; min-height: 52px; padding-right: 2px; }
 .imp-row + .imp-row { border-top: 1px solid var(--line); }
 .imp-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 4px 6px 12px; border: none; background: none; text-align: left; color: var(--ink); }
-.imp-row .tm { font-family: var(--f-mono); font-size: 12.5px; width: 96px; flex-shrink: 0; color: var(--ink-soft); }
+.imp-row .tm { font-variant-numeric: tabular-nums; font-size: 12.5px; width: 96px; flex-shrink: 0; color: var(--ink-soft); }
 .imp-row .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: break-word; hyphens: auto; }
 .imp-row .nm small { display: block; font-weight: 600; font-size: 12px; }
 .imp-row .nm .sub { color: var(--ink-soft); font-weight: 500; }
@@ -909,24 +633,6 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .imp-row .nm .why.dup { color: var(--sport-deep); }
 .imp-info { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--sport-soft); color: var(--sport-deep); font-size: 13px; font-weight: 600; }
 
-/* ===== Görev 16 (Petek dolsun): özet kutuları, ders çipleri, giriş alanları, Hafta paneli özeti ===== */
-/* Gün ekranının özet kutuları (components/DayTiles.jsx): Dersler ve Sıradaki; renk kaydın türünden */
-.daytiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
-.dtile { min-width: 0; border-radius: 18px; padding: 10px 12px 11px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); }
-.dtile.study { background: var(--study-soft); border-color: transparent; color: var(--study-ink); }
-.dtile.sport { background: var(--sport-soft); border-color: transparent; color: var(--sport-deep); }
-.dtile.evt { background: var(--event-soft); border-color: transparent; color: var(--event-deep); }
-.dt-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.dt-lb { font-size: 13px; font-weight: 700; }
-.dt-big { font-family: var(--f-display); font-size: 22px; font-weight: 800; line-height: 1; white-space: nowrap; }
-.dt-big.mono { font-family: var(--f-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.dt-bar { height: 6px; margin-top: 7px; border-radius: 3px; background: var(--study-track); overflow: hidden; }
-.dt-bar i { display: block; height: 100%; border-radius: 3px; background: var(--study); }
-.dt-t1 { margin-top: 7px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dt-t2 { margin-top: 6px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dt-t1 + .dt-t2 { margin-top: 0; }
-/* Ajanda kartının başlığı: "Günün akışı" ve boş süre çipi */
-.card-head .free-chip { font-size: 12px; font-weight: 700; color: var(--ink-soft); background: var(--chip); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
 /* Ders formu: açılır liste yerine ders çipleri (components/StudyForm.jsx) */
 .subj-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .subj-chips:focus { outline: none; }
@@ -943,20 +649,217 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .auth-card form .auth-forgot { align-self: flex-end; margin: -6px 0 0; padding: 6px 2px; font-size: 14px; }
 /* Hafta paneli: başlıkta aralık, üstte haftanın özeti, bugünün sütunu bal açığı */
 .sheet-head h3 small { display: block; font-family: var(--f-body); font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--ink-soft); }
-.wk-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
-.wk-stats span { padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
-.wk-stats .study { background: var(--study-soft); color: var(--study-ink); }
-.wk-stats .sport { background: var(--sport-soft); color: var(--sport-deep); }
-.wk-stats .evt { background: var(--event-soft); color: var(--event-deep); }
-.wg-col.today .wg-tr { background: var(--honey-wash); }
-.wg-b .ic { color: var(--event-deep); }
-.wg-b.sport .ic { color: var(--sport-deep); }
-.wg-un { color: var(--ink-soft); }
 /* Emoji yerine çizgi ikonlar (components/KindIcon.jsx) */
-.entry .ico { color: var(--event-deep); }
-.entry .ico.sport { color: var(--sport-deep); }
 .qa-what .ai { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--event); color: var(--on-accent); }
 .qa-what .ai.study { background: var(--study); }
 .qa-what .ai.sport { background: var(--sport); }
 .evform .acts button .ai { display: grid; place-items: center; height: 24px; }
 .kic { display: block; flex-shrink: 0; }
+
+/* ===== Görev 17 "Akış": sayfa başlığı, ince petek, Şimdi kartı, günün akışı, Hafta ve Dersler sayfaları, Ekle sayfası ===== */
+/* Sayfa başlığı (components/WeekHead.jsx, Bugün'de QuickAdd): üstte küçük satır, altında başlık; sağda hafta okları, 🎤, profil */
+.pghead, .dayhead-row { display: flex; align-items: center; gap: 8px; min-height: 48px; margin: 0 0 6px; }
+.pg-title { flex: 1; min-width: 0; }
+.pg-over { display: block; font-size: 13px; font-weight: 700; line-height: 16px; color: var(--warn); }
+.pg-title h1 { font-size: 24px; font-weight: 800; line-height: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-title h1:focus { outline: none; }
+.pg-title h1:focus-visible { outline: 2px solid var(--ink); }
+@media (max-width: 374px) { .pg-title h1 { font-size: 21px; } }
+.navbtn { width: 44px; height: 44px; flex: none; display: grid; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); }
+.navbtn svg { width: 20px; height: 20px; }
+/* Profil düğmesi: profilin baş harfi (cihazı kimin kullandığını da gösterir) */
+.avbtn { width: 44px; height: 44px; flex: none; display: grid; place-items: center; padding: 0; border: none; border-radius: 50%; background: var(--ink); color: var(--on-accent); font-family: var(--f-display); font-size: 17px; font-weight: 800; }
+
+/* Haftanın peteği (components/WeekTrail.jsx): iki yanda hafta okları, ortada 7 hücre (gün adı, petek, aktivite noktaları).
+   Petek o günün dersleri tamamlandıkça alttan bal rengiyle dolar; seçili gün koyu, bugün gri çerçeveli. */
+.trail { display: flex; align-items: stretch; margin: 0 -6px 4px; }
+.trail-nav { width: 26px; flex: none; display: grid; place-items: center; padding: 0; border: none; border-radius: 10px; background: none; color: var(--ink-soft); }
+.trail-nav svg { width: 18px; height: 18px; }
+.trail-dot { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; padding: 2px 0 4px; border-radius: 12px; color: var(--ink-soft); }
+.trail-dot .wk { font-size: 12px; font-weight: 600; line-height: 16px; }
+.hex { width: 40px; height: 45px; flex: none; display: grid; place-items: center; clip-path: var(--hex); }
+.hex-in { position: relative; width: 34px; height: 39px; overflow: hidden; display: grid; place-items: center; clip-path: var(--hex); background: var(--wax); }
+.hex-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--honey); }
+.hex .num { position: relative; font-family: var(--f-display); font-size: 15px; font-weight: 800; line-height: 1; color: var(--ink); }
+.trail-dot .dots { display: flex; gap: 3px; height: 6px; }
+.trail-dot .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--event); }
+.trail-dot .dots i.sport { background: var(--sport); }
+.trail-dot.selected .hex, .wk-day.today .hex { background: var(--ink); }
+.trail-dot.selected .wk { color: var(--ink); font-weight: 800; }
+.trail-dot.istoday:not(.selected) .hex { background: var(--line-field); }
+.trail-dot.istoday .wk { color: var(--ink); }
+.trail-dot.empty .hex-in, .wk-day.empty .hex-in { background: var(--wax-empty); }
+.trail-dot.empty .num, .wk-day.empty .num { color: var(--ink-faint); }
+/* Tatil ve özel gün noktası (Görev 11 eki) */
+.hdot { position: absolute; top: 14px; right: 3px; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; }
+.hdot.hol { background: var(--honey); box-shadow: 0 0 0 1px var(--ink); }
+.hdot.spc { background: var(--ink-faint); }
+
+/* Şimdi kartı (components/NowCard.jsx): ekrandaki tek koyu öğe. Bal sarısı: küçük üst satır, petek dolumu, süre çubuğu ve birincil düğme. */
+.nowcard { margin: 6px 0 14px; padding: 16px 16px 14px; border-radius: var(--radius); background: var(--ink); color: var(--on-accent); box-shadow: 0 10px 24px -18px rgba(30, 26, 20, .5); }
+.now-top { display: flex; align-items: flex-start; gap: 12px; }
+.now-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.now-over { font-size: 13px; font-weight: 700; line-height: 18px; color: var(--honey); }
+.now-title { margin-top: 2px; font-family: var(--f-display); font-size: 28px; font-weight: 800; line-height: 32px; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.now-sub { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--on-dark-soft); overflow-wrap: anywhere; }
+.now-sub b, .now-next b, .now-hex .c b { color: var(--on-accent); font-variant-numeric: tabular-nums; }
+.now-hex { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.now-hex .hx { position: relative; width: 48px; height: 54px; display: grid; place-items: center; overflow: hidden; clip-path: var(--hex); background: var(--wax-dark); color: var(--ink); }
+.now-hex .hx i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--honey); }
+.now-hex .hx svg { position: relative; width: 22px; height: 22px; }
+.now-hex .c { font-size: 12px; font-weight: 700; line-height: 14px; color: var(--on-dark-soft); }
+.now-bar { margin-top: 12px; height: 4px; border-radius: 2px; background: var(--on-dark-wash); }
+.now-bar i { display: block; height: 4px; border-radius: 2px; background: var(--honey); }
+.now-foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.now-next { flex: 1; min-width: 0; text-align: right; font-size: 13px; line-height: 18px; color: var(--on-dark-soft); }
+/* Düğme yokken (gün tamam, aktivite sürüyor) "sırada" satırı tam genişlikte bir kutu olur */
+.now-foot > .now-next:first-child { text-align: left; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--on-dark-wash); font-size: 14px; line-height: 20px; }
+.now-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; flex: none; padding: 0 18px; border: none; border-radius: var(--radius-sm); background: var(--honey); color: var(--ink); font-size: 15px; font-weight: 800; }
+.now-btn svg { width: 18px; height: 18px; }
+.now-btn.ghost { background: none; color: var(--on-accent); box-shadow: inset 0 0 0 1.5px var(--line-field); }
+.now-hint { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 6px 6px 6px 12px; border-radius: var(--radius-sm); background: var(--on-dark-wash); font-size: 14px; line-height: 19px; }
+.now-hint span { flex: 1; min-width: 0; }
+.now-add { display: flex; gap: 8px; margin-top: 14px; }
+.now-add .now-btn { flex: 1; padding: 0 8px; }
+.nowcard :focus-visible { outline-color: var(--honey); }
+
+/* Durum düğmesi (components/StatusCheck.jsx): Yapılacak boş, Devam ediyor yarım, Tamamlandı bal dolu ve koyu çerçeveli ✓ */
+.chk { width: 44px; height: 44px; flex: none; display: grid; place-items: center; padding: 0; border: none; background: none; border-radius: 50%; }
+.chk i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--line-field); background: var(--surface); color: var(--ink); }
+.chk i svg { width: 15px; height: 15px; }
+.chk.half i { border-color: var(--ink); background: linear-gradient(90deg, var(--honey) 50%, var(--surface) 50%); }
+.chk.on i { border-color: var(--ink); background: var(--honey); }
+
+/* Günün akışı (components/DayFlow.jsx): süzgeç çipleri, saatsiz kayıtlar, sıralı liste */
+.flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.flow-head[hidden] { display: none; }
+.fchips { display: flex; gap: 6px; min-width: 0; }
+.fchips button, .daychips button, .daypick { min-height: 44px; padding: 0 13px; border: none; border-radius: 999px; background: var(--chip); color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.fchips button.on, .daychips button.on, .daypick.on { background: var(--honey); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.fchips .n { font-variant-numeric: tabular-nums; }
+.flow-free { flex: 1 0 auto; text-align: right; font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+.fl-un { margin-top: 8px; }
+.fl-un .lb { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 700; line-height: 16px; color: var(--ink-soft); }
+.fl-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.unchip { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; max-width: 100%; padding: 0 13px 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; }
+.unchip .kic { flex: none; color: var(--event); }
+.unchip.sport .kic { color: var(--sport); }
+.unchip.school .kic { color: var(--ink-soft); }
+.unchip .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Ders çipi iki düğmedir: durum + seçenekler */
+.unchip.two { padding: 0; gap: 0; }
+.unchip.two > button:last-child { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 42px; padding: 0 13px 0 0; border: none; border-radius: 0 999px 999px 0; background: none; color: inherit; font-weight: 600; }
+.unchip small { font-size: 13px; font-weight: 400; color: var(--ink-soft); white-space: nowrap; }
+.unchip.done .nm { text-decoration: line-through; color: var(--ink-faint); }
+.unchip .chk { width: 40px; height: 42px; }
+.unchip .chk i { width: 22px; height: 22px; }
+.unchip .chk i svg { width: 13px; height: 13px; }
+/* Liste: saat (46 px) · tür peteği (40 px, arkasında dikey çizgi) · ad ve ayrıntı · derste durum düğmesi */
+.flist { position: relative; list-style: none; margin: 8px 0 0; padding: 0; }
+.flist::before { content: ''; position: absolute; left: 65px; top: 26px; bottom: 26px; width: 2px; background: var(--line-strong); }
+.fl-row { position: relative; display: flex; align-items: center; min-height: 54px; margin: 0 -8px; padding-left: 8px; border-radius: 16px; }
+.fl-main { flex: 1; min-width: 0; display: flex; align-items: center; min-height: 54px; padding: 4px 0; border: none; border-radius: 12px; background: none; color: inherit; text-align: left; }
+.fl-time { width: 46px; flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.fl-node { width: 40px; flex: none; display: grid; place-items: center; }
+.fl-node .hx { width: 32px; height: 36px; display: grid; place-items: center; clip-path: var(--hex); background: var(--event-soft); color: var(--event-deep); }
+.fl-node .hx svg { width: 16px; height: 16px; }
+.fl-row.study .hx { background: var(--study-soft); color: var(--study); }
+.fl-row.sport .hx { background: var(--sport-soft); color: var(--sport-deep); }
+.fl-row.school .hx { background: var(--school-soft); color: var(--ink-soft); }
+.fl-row.done .hx { background: var(--honey); color: var(--ink); }
+.fl-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0 4px 0 8px; }
+.fl-tx .t1 { display: flex; align-items: center; min-width: 0; font-size: 15px; font-weight: 600; line-height: 20px; }
+.fl-tx .t1 .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-tx .t2 { font-size: 13px; line-height: 18px; color: var(--ink-soft); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-row.done .t1 .nm { text-decoration: line-through; color: var(--ink-faint); }
+.fl-row.past .fl-time { font-weight: 600; color: var(--ink-soft); }
+.fl-row.past .t1 { color: var(--ink-soft); }
+.fl-row.now { background: var(--honey-wash); }
+.fl-row.now .fl-time { font-weight: 800; }
+/* Boşluk: yalnızca bilgi satırı (ekleme alt menüdeki + ile, Görev 14b) */
+.fl-gap { position: relative; display: flex; align-items: center; min-height: 28px; font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.fl-gap .dot { width: 8px; height: 8px; flex: none; margin: 0 24px 0 62px; border-radius: 50%; border: 2px solid var(--line-faint); background: var(--bg); }
+.fl-gap.now .dot { border-color: var(--ink); background: var(--honey); }
+.fl-gap.now .gt { color: var(--ink); font-weight: 600; }
+.fl-empty { margin: 14px 0; padding: 14px; text-align: center; font-size: 13.5px; color: var(--ink-faint); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+
+/* Hafta sayfası (pages/WeekPage.jsx): özet, saat ekseni, gün satırları (petek, ad, 07–22 şeridi, aktivite adları) */
+.wk-sum, .ls-sum { display: flex; margin: 4px 0 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.wk-sum > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wk-sum > div + div { padding-left: 14px; border-left: 1px solid var(--line); }
+.wk-sum > div:nth-child(2) { flex: 1.5; }
+.wk-sum > div:first-child { padding-right: 14px; }
+.wk-sum b, .ls-sum b { font-family: var(--f-display); font-size: 22px; font-weight: 800; line-height: 26px; letter-spacing: -0.02em; white-space: nowrap; }
+.wk-sum span, .ls-sum span { font-size: 12.5px; line-height: 16px; color: var(--ink-soft); }
+.wk-sum small { margin-top: 6px; font-size: 12px; line-height: 14px; color: var(--ink-faint); }
+.bar { display: block; height: 4px; border-radius: 2px; background: var(--wax); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 2px; background: var(--honey); }
+.wk-sum .bar { width: 64px; margin-top: 8px; }
+.wk-axis { display: flex; height: 16px; padding: 0 8px 0 66px; font-size: 11px; line-height: 16px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.wk-axis span { position: relative; flex: 1; }
+.wk-axis i { position: absolute; font-style: normal; transform: translateX(-50%); }
+.wk-axis i:first-child { transform: none; }
+.wk-axis i:last-child { transform: translateX(-100%); }
+.wk-day { width: 100%; min-height: 70px; display: flex; align-items: center; gap: 12px; padding: 6px 8px; border: none; border-radius: 16px; background: none; color: var(--ink); text-align: left; }
+.wk-day .hex { margin: 0 3px; }
+.wk-day.today { background: var(--honey-wash); }
+.wk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wk-tx .l1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; line-height: 18px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.wk-tx .l1 b { font-size: 14px; font-weight: 700; color: var(--ink); }
+.wk-day.today .l1 b { font-weight: 800; }
+.wk-tx .l1 .full { color: var(--ink); font-weight: 700; }
+.wk-tx .hd { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; vertical-align: 2px; background: var(--ink-faint); }
+.wk-tx .hd.hol { background: var(--honey); box-shadow: 0 0 0 1px var(--ink); }
+/* Şerit 07:00–22:00: ders mavi, spor yeşil, aktivite mercan, okul taralı gri (sabit zaman; izlenen bir iş değil) */
+.wk-bar { position: relative; display: block; height: 12px; margin-top: 5px; border-radius: 6px; background: var(--chip); overflow: hidden; }
+.wk-day.today .wk-bar { background: var(--honey-soft); }
+.wk-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--event); }
+.wk-bar .study, .wk-leg .study { background: var(--study); }
+.wk-bar .sport, .wk-leg .sport { background: var(--sport); }
+.wk-bar .school, .wk-leg .school { background: repeating-linear-gradient(135deg, var(--school-line) 0 3px, var(--school-soft) 3px 6px); }
+.wk-bar .nowline { width: 2px; border-radius: 0; background: var(--ink); }
+.wk-tx .l3 { min-height: 16px; margin-top: 4px; font-size: 12.5px; line-height: 16px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 8px 0; font-size: 12px; line-height: 18px; color: var(--ink-soft); }
+.wk-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.wk-leg i { width: 14px; height: 8px; border-radius: 3px; background: var(--event); }
+.wk-foot { margin: 6px 8px 14px; font-size: 12.5px; line-height: 18px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.wk-foot b { color: var(--ink); }
+.nw { white-space: nowrap; }
+
+/* Dersler sayfası (pages/LessonsPage.jsx): haftalık ilerleme, Güne göre / Derse göre, gün grupları */
+.ls-sum { align-items: center; gap: 14px; }
+.ls-sum .hex, .ls-sum .hex-in { width: 48px; height: 54px; }
+.ls-sum > div { min-width: 0; display: flex; flex-direction: column; }
+.ls-sum b { white-space: normal; }
+.ls-sum span { margin-top: 2px; font-size: 13px; line-height: 18px; }
+.seg2 { display: flex; gap: 4px; margin-bottom: 12px; padding: 4px; border-radius: 16px; background: var(--chip); }
+.seg2 button { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px; border: none; border-radius: 12px; background: none; color: var(--ink-soft); font-size: 15px; font-weight: 600; }
+.seg2 button.on { background: var(--honey); color: var(--ink); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.ls-group { margin-bottom: 14px; }
+.ls-group h2 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 4px 6px; font-family: var(--f-body); font-size: 13px; font-weight: 700; line-height: 18px; letter-spacing: 0; }
+.ls-group h2 small { font-size: 13px; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.ls-group.late h2 span { color: var(--event-deep); }
+.ls-group ul { list-style: none; margin: 0; padding: 0 4px 0 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.ls-row { display: flex; align-items: center; gap: 8px; min-height: 54px; }
+.ls-row + .ls-row, .ls-subj + .ls-subj { border-top: 1px solid var(--line); }
+.ls-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 8px 0; border: none; background: none; color: inherit; text-align: left; }
+.ls-main .t1 { font-size: 15px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+.ls-main .t2 { font-size: 13px; line-height: 18px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.ls-row.done .t1 { text-decoration: line-through; color: var(--ink-faint); }
+.ls-move { min-height: 44px; flex: none; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 700; }
+.ls-subj { padding: 12px 10px 12px 0; }
+.ls-subj .t1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 600; }
+.ls-subj small { font-size: 13px; font-weight: 400; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.ls-subj .bar { margin-top: 8px; }
+.ls-list { display: block; margin: 0 auto 14px; }
+
+/* Ekle sayfası (components/AddSheet.jsx): Ders / Aktivite, gün çipleri, form, Program yükle */
+.fl2 { margin-bottom: 12px; }
+.fl2 > span { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.daychips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* "Başka gün": çipin üstünü kaplayan görünmez tarih alanı; dokununca telefonun tarih seçicisi açılır */
+.daypick { position: relative; display: inline-flex; align-items: center; }
+.daypick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.daypick:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+.add-import { margin: 14px 0 4px; text-align: center; font-size: 13px; color: var(--ink-soft); }
+.linkbtn { min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }
