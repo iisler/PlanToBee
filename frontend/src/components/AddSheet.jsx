@@ -2,11 +2,10 @@ import { useId, useMemo, useRef, useState } from 'react';
 import Sheet from './Sheet';
 import StudyForm, { EMPTY_STUDY } from './StudyForm';
 import EventForm from './EventForm';
-import KindIcon from './KindIcon';
 import SubjectManager from './SubjectManager';
 import { addDays, dkey, WEEKDAYS } from '../utils/format';
 import { parseKey } from '../utils/recurrence';
-import { agendaItems, freeSlots } from '../utils/timeline';
+import { agendaItems } from '../utils/timeline';
 
 // Gün çipleri: Bugün, Yarın ve sonraki iki gün ("Cum 13")
 function dayChips() {
@@ -17,16 +16,17 @@ function dayChips() {
   });
 }
 
-// Ekle sayfası (Görev 17): alt menüdeki + ile açılan tek ekleme yüzeyi (eski + menüsü, To-do ve Plan ekranlarının yerine).
-// Üstte Ders / Aktivite seçimi ve gün çipleri (ekrandan çıkmadan başka güne eklenir); altında ilgili form.
-// - Ders: StudyForm; başlangıç için o günün boşlukları önerilir (slots). Ders listesi boşsa önce dersler eklenir.
+// Ekle ekranı (Görev 17; 17b, 17c): alt menüdeki + → Aktivite / Ders ile açılır; seçilen türün ekranı tam ekran açılır
+// (alt menü altta görünür kalır). Başlık "Ders ekle" / "Aktivite ekle"; üstte gün çipleri, altında ilgili form.
+// Ekle ya da Vazgeç'ten sonra Bugün ekranına dönülür (PlanShell).
+// - Ders: StudyForm ("Boş saatler" önerisi 17d'de kaldırıldı: form tek ekrana sığsın). Ders listesi boşsa önce dersler eklenir.
 // - Aktivite: EventForm (tür ikonları, tekrar kuralı).
-// init: { type: 'study' | 'event', date: 'yyyy-AA-gg', study?: ders taslağı, event?: aktivite taslağı } (taslaklar sesle
-// eklemedeki "Düzenle"den gelir). weekDays: yüklü haftanın günleri (çakışma uyarısı ve boşluk önerisi; başka haftada boş).
-// onSubmit(gün, type, body) true dönerse sayfa kapanır. onImport: "Program yükle".
-export default function AddSheet({ init, subjects, weekDays, onAddSubject, onDeleteSubject, onSubmit, onImport, onClose, returnFocusRef }) {
+// init: { date: 'yyyy-AA-gg', study?: ders taslağı, event?: aktivite taslağı } (taslaklar sesle eklemedeki "Düzenle"den gelir).
+// type ('study' | 'event') PlanShell'dedir: ekran açıkken + menüsünden seçilen tür formu değiştirir, gün ve taslak kalır.
+// Ekranda tür seçimi yoktur (17c). weekDays: yüklü haftanın günleri (çakışma uyarısı ve boşluk önerisi; başka
+// haftada boş). onSubmit(gün, type, body) true dönerse sayfa kapanır. Program yükleme alt menüde ayrı düğmedir.
+export default function AddSheet({ init, type, subjects, weekDays, onAddSubject, onDeleteSubject, onSubmit, onClose, returnFocusRef }) {
   const titleId = useId();
-  const [type, setType] = useState(init.type);
   const [date, setDate] = useState(init.date);
   const [form, setForm] = useState({ ...EMPTY_STUDY, ...init.study });
   const [draft, setDraft] = useState(init.event ?? null);
@@ -39,11 +39,6 @@ export default function AddSheet({ init, subjects, weekDays, onAddSubject, onDel
     const day = weekDays?.find(d => d.date === date);
     return day ? agendaItems(day.studyEntries, day.events) : [];
   }, [weekDays, date]);
-  const mins = /^\d+$/.test(form.minutes) ? Number(form.minutes) : 0;
-  const slots = useMemo(() => {
-    const n = new Date();
-    return freeSlots(items, mins, date === dkey(n) ? n.getHours() * 60 + n.getMinutes() : null);
-  }, [items, mins, date]);
 
   async function submit(kind, body) {
     if (busyRef.current) return false; // hızlı çift dokunuş iki kayıt eklemesin
@@ -60,21 +55,12 @@ export default function AddSheet({ init, subjects, weekDays, onAddSubject, onDel
   const d = parseKey(date);
 
   return (
-    <Sheet className="addsheet" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>
+    <Sheet className="addsheet full" labelledBy={titleId} onClose={onClose} returnFocusRef={returnFocusRef}>
       <div className="sheet-head">
-        <h3 id={titleId} tabIndex={-1}>Ekle</h3>
-        <button type="button" className="sheet-close" onClick={onClose}>Kapat</button>
+        <h3 id={titleId} tabIndex={-1}>{type === 'study' ? 'Ders ekle' : 'Aktivite ekle'}</h3>
+        <button type="button" className="sheet-close" onClick={onClose}>Vazgeç</button>
       </div>
       <div className="sheet-body">
-        <div className="seg2" role="group" aria-label="Ne ekliyorsun?">
-          <button type="button" className={type === 'study' ? 'on' : ''} aria-pressed={type === 'study'} onClick={() => setType('study')}>
-            <KindIcon kind="study" size={18} />Ders
-          </button>
-          <button type="button" className={type === 'event' ? 'on' : ''} aria-pressed={type === 'event'} onClick={() => setType('event')}>
-            <KindIcon kind="Event" size={18} />Aktivite
-          </button>
-        </div>
-
         <div className="fl2">
           <span aria-hidden="true">Gün</span>
           <div className="daychips" role="group" aria-label="Gün">
@@ -90,15 +76,13 @@ export default function AddSheet({ init, subjects, weekDays, onAddSubject, onDel
 
         {type === 'study' ? (
           names.length === 0 ? <SubjectManager subjects={subjects} onAdd={onAddSubject} onDelete={onDeleteSubject} /> : (
-            <StudyForm mode="add" value={form} onChange={p => setForm(f => ({ ...f, ...p }))} subjects={names} items={items} slots={slots}
+            <StudyForm mode="add" value={form} onChange={p => setForm(f => ({ ...f, ...p }))} subjects={names} items={items}
               busy={busy} onSubmit={body => submit('study', body)} onCancel={onClose} />
           )
         ) : (
           <EventForm key={date} mode="add" date={date} events={items} busy={busy} kindsLabel="Aktivite türü"
             draft={draft} onClearDraft={() => setDraft(null)} onSubmit={body => submit('event', body)} />
         )}
-
-        <p className="add-import">Okul ya da kurs programın mı var? <button type="button" className="linkbtn" onClick={onImport}>Program yükle</button></p>
       </div>
     </Sheet>
   );

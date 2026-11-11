@@ -1,5 +1,7 @@
 import WeekHead from '../components/WeekHead';
 import HoneycombSpinner from '../components/HoneycombSpinner';
+import KindIcon from '../components/KindIcon';
+import { ChevNext } from '../components/Icons';
 import { addDays, dkey, formatDuration, mondayOf, MONTHS, WEEKDAYS, WEEKDAYS_FULL, weekRangeLabel, withPossessive } from '../utils/format';
 import { daySummary, eventWithTime, weekTotals } from '../utils/events';
 import { holidayAria, holidayTone } from '../utils/holidays';
@@ -12,7 +14,8 @@ const pct = (min) => `${((min - WS) / (WE - WS)) * 100}%`;
 // altında gün başına bir satır: petek (ders dolumu), gün adı ve ders sayacı, 07–22 şeridi (ders mavi, spor yeşil, aktivite
 // mercan, okul taralı gri) ve aktivite adları. Satıra dokununca o gün açılır (onPick). En altta renk açıklaması ve en uzun
 // boşluklar. days: 7 DayDto ya da null (yükleniyor); error: yükleme hatası. onStep(-1 | +1): hafta değiştirir.
-export default function WeekPage({ monday, days, error, onRetry, onStep, onPick, headingRef, children }) {
+// onLessons: Dersler sayfası (Görev 17b: alt menüden çıktı, özetin altındaki satırdan açılır).
+export default function WeekPage({ monday, days, error, onRetry, onStep, onPick, onLessons, headingRef, children }) {
   const todayKey = dkey(new Date());
   const isThisWeek = dkey(mondayOf(new Date())) === dkey(monday);
   const head = (
@@ -65,6 +68,11 @@ export default function WeekPage({ monday, days, error, onRetry, onStep, onPick,
           <div><b>{totals.sportDays} gün</b><span>spor</span></div>
         </section>
       )}
+      <button type="button" className="wk-link" onClick={onLessons}>
+        <span className="bub" aria-hidden="true"><KindIcon kind="study" size={20} /></span>
+        <span className="wk-link-tx"><b>Dersler</b><small>İlerleme, geride kalanlar, ders listesi</small></span>
+        <ChevNext />
+      </button>
 
       <div className="wk-axis" aria-hidden="true">
         <span>{AXIS.map(h => <i key={h} style={{ left: pct(h * 60) }}>{String(h).padStart(2, '0')}</i>)}</span>

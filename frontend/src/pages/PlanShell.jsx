@@ -60,8 +60,8 @@ function putWeek(weeks, key, center, entry) {
 
 // Profil seçilmiş aile hesabının ana ekranı (Görev 17 "Akış"). Gün ve hafta planı ailenin ortak planıdır;
 // her profil görür ve ekler, kayıtlarda ekleyen profil görünür.
-// Alt menü: Bugün (DayPage) · Hafta (WeekPage) · + (AddSheet) · Dersler (LessonsPage) · Aile (FamilyPage).
-// Profil paneli her sayfanın sağ üstündeki baş harf düğmesinden açılır.
+// Alt menü (Görev 17b): Bugün (DayPage) · Hafta (WeekPage; Dersler sayfası oradan açılır) · + (Aktivite / Ders → AddSheet) ·
+// Program yükle (ImportSheet) · Aile (FamilyPage). Profil paneli her sayfanın sağ üstündeki baş harf düğmesinden açılır.
 export default function PlanShell() {
   const { user, logout, accountDeleted, refreshMe, startSwitch } = useAuth();
   const { notify } = useNotice();
@@ -73,16 +73,17 @@ export default function PlanShell() {
   const [view, setView] = useState('plan');
   // Hafta ayrıntıları pazartesiye göre: { [pzt]: { days: 7 DayDto | null, error } }; seçili hafta ve iki komşusu
   const [weeks, setWeeks] = useState({});
-  // Bildirimden gün açılınca artar: açık ⋯ menüleri ve sayfalar kapanır
+  // Bildirimden gün açılınca ya da alt menüye dokununca artar: açık ⋯ menüleri ve alt sayfalar kapanır
   const [layerReset, setLayerReset] = useState(0);
   // Gün ekranı dışından (Ekle sayfası, Dersler) veri değişince artar: gün sunucudan yeniden okunur
   const [refreshKey, setRefreshKey] = useState(0);
-  // Ekle sayfası (alt menüdeki +): null | { type, date, study?, event? }
+  // Ekle sayfası (alt menüdeki + → Aktivite / Ders): null | { type, date, study?, event? }
   const [addSheet, setAddSheet] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Program yükleme paneli (Ekle → Program yükle, Görev 15)
+  // Program yükleme paneli (alt menüdeki Program yükle, Görev 15)
   const [importOpen, setImportOpen] = useState(false);
   const addBtnRef = useRef(null);
+  const importBtnRef = useRef(null);
   const profileBtnRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const headingRef = useRef(null);
@@ -260,6 +261,21 @@ export default function PlanShell() {
     return true;
   }
   const openAdd = (type = 'study', extra = {}) => setAddSheet({ type, date: dkey(view === 'plan' ? currentDate : new Date()), ...extra });
+  // Ekle ekranı kapanınca (Ekle ya da Vazgeç, 17c) Bugün ekranına dönülür: eklenince eklenen gün, vazgeçince başka
+  // sayfadan gelindiyse bugün açılır.
+  const addedRef = useRef(false);
+  function closeAdd() {
+    setAddSheet(null);
+    if (!addedRef.current && view !== 'plan') setCurrentDate(new Date());
+    addedRef.current = false;
+    setView('plan');
+    window.scrollTo(0, 0);
+  }
+  async function submitAdd(key, type, body) {
+    const ok = await addEntry(key, type, body);
+    if (ok) { addedRef.current = true; setCurrentDate(parseKey(key)); }
+    return ok;
+  }
   // Sesle eklemedeki "Düzenle": Ekle sayfası o gün ve o taslakla açılır
   const quickEdit = (key, type, draft) => setAddSheet({ type, date: key, [type]: draft });
 
@@ -291,11 +307,29 @@ export default function PlanShell() {
     window.scrollTo(0, 0);
   }
 
-  // Alt menü. Bugün: gün ekranı; zaten oradaysa bugüne döner.
+  // Alt menü her sayfada ve alt sayfaların üstünde görünür (Görev 17b). Menüye dokununca açık alt sayfalar (Ekle, Program yükle,
+  // profil, ⋯ menüsü, düzenleme, ders listesi) kapanır; keep: dokunulan düğmenin kendi sayfası açık kalır.
+  function closeLayers(keep) {
+    setProfileOpen(false);
+    if (keep !== 'add') setAddSheet(null);
+    if (keep !== 'import') setImportOpen(false);
+    setLayerReset(n => n + 1);
+  }
+  // Bugün: gün ekranı; zaten oradaysa bugüne döner.
   function goToday() {
+    closeLayers();
     if (view === 'plan') setCurrentDate(new Date());
     else setView('plan');
     window.scrollTo(0, 0);
+  }
+  // + → Aktivite / Ders: Ekle sayfası o türle açılır; zaten açıksa yalnızca tür değişir (gün ve yazılanlar kalır).
+  function chooseAdd(type) {
+    closeLayers('add');
+    setAddSheet(s => (s ? { ...s, type } : { type, date: dkey(view === 'plan' ? currentDate : new Date()) }));
+  }
+  function openImport() {
+    closeLayers('import');
+    setImportOpen(true);
   }
   // Hafta ya da Dersler sayfasında bir güne dokununca o gün Bugün ekranında açılır
   function pickDay(date) {
@@ -340,7 +374,9 @@ export default function PlanShell() {
     </button>
   );
   const monday = mondayOf(currentDate);
-  const active = view === 'plan' ? 'today' : view === 'week' ? 'week' : view === 'lessons' ? 'lessons' : view === 'notifications' ? null : 'family';
+  // Ekle sayfası açıkken hiçbir sekme seçili görünmez; Dersler, Hafta'nın alt sayfasıdır.
+  const active = importOpen ? 'import' : addSheet ? null
+    : view === 'plan' ? 'today' : view === 'week' || view === 'lessons' ? 'week' : view === 'notifications' ? null : 'family';
   const pageTitle = { family: 'Aile', notifications: 'Bildirimler', 'delete-account': 'Hesabı sil' }[view];
 
   return (
@@ -383,14 +419,15 @@ export default function PlanShell() {
           />
         )}
         {view === 'week' && (
-          <WeekPage monday={monday} days={weekDays} error={weekError} onRetry={loadWeek} onStep={stepWeek} onPick={pickDay} headingRef={headingRef}>
+          <WeekPage monday={monday} days={weekDays} error={weekError} onRetry={loadWeek} onStep={stepWeek} onPick={pickDay}
+            onLessons={() => changeView('lessons')} headingRef={headingRef}>
             {avatar}
           </WeekPage>
         )}
         {view === 'lessons' && (
           <LessonsPage monday={monday} days={weekDays} error={weekError} onRetry={loadWeek} onStep={stepWeek} onPick={pickDay}
             onStatus={setLessonStatus} onMove={moveToToday} subjects={subjects} onAddSubject={addSubject} onDeleteSubject={deleteSubject}
-            headingRef={headingRef}>
+            onBack={() => changeView('week')} layerReset={layerReset} headingRef={headingRef}>
             {avatar}
           </LessonsPage>
         )}
@@ -409,15 +446,15 @@ export default function PlanShell() {
         )}
       </div>
 
-      <TabBar active={active} addRef={addBtnRef} onToday={goToday} onWeek={() => changeView('week')} onAdd={() => openAdd()}
-        onLessons={() => changeView('lessons')} onFamily={() => changeView('family')} />
+      <TabBar active={active} addRef={addBtnRef} importRef={importBtnRef} onToday={goToday} onAdd={chooseAdd} onImport={openImport}
+        onWeek={() => { closeLayers(); changeView('week'); }} onFamily={() => { closeLayers(); changeView('family'); }} />
       {addSheet && (
-        <AddSheet key={layerReset} init={addSheet} subjects={subjects} weekDays={weekDays} onAddSubject={addSubject} onDeleteSubject={deleteSubject}
-          onSubmit={addEntry} onImport={() => { setAddSheet(null); setImportOpen(true); }}
-          onClose={() => setAddSheet(null)} returnFocusRef={addBtnRef} />
+        <AddSheet init={addSheet} type={addSheet.type} subjects={subjects} weekDays={weekDays}
+          onAddSubject={addSubject} onDeleteSubject={deleteSubject} onSubmit={submitAdd}
+          onClose={closeAdd} returnFocusRef={addBtnRef} />
       )}
       {importOpen && (
-        <ImportSheet subjects={subjects} onClose={() => setImportOpen(false)} onDone={imported} />
+        <ImportSheet subjects={subjects} onClose={() => setImportOpen(false)} onDone={imported} returnFocusRef={importBtnRef} />
       )}
       {profileOpen && (
         <ProfileSheet name={name} role={user.profile.role} familyName={family?.name ?? user.family?.name}

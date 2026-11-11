@@ -12,7 +12,7 @@ const open = (x) => !(x.isStudy && x.status === 'done'); // tamamlanan ders "şi
 // 2. "Devam ediyor" durumundaki ders (saatsiz ya da saati dışında): "Tamamla".
 // 3. Süren aktivite (Okul, antrenman): ad ve kalan süre.
 // 4. Bütün dersler tamam: "Petek doldu".
-// 5. Boşluk: sıradaki kayda kadar boş süre; boşluğa sığan saatsiz ders varsa "Başla" ile önerilir.
+// 5. Boşluk: sıradaki kayda kadar boş süre; boşluğa sığan saatsiz ders varsa hatırlatılır ("Başla" düğmesi 17c'de kalktı).
 // Başka günde günün özeti; hiç kayıt yoksa "Plan yok" ve ekleme düğmeleri. Sağda günün ders peteği (tamamlanan / toplam).
 // entries: günün dersleri, items: utils/timeline agendaItems. onStatus(ders, durum), onAdd('study' | 'event').
 export default function NowCard({ entries, items, isToday, onStatus, onAdd }) {
@@ -77,7 +77,6 @@ export default function NowCard({ entries, items, isToday, onStatus, onAdd }) {
         hint: fit && (
           <div className="now-hint">
             <span>Saatsiz dersin <b>{fit.subject}</b> ({formatDuration(fit.minutes)}) {next ? 'bu boşluğa sığar.' : 'seni bekliyor.'}</span>
-            <button type="button" className="now-btn" onClick={() => onStatus(fit, 'inprogress')}>Başla</button>
           </div>
         ),
       };

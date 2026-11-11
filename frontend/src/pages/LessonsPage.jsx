@@ -24,18 +24,26 @@ const dayName = (key) => WEEKDAYS_FULL[(parseKey(key).getDay() + 6) % 7];
 // - Durum düğmesi her satırda (onStatus(gün, ders, durum)); satıra dokununca o gün açılır (onPick).
 // - "Ders listesini düzenle": ailenin ders listesi (SubjectManager) alt sayfada.
 // days: 7 DayDto ya da null; error: yükleme hatası. onMove(gün, ders): dersi bugüne taşır.
+// Görev 17b: Hafta'nın alt sayfası (alt menüdeki yeri Program yükle'ye geçti); onBack Hafta'ya döner. Ders listesi sayfası
+// açıldığı andaki layerReset değeriyle tutulur: alt menüye dokununca ya da bildirimden gün açılınca kendiliğinden kapanır.
 export default function LessonsPage({
-  monday, days, error, onRetry, onStep, onPick, onStatus, onMove, subjects, onAddSubject, onDeleteSubject, headingRef, children,
+  monday, days, error, onRetry, onStep, onPick, onStatus, onMove, subjects, onAddSubject, onDeleteSubject, onBack, layerReset,
+  headingRef, children,
 }) {
   const [mode, setMode] = useState('day');
-  const [listOpen, setListOpen] = useState(false);
+  const [listOpenAt, setListOpenAt] = useState(null);
+  const listOpen = listOpenAt !== null && listOpenAt === layerReset;
+  const closeList = () => setListOpenAt(null);
   const listBtnRef = useRef(null);
   const listTitleId = useId();
   const todayKey = dkey(new Date());
   const isThisWeek = dkey(mondayOf(new Date())) === dkey(monday);
   const range = weekRangeLabel(monday, { withYear: true });
   const head = (
-    <WeekHead over={`${isThisWeek ? 'Bu hafta' : 'Hafta'} · ${range}`} title="Dersler" onStep={onStep} headingRef={headingRef}>{children}</WeekHead>
+    <>
+      <button type="button" className="btn-ghost small backlink" onClick={onBack}>‹ Hafta</button>
+      <WeekHead over={`${isThisWeek ? 'Bu hafta' : 'Hafta'} · ${range}`} title="Dersler" onStep={onStep} headingRef={headingRef}>{children}</WeekHead>
+    </>
   );
 
   if (!days) return (
@@ -143,13 +151,13 @@ export default function LessonsPage({
         </div>
       )}
       {body}
-      <button type="button" ref={listBtnRef} className="btn-ghost ls-list" onClick={() => setListOpen(true)}>Ders listesini düzenle</button>
+      <button type="button" ref={listBtnRef} className="btn-ghost ls-list" onClick={() => setListOpenAt(layerReset)}>Ders listesini düzenle</button>
 
       {listOpen && (
-        <Sheet className="addsheet" labelledBy={listTitleId} onClose={() => setListOpen(false)} returnFocusRef={listBtnRef}>
+        <Sheet className="addsheet" labelledBy={listTitleId} onClose={closeList} returnFocusRef={listBtnRef}>
           <div className="sheet-head">
             <h3 id={listTitleId} tabIndex={-1}>Ders listesi</h3>
-            <button type="button" className="sheet-close" onClick={() => setListOpen(false)}>Kapat</button>
+            <button type="button" className="sheet-close" onClick={closeList}>Kapat</button>
           </div>
           <div className="sheet-body"><SubjectManager subjects={subjects} onAdd={onAddSubject} onDelete={onDeleteSubject} /></div>
         </Sheet>
