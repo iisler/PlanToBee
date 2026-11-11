@@ -26,8 +26,8 @@ const STUDY_MINUTES = 40; // ders süresi söylenmezse (kartta görünür, Düze
 // utils/quickAdd ile çözülür ve altında onay kartı çıkar. Cümlede ailenin derslerinden biri geçerse ders (To-do), yoksa aktivite.
 // - Ekle: onAdd(gün, type, body) — type 'study' | 'event'; söylenen gün seçili günden farklı olabilir. true dönerse panel kapanır.
 // - Düzenle: onEdit(gün, type, taslak) ilgili bölümün ekleme formunu o günde dolu açar.
-// date: seçili gün (tarih söylenmezse kullanılır). subjects: ailenin dersleri ({ name }).
-export default function QuickAdd({ date, subjects, onAdd, onEdit, children }) {
+// date: seçili gün (tarih söylenmezse kullanılır). subjects: ailenin dersleri ({ name }). trailing: 🎤'nin sağına (profil düğmesi).
+export default function QuickAdd({ date, subjects, onAdd, onEdit, trailing, children }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
@@ -137,6 +137,7 @@ export default function QuickAdd({ date, subjects, onAdd, onEdit, children }) {
             <rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
           </svg>
         </button>
+        {trailing}
       </div>
 
       {open && (
@@ -153,7 +154,7 @@ export default function QuickAdd({ date, subjects, onAdd, onEdit, children }) {
             placeholder="ör. 1 Kasım 13:00–15:00 voleybol maçı"
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
           {problem && <p className="qa-hint" role="alert">{problem} Yazabilir ya da klavyedeki 🎤 ile söyleyebilirsin.</p>}
-          {!p && !problem && <p className="qa-hint">Ders adı geçerse ders (To-do), geçmezse aktivite (Plan) olarak eklenir.</p>}
+          {!p && !problem && <p className="qa-hint">Ders adı geçerse ders, geçmezse aktivite olarak eklenir.</p>}
 
           {p && !listening && (
             <>

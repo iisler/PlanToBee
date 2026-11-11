@@ -115,6 +115,3 @@ export function auditLine(entry, myMemberId) {
 
 export const STATUS_ORDER = ['todo', 'inprogress', 'done'];
 export const STATUS_SHORT = { todo: 'Yapılacak', inprogress: 'Devam Ediyor', done: 'Tamamlandı' };
-export function nextStatus(s) {
-  return STATUS_ORDER[(STATUS_ORDER.indexOf(s) + 1) % STATUS_ORDER.length];
-}

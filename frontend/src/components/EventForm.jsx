@@ -164,9 +164,9 @@ export default function EventForm({
     ? overlapping(events, { time: f.time, endTime: endMin != null ? f.endTime : '' }, initial ? itemKey(initial) : null) : [];
 
   let summary;
-  if (!hasStart) summary = <>Saat girmezsen “Saati yok” bölümünde görünür. Bitiş için önce başlangıcı seç.</>;
+  if (!hasStart) summary = <>Saat girmezsen “Gün içinde · saati yok” bölümünde görünür. Bitiş için önce başlangıcı seç.</>;
   else if (same) summary = null;
-  else if (endMin == null) summary = <><b>{f.time}</b> · süre belirsiz. Çizelgede 1 saatlik yer kaplar.</>;
+  else if (endMin == null) summary = <><b>{f.time}</b> · süre belirsiz.</>;
   else summary = <><b>{f.time}–{hm(endMin)}</b> · {formatDuration(dur)}{endMin < startMin && ' · ↷ ertesi gün biter'}</>;
 
   // Tekrar kutusu: kısayollar, gün dizisi, bitiş tarihi, özet ve hata

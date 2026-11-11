@@ -14,17 +14,18 @@ export const studyDraft = (entry) => ({
 });
 
 // Ders formu (Görev 10; Görev 16: ders çipleri): Ders · Konu · Süre (çipler + dk) · Başlangıç (isteğe bağlı) | Bitiş (girilince süre ondan hesaplanır; 07.11) · özet ·
-// çakışma uyarısı · hata · eylemler. To-do kartında satır/kart içinde, Bee'de alt sayfada kullanılır.
+// çakışma uyarısı · hata · eylemler. Ekle sayfasında (AddSheet) ve düzenleme sayfasında (AgendaSheet) kullanılır.
 // Denetimli bileşen: value ({ subject, topic, minutes, startTime, status }) ve onChange(kısmi değer) üst bileşende;
 // böylece To-do'nun ekleme formu gün değişince açık kalır, Bee sayfasında Ders <-> Aktivite geçişinde başlangıç korunur.
 // - subjects: ders adları; düzenlenen dersin adı listede yoksa (silinmiş) seçenek olarak eklenir.
 // - items: Bee öğeleri (dersler + aktiviteler; çakışma uyarısı için, engellemez); excludeKey: düzenlenen dersin itemKey'i.
 // - onSubmit(body): eklemede { subject, topic, minutes, startTime }; düzenlemede + status ve startTime her zaman
 //   ("" = saati sil). true dönerse başarılıdır.
+// - slots (Görev 17): günün boşluklarından önerilen başlangıç saatleri ("17:45"); çipe dokununca başlangıç dolar.
 // - extra: eylem satırının sağına (ör. "Dersleri düzenle"); submitLabel: Ekle düğmesinin erişilebilir adı.
 export default function StudyForm({
   mode = 'add', value, onChange, subjects, items = [], excludeKey = null,
-  onSubmit, onCancel, busy = false, extra, submitLabel, subjectRef, minutesRef,
+  onSubmit, onCancel, busy = false, extra, submitLabel, subjectRef, minutesRef, slots = [],
 }) {
   const [error, setError] = useState('');
   const subjectId = useId();
@@ -54,11 +55,11 @@ export default function StudyForm({
   }
 
   let summary;
-  if (!hasStart) summary = <>Saat seçmezsen ders ajandada “Saati yok” bölümünde görünür.</>;
+  if (!hasStart) summary = <>Saat seçmezsen ders “Gün içinde · saati yok” bölümünde görünür.</>;
   else if (E == null) summary = <>Süreyi seçince bitiş görünür.</>;
   else if (E - S >= 1440) summary = <>Bitiş ertesi gün <b>{end}</b> · 24 saat</>;
   else if (E >= 1440) summary = <>Bitiş <b>{end}</b> · ↷ ertesi gün biter</>;
-  else summary = <>Bitiş <b>{end}</b> · ajandada {value.startTime}–{end} görünür</>;
+  else summary = <>Bitiş <b>{end}</b> · akışta {value.startTime}–{end} görünür</>;
 
   const clash = E != null
     ? overlapping(items, { time: value.startTime, minutes: mins, isStudy: true }, excludeKey) : [];
@@ -107,6 +108,18 @@ export default function StudyForm({
             value={value.minutes} onChange={set('minutes')} aria-invalid={error && !minsOk ? true : undefined} />
         </div>
       </div>
+
+      {slots.length > 0 && (
+        <div className="fl">
+          <span aria-hidden="true">Boş saatler</span>
+          <div className="evchips" role="group" aria-label="Boş saatlerden başlangıç seç">
+            {slots.map(t => (
+              <button key={t} type="button" className={value.startTime === t ? 'on' : ''} aria-pressed={value.startTime === t}
+                onClick={() => { setError(''); onChange({ startTime: value.startTime === t ? '' : t }); }}>{t}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="evtimes two">
         <label>

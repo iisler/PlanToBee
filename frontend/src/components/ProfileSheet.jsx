@@ -2,9 +2,9 @@ import { useId } from 'react';
 import Sheet from './Sheet';
 import { initial, ROLE_LABEL } from '../utils/format';
 
-// Alt menüdeki Profil (Görev 14): eski sağ üst ad menüsünün yerine alttan açılan panel.
+// Profil paneli (Görev 14; Görev 17'den beri sağ üstteki baş harf düğmesinden açılır).
 // Profil değiştir (ailede birden fazla profil varsa), Bildirimler (ailede başka profil varsa) ve Çıkış yap.
-// Ailem alt menüde ayrı düğmedir.
+// Aile alt menüde ayrı düğmedir.
 export default function ProfileSheet({ name, role, familyName, onSwitchProfile, onNotifications, onLogout, onClose, returnFocusRef }) {
   const titleId = useId();
   const pick = (fn) => () => { onClose(); fn(); };

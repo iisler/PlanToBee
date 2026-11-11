@@ -1,7 +1,7 @@
 import { formatDuration } from './format';
 import { eventLabel, isTraining } from './events';
 
-// Saat çizelgesi ortak hesabı (Görev 09). Gün çizelgesi (Timeline) ve Hafta ızgarası (WeekSheet) aynı kuralları kullanır:
+// Saat hesabı (Görev 09; Görev 17'den beri akış listesi ve Hafta sayfası kullanır):
 // pencere 07:00–22:00; bitiş = endTime ?? derivedEndTime; ikisi de yoksa 60 dk ("süre belirsiz");
 // bitiş < başlangıç ise gece yarısını aşar (gün sonunda kesilir); boşluklar yalnızca pencere içinde hesaplanır.
 // Saf işlevler: React'e bağımlı değil (React Native'e aynen taşınabilir).
@@ -105,17 +105,6 @@ export function freeSummary(events) {
   return f > 0 ? `${formatDuration(f)} boş` : 'boş saat yok';
 }
 
-// Zaman örtüşmesine göre kümeler (uç uca kayıtlar ayrı küme)
-export function clusters(inw) {
-  const cl = [];
-  for (const r of inw) {
-    const last = cl[cl.length - 1];
-    if (last && r.cs < last.end) { last.items.push(r); last.end = Math.max(last.end, r.ce); }
-    else cl.push({ start: r.cs, end: r.ce, items: [r] });
-  }
-  return cl;
-}
-
 // Blok saat metni. level 1: "09:00–13:00 · 4 sa", 2: "09:00–13:00", 3: "09:00"
 export function timeText(r, level = 1) {
   if (r.noEnd) return level < 3 ? `${r.start} · süre belirsiz` : r.start;
@@ -140,141 +129,45 @@ export function ariaEvent(r) {
   return `${name}, ${rng}, ${durationLong(r.E - r.S)}`;
 }
 
-export const kindClass = (ev) => (ev.isStudy ? 'study' : isTraining(ev) ? 'sport' : 'evt');
+// ---------- Günün akışı (Görev 17) ----------
+// Akış listesinde renk: ders, spor, okul (nötr; her hafta içi tekrar eden sabit zaman) ve diğer aktiviteler.
+export const flowClass = (ev) => (ev.isStudy ? 'study' : isTraining(ev) ? 'sport' : ev.kind === 'School' ? 'school' : 'evt');
 
-// ---------- Gün çizelgesi yerleşimi ----------
-export const K = 32 / 60;     // px/dk (32 px/saat)
-export const MIN_BLOCK = 44;  // en az blok yüksekliği (dokunma alanı)
-export const GAP_MIN_H = 48;
-export const GAP_MAX_H = 96;  // 3 saatten uzun boşluk sıkıştırılır
-export const LONG_MAX_H = 104; // tek başına uzun kayıt (ör. Okul 08:00–15:00) bu yüksekliğe sıkıştırılır
-const CASCADE_MIN = 40;       // çakışan ikinci kayıt en az bu kadar aşağıdan başlıyorsa girintili çizilir
-const LIST_ROW = 44, LIST_HEAD = 30;
-
-// Çizelge yerleşimi: kümeler ve boşluklar üst üste dizilir (eksen doğrusal değil).
-// Dönen: { items: [{ type: 'gap'|'blk'|'list', top, height, ... }], labels: [{ y, text, now }], breaks: [y],
-//          nowY, height, end }. items kronolojik sıradadır (DOM sırası = okuma sırası).
-// Blok öğesinde squeezed: uzun kayıt sıkıştırıldı (ortası kırılır); cascade: 'base' (tam genişlik) | 'top' (girintili, üstte).
-export function layoutDay(inw, nowMin = null) {
-  const items = [], labels = [], breaks = [];
-  let y = 0, nowY = null;
-  let cur = WS;
-  const segs = [];
-  for (const c of clusters(inw)) {
-    if (c.start > cur) segs.push({ gap: [cur, c.start] });
-    segs.push({ c });
-    cur = c.end;
+// Günün akışı: saatli kayıtlar başlangıca göre, aralarında 1 saat ve üstü boşluklar (07:00–22:00 penceresinde).
+// nowMin (bugün): süren kayıt (tamamlanmış ders hariç) ve boşluk "now", bitmiş kayıt "past" işaretlenir; bitmiş boşluk gösterilmez.
+// Dönen: { rows: [{ type: 'item', key, r, now, past } | { type: 'gap', key, a, b, now }], untimed: [kayıt] }
+const evDone = (ev) => ev.isStudy && ev.status === 'done';
+export function flowRows(items, withGaps = true, nowMin = null) {
+  const timed = [], untimed = [];
+  for (const ev of items) { const r = span(ev); if (r) timed.push(r); else untimed.push(ev); }
+  const rows = timed.map((r) => ({
+    type: 'item', key: itemKey(r.ev), at: r.S, r,
+    now: nowMin != null && r.S <= nowMin && nowMin < r.E && !evDone(r.ev), past: nowMin != null && r.E <= nowMin,
+  }));
+  if (withGaps && timed.length) {
+    for (const [a, b] of gaps(classify(items).inw)) {
+      if (b - a < GAP_LABEL_MIN || (nowMin != null && b <= nowMin)) continue;
+      rows.push({ type: 'gap', key: `g${a}`, at: a, a, b, now: nowMin != null && a <= nowMin && nowMin < b });
+    }
   }
-  if (cur < WE) segs.push({ gap: [cur, WE] });
+  rows.sort((x, y) => x.at - y.at || (x.type === 'gap' ? 1 : -1) - (y.type === 'gap' ? 1 : -1));
+  return { rows, untimed };
+}
 
-  for (const sg of segs) {
-    if (sg.gap) {
-      const [a, b] = sg.gap, d = b - a;
-      const labeled = d >= GAP_LABEL_MIN;
-      const h = labeled ? Math.min(Math.max(d * K, GAP_MIN_H), GAP_MAX_H) : d * K;
-      if (labeled) {
-        items.push({ type: 'gap', key: `g${a}`, top: y, height: h, a, b, d });
-        if (d * K > GAP_MAX_H) breaks.push(y + h / 2);
-      }
-      labels.push({ y, text: hm(a), p: 1 });
-      if (nowMin != null && nowMin >= a && nowMin < b) nowY = y + ((nowMin - a) / d) * h;
-      y += h;
-      continue;
-    }
-    const c = sg.c, cs = c.start;
-    // Sütun ataması piksel kapsamına göre (en az 44 px bloklar da üst üste binmesin)
-    const lanes = [];
-    const placed = c.items.map((r) => {
-      const ry = (r.cs - cs) * K, rh = Math.max(MIN_BLOCK, (r.ce - r.cs) * K);
-      let lane = lanes.findIndex((bot) => bot <= ry + 0.5);
-      if (lane < 0) { lane = lanes.length; lanes.push(ry + rh); } else lanes[lane] = ry + rh;
-      return { r, ry, rh, lane };
-    });
-    const n = lanes.length;
-    // Tek, uzun kayıt boşluklar gibi sıkıştırılır: okul günü, okul sonrası ilk ekrana sığsın
-    const squeeze = c.items.length === 1 && placed[0].rh > LONG_MAX_H;
-    // İki kayıt çakışıyor ve ikincisi yeterince aşağıdan başlıyorsa ilki tam genişlik kalır, adı kırpılmaz
-    const first = n === 2 && placed.length === 2 && Math.abs(placed[1].ry - placed[0].ry) >= CASCADE_MIN
-      ? (placed[1].ry < placed[0].ry ? placed[1] : placed[0]) : null;
-    let H;
-    if (n >= 4) {
-      // 4+ yan yana okunmaz: liste kümesi
-      H = LIST_HEAD + LIST_ROW * c.items.length + 6;
-      items.push({ type: 'list', key: `l${itemKey(c.items[0].ev)}`, top: y, height: H, a: cs, b: c.end, rows: c.items });
-    } else if (squeeze) {
-      H = LONG_MAX_H;
-      items.push({ type: 'blk', key: itemKey(placed[0].r.ev), top: y, height: H, lane: 0, n: 1, r: placed[0].r, squeezed: true });
-    } else {
-      H = Math.max(...lanes);
-      for (const p of placed) {
-        const cascade = first ? (p === first ? 'base' : 'top') : undefined;
-        items.push({ type: 'blk', key: itemKey(p.r.ev), top: y + p.ry, height: p.rh, lane: p.lane, n, r: p.r, cascade });
-      }
-    }
-    labels.push({ y, text: hm(cs), p: 1 });
-    if (n < 4 && !squeeze) {
-      for (let hh = (Math.floor(cs / 60) + 1) * 60; hh < c.end; hh += 60) labels.push({ y: y + (hh - cs) * K, text: hm(hh), p: 2 });
-    }
-    if (nowMin != null && nowMin >= cs && nowMin < c.end) {
-      nowY = n >= 4 || squeeze ? y + ((nowMin - cs) / (c.end - cs)) * H : y + (nowMin - cs) * K;
-    }
-    y += H;
-  }
-  // Çizelge 22:00'de, 22:00'yi aşan kayıt varsa onun bitişinde biter
-  const end = Math.max(cur, WE);
-  labels.push({ y, text: hm(end), p: 1 });
-
-  // Eksen etiketleri: şu an > bölüm sınırı > tam saat; tutulan bir etikete 14 px'ten yakın olan çizilmez
-  const keep = [];
-  if (nowY != null) keep.push({ y: nowY, text: hm(nowMin), now: true });
-  for (const l of [...labels].sort((a, b) => a.p - b.p || a.y - b.y)) {
-    if (keep.every((k) => Math.abs(l.y - k.y) >= 14)) keep.push(l);
-  }
-  return { items, labels: keep, breaks, nowY, height: y, end };
+// Ders eklerken önerilen başlangıçlar: o günün en az "mins" dakikalık boşluklarının başı (bugünse şu andan sonrası,
+// 5 dakikaya yuvarlanır). Saatli kayıt yoksa öneri yok. En çok 3 saat ("17:45").
+export function freeSlots(items, mins, nowMin = null) {
+  const { inw } = classify(items);
+  if (!inw.length) return [];
+  const from = nowMin == null ? WS : Math.ceil(nowMin / 5) * 5;
+  return gaps(inw).map(([a, b]) => [Math.max(a, from), b]).filter(([a, b]) => b - a >= (mins || 30)).slice(0, 3).map(([a]) => hm(a));
 }
 
 // ---------- Hafta ızgarası ----------
-export const WG_PX = 20 / 60; // 20 px/saat, sıkıştırma yok
-export const WG_HEIGHT = (WE - WS) * WG_PX; // 300 px
-
-// Bir gün sütunu: bloklar (top/height px, lane/n), boşluklar, şerit işaretleri
+// Bir günün pencere içi kayıtları ve boşlukları (Hafta sayfası: şerit ve en uzun boşluk)
 export function weekColumn(events) {
-  const { untimed, before, after, inw } = classify(events);
-  const blocks = [];
-  for (const c of clusters(inw)) {
-    const lanes = [];
-    const placed = c.items.map((r) => {
-      let lane = lanes.findIndex((e) => e <= r.cs);
-      if (lane < 0) { lane = lanes.length; lanes.push(r.ce); } else lanes[lane] = r.ce;
-      return { r, lane };
-    });
-    for (const p of placed) {
-      blocks.push({ r: p.r, lane: p.lane, n: lanes.length, top: (p.r.cs - WS) * WG_PX, height: Math.max(8, (p.r.ce - p.r.cs) * WG_PX) });
-    }
-  }
-  return {
-    untimed, before, after, inw, blocks,
-    gaps: gaps(inw),
-    night: inw.some((r) => r.night && r.cutBot),
-  };
-}
-
-// "Pazar 11 Ekim, bugün. Kurs 09:00–13:00; Veteriner randevusu, saati yok. Boş: 07:00–09:00, 13:00–20:00. Günü aç"
-export function weekColumnLabel(head, col) {
-  const evs = [
-    ...col.before.map((r) => `${ariaShort(r)}, 07:00 öncesi`),
-    ...col.inw.map((r) => ariaShort(r)),
-    ...col.after.map((r) => `${ariaShort(r)}, 22:00 sonrası`),
-    ...col.untimed.map((ev) => `${eventLabel(ev)}, saati yok`),
-  ];
-  const free = col.gaps.filter(([a, b]) => b - a >= GAP_LABEL_MIN).map(([a, b]) => `${hm(a)}–${hm(b)}`);
-  return `${head}. ${evs.length ? evs.join('; ') : 'Aktivite yok'}. Boş: ${free.length ? free.join(', ') : 'yok'}. Günü aç`;
-}
-
-function ariaShort(r) {
-  const name = eventLabel(r.ev);
-  if (r.noEnd) return `${name} ${r.start}, süre belirsiz`;
-  return `${name} ${r.start}–${r.end}${r.ev.isStudy ? ', ders' : ''}${r.night ? ', ertesi gün biter' : ''}`;
+  const { inw } = classify(events);
+  return { inw, gaps: gaps(inw) };
 }
 
 // En uzun boşluğu en büyük 3 gün: [{ label: "Cum", a, b }]; hiç pencere içi kayıt yoksa null
