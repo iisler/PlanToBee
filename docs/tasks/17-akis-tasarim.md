@@ -70,3 +70,41 @@ Durum: Tasarım: Önizleme onaylandı (11.11) · Frontend: Tamamlandı · QA: An
 
 ## Geri dönüş
 Yalnız ön yüz değişti. Commit geri alınıp yayınlanınca eski görünüm döner; yeni `localStorage` anahtarı yok.
+
+## Görev 17b: + menüsü, hep görünen alt menü, Program yükle (kullanıcı, 11.11)
+Kullanıcı isteği: "+'ya basınca önceki hali gibi olsun, seçenek çıksın Aktivite ve Dersler diye, ona göre ekrana geçsin ve
+alt menü hep görünür olsun. Menüdeki Dersler yerine Program yükle'yi al." Yukarıdaki Görev 14 sapmalarından ikisi geri alındı.
+- **+ menüsü geri geldi** (Görev 14'teki gibi): + düğmenin üstünde küçük menü açar: Aktivite · Ders. Seçilen türle Ekle sayfası
+  açılır (`TabBar`, `PlanShell.chooseAdd`). Açıkken + işareti × olur; Esc, dışarı dokunuş ve ok tuşları önceki gibi.
+  Ekle sayfası açıkken menüden tür seçilirse sayfa kapanmaz, yalnızca form değişir (gün ve yazılanlar kalır); bunun için
+  tür `AddSheet`'ten `PlanShell`'e taşındı (`type`, `onType`). Sayfadaki Ders / Aktivite seçimi duruyor.
+- **Alt menü hiç gizlenmez** (Görev 14c'ye dönüş): alt menü varken bütün alt sayfalar (Ekle, Program yükle, profil, ⋯ menüsü,
+  düzenleme, ders listesi) menünün üstünde biter; menü katmanın üstündedir ve dokunulabilir (`index.css`,
+  `body:has(.tabbar) .sheet-layer`). Menüye dokununca açık alt sayfalar kapanır (`PlanShell.closeLayers`, `layerReset`);
+  + menüsü açık bir sayfanın üstüne açılır, Esc yalnızca menüyü kapatır. Ekle sayfası açıkken hiçbir sekme seçili görünmez.
+- **Alt menü:** Bugün · Hafta · + · **Program yükle** · Aile. Program yükle, Dersler'in yerinde; açıkken sekme seçili görünür.
+  Ekle sayfasının altındaki "Program yükle" bağlantısı kaldırıldı. Yazı 360 px'te sütuna sığmıyor, iki yandaki boşluğa taşıyor
+  (`.tab-wide`).
+- **Dersler sayfası kaldırılmadı** (varsayım; kullanıcıya soruldu): Hafta sayfasında özetin altındaki "Dersler" satırından
+  açılır, başında "‹ Hafta" geri düğmesi var, alt menüde Hafta seçili görünür. Geride kalan dersi "Bugüne al" ve ders
+  listesini düzenleme yalnızca bu sayfada olduğu için kaldırılmadı.
+- Değişen dosyalar: `TabBar`, `PlanShell`, `AddSheet`, `WeekPage`, `LessonsPage`, `Sheet` (kullanılmayan `layerClassName`
+  silindi), `index.css` (+ menüsü kuralları geri geldi; `.add-import` ve `.linkbtn` silindi).
+- Kontrol (11.11, yerel sahte API, Chromium, 390 ve 360 px): + → Aktivite / Ders, açık Ekle sayfasında tür değiştirme (gün
+  korunuyor), Ekle → Program yükle → Bugün / Hafta geçişleri, ⋯ menüsü ve ders listesi açıkken + ile seçim, Esc, ok tuşları,
+  Hafta → Dersler → ‹ Hafta, Ekle'den ders ekleme (bildirim ve odak +'ya dönüyor). Yatay taşma ve konsol hatası yok;
+  oxlint 10 uyarı (hepsi eski), `vite build` geçti. Gerçek iPhone'da (klavye açıkken alt menü) denenmedi.
+
+## Görev 17c: tam ekran Ekle, "Başla" kalktı (kullanıcı, 11.11)
+- Şimdi kartındaki **"Başla" düğmesi kaldırıldı**; saatsiz ders hatırlatması yazı olarak duruyor. "Devam ediyor" durumu artık
+  yalnızca düzenleme formundan seçilir.
+- **Ekle ekranı tam ekran** açılır (alt menü altta görünür kalır); başlık seçilen türe göre "Ders ekle" / "Aktivite ekle".
+  Üstteki Ders / Aktivite seçimi kaldırıldı; tür yalnızca + menüsünden seçilir.
+- **Ekle ya da Vazgeç'ten sonra Bugün ekranına dönülür:** eklenince eklenen gün, vazgeçince (başka sayfadan gelindiyse) bugün açılır.
+- Dosyalar: `NowCard`, `AddSheet`, `PlanShell` (`closeAdd`, `submitAdd`), `index.css` (`.addsheet.full`).
+- Kontrol (yerel sahte API, 390 px): Hafta'dan + → Ders, Vazgeç → Bugün; Yarın'a ders ekleme → Bugün ekranında yarın açıldı.
+  oxlint 10 uyarı (hepsi eski), `vite build` geçti. Gerçek iPhone'da denenmedi.
+
+## Görev 17d: "Boş saatler" kalktı (kullanıcı, 11.11)
+Ders ekle formundaki "Boş saatler" çipleri kaldırıldı (form tam ekrana kaydırmadan sığsın). `StudyForm` (`slots`), `AddSheet`
+ve `utils/timeline.js` (`freeSlots`) temizlendi. oxlint ve `vite build` geçti; tarayıcıda yeniden bakılmadı.

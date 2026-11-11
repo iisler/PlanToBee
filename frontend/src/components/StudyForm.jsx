@@ -21,11 +21,10 @@ export const studyDraft = (entry) => ({
 // - items: Bee öğeleri (dersler + aktiviteler; çakışma uyarısı için, engellemez); excludeKey: düzenlenen dersin itemKey'i.
 // - onSubmit(body): eklemede { subject, topic, minutes, startTime }; düzenlemede + status ve startTime her zaman
 //   ("" = saati sil). true dönerse başarılıdır.
-// - slots (Görev 17): günün boşluklarından önerilen başlangıç saatleri ("17:45"); çipe dokununca başlangıç dolar.
 // - extra: eylem satırının sağına (ör. "Dersleri düzenle"); submitLabel: Ekle düğmesinin erişilebilir adı.
 export default function StudyForm({
   mode = 'add', value, onChange, subjects, items = [], excludeKey = null,
-  onSubmit, onCancel, busy = false, extra, submitLabel, subjectRef, minutesRef, slots = [],
+  onSubmit, onCancel, busy = false, extra, submitLabel, subjectRef, minutesRef,
 }) {
   const [error, setError] = useState('');
   const subjectId = useId();
@@ -108,18 +107,6 @@ export default function StudyForm({
             value={value.minutes} onChange={set('minutes')} aria-invalid={error && !minsOk ? true : undefined} />
         </div>
       </div>
-
-      {slots.length > 0 && (
-        <div className="fl">
-          <span aria-hidden="true">Boş saatler</span>
-          <div className="evchips" role="group" aria-label="Boş saatlerden başlangıç seç">
-            {slots.map(t => (
-              <button key={t} type="button" className={value.startTime === t ? 'on' : ''} aria-pressed={value.startTime === t}
-                onClick={() => { setError(''); onChange({ startTime: value.startTime === t ? '' : t }); }}>{t}</button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="evtimes two">
         <label>

@@ -332,7 +332,7 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 .subject-onboard .suggest button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 0 12px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .subject-onboard .subject-addrow { text-align: left; }
 
-/* Alt sayfa (components/Sheet.jsx): Hafta paneli ve ⋯ menüsü. Alttan açılır, arka plan karartılır. */
+/* Alt sayfa (components/Sheet.jsx): Ekle, Program yükle, profil, ⋯ menüsü. Alttan açılır, arka plan karartılır. */
 .sheet-layer { position: fixed; inset: 0; z-index: 45; background: rgba(30, 26, 20, .45); animation: loading-in .18s ease-out; }
 .sheet { position: absolute; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 30px rgba(30, 26, 20, .25); padding: 8px 9px max(16px, env(safe-area-inset-bottom)); animation: sheet-up .22s ease-out; outline: none; }
 .sheet-grab { flex-shrink: 0; width: 36px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 0 auto 8px; }
@@ -341,7 +341,19 @@ button:disabled:has(.btn-busy) { opacity: 1; cursor: progress; }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sheet-layer, .sheet { animation: none; } }
 
-/* Hafta paneli açıkken alt menü katmanın üstünde: ortadaki + kesilmez */
+/* Alt menü hiç gizlenmez (Görev 14c, 17b): alt menü varken katman menünün üstünde biter, menü katmanın üstünde kalır ve
+   dokunulabilir (+ menüsü açık sayfanın üstüne açılır, karartması sayfayı da örter). iPhone alt çizgisi boşluğunu menü bırakır. */
+body:has(.tabbar) .sheet-layer { bottom: var(--tabbar-h); }
+body:has(.tabbar) .sheet { padding-bottom: 10px; }
+body:has(.tabbar) .menusheet { padding-bottom: 16px; }
+body:has(.tabbar) .addsheet { max-height: calc(100% - 8vh); }
+/* Ekle ekranı tam ekran (Görev 17c): alt menünün üstündeki bütün alanı kaplar */
+.addsheet.full, body:has(.tabbar) .addsheet.full { top: 0; max-height: none; border-radius: 0; padding-top: max(10px, env(safe-area-inset-top)); animation: none; }
+.addsheet.full .sheet-grab { display: none; }
+body:has(.tabbar) .impsheet.tall { height: calc(100% - 8vh); padding-bottom: 0; }
+body:has(.tabbar) .imp-foot { padding-bottom: 12px; }
+body:has(.sheet-layer) .tabbar { z-index: 47; }
+body:has(.sheet-layer) .addpop-dim { z-index: 46; }
 .sheet-head { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 5px 3px; }
 .sheet-head h3 { font-size: 18px; font-weight: 800; }
 .sheet-close { min-height: 44px; min-width: 44px; padding: 0 6px; border: none; background: none; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
@@ -512,7 +524,7 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .holstrip.hol { background: var(--honey-soft); color: var(--ink); box-shadow: inset 3px 0 0 var(--honey); }
 .holstrip.spc { background: var(--surface-2); color: var(--ink-soft); font-weight: 500; }
 
-/* ===== Alt menü (Görev 14, components/TabBar.jsx): Bugün · Hafta · + · Ailem · Profil ===== */
+/* ===== Alt menü (Görev 14, 17b; components/TabBar.jsx): Bugün · Hafta · + · Program yükle · Aile ===== */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -12px rgba(30, 26, 20, .25); padding: 6px 8px max(8px, env(safe-area-inset-bottom)); }
 .tabbar-in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; }
 .tab { min-height: 52px; min-width: 0; border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border-radius: 12px; color: var(--ink-soft); font-size: 12px; font-weight: 600; }
@@ -526,8 +538,24 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .tab-add { width: 52px; height: 52px; margin: 0; border-radius: 50%; border: none; background: var(--ink); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 2px 5px rgba(30, 26, 20, .18), 0 0 14px 2px rgba(246, 181, 30, .38); padding: 0; }
 .tab-add svg { width: 24px; height: 24px; transition: transform .18s ease-out; }
 .tabbar :focus-visible { outline-offset: 3px; }
-/* + menüsü: düğmenin üstünde küçük menü (Plan · To-do) */
+/* "Program yükle" sütuna sığmaz: yazı iki yandaki boşluğa taşar (yanındaki + yuvarlak, Aile'nin yazısı kısa) */
+.tab-wide .lbl { max-width: none; overflow: visible; }
+.tab-add.open { background: var(--honey); color: var(--ink); }
+.tab-add.open svg { transform: rotate(45deg); }
+/* + menüsü (Görev 14, 17b): düğmenin üstünde küçük menü (Aktivite · Ders) */
+.addpop-dim { position: fixed; inset: 0; z-index: 29; background: rgba(30, 26, 20, .35); animation: loading-in .15s ease-out; }
+.addpop { position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); width: 220px; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 14px 34px -10px rgba(30, 26, 20, .45); animation: addpop-in .16s ease-out; }
+.addpop::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; background: var(--surface); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateX(-50%) rotate(45deg); }
+.addpop li + li { border-top: 1px solid var(--line); }
+.addpop-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 10px; border: none; background: none; border-radius: 12px; text-align: left; color: var(--ink); }
+.addpop-item:hover { background: var(--surface-2); }
+.addpop-item .bub { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; }
+.addpop-item .bub.evt { background: var(--event-soft); color: var(--event-deep); }
+.addpop-item .bub.study { background: var(--study-soft); color: var(--study); }
+.addpop-item b { display: block; font-family: var(--f-display); font-size: 17px; font-weight: 800; line-height: 1.15; }
+.addpop-item small { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
 @keyframes addpop-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .addpop, .addpop-dim { animation: none; } .tab-add svg { transition: none; } }
 /* Profil paneli (components/ProfileSheet.jsx) */
 .profhead { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
 .profhead .av.big { width: 44px; height: 44px; font-size: 19px; }
@@ -535,7 +563,7 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .profhead-tx h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .profhead-tx small { display: block; color: var(--ink-soft); font-size: 12.5px; }
 
-/* Program yükleme (Görev 15, components/ImportSheet.jsx): + menüsünde üçüncü seçenek, kaynak seçimi, okuma ve önizleme */
+/* Program yükleme (Görev 15, components/ImportSheet.jsx): alt menüdeki Program yükle (17b), kaynak seçimi, okuma ve önizleme */
 .impsheet.tall { height: 92vh; padding-bottom: 0; }
 .imp-src { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 12px; }
 .imp-opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); text-align: left; color: var(--ink); }
@@ -795,6 +823,15 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .bar { display: block; height: 4px; border-radius: 2px; background: var(--wax); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: 2px; background: var(--honey); }
 .wk-sum .bar { width: 64px; margin-top: 8px; }
+/* Hafta → Dersler satırı (Görev 17b: Dersler alt menüden çıktı, Hafta'nın alt sayfası); Dersler'de "‹ Hafta" geri düğmesi */
+.wk-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; margin: 0 0 14px; padding: 9px 12px 9px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); text-align: left; box-shadow: var(--shadow); }
+.wk-link:hover { background: var(--surface-2); }
+.wk-link .bub { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--study-soft); color: var(--study); }
+.wk-link-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wk-link-tx b { font-family: var(--f-display); font-size: 16px; font-weight: 800; line-height: 20px; }
+.wk-link-tx small { font-size: 12.5px; line-height: 16px; color: var(--ink-soft); }
+.wk-link > svg { width: 20px; height: 20px; flex: none; color: var(--ink-soft); }
+.backlink { display: block; margin: 0 0 6px; }
 .wk-axis { display: flex; height: 16px; padding: 0 8px 0 66px; font-size: 11px; line-height: 16px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .wk-axis span { position: relative; flex: 1; }
 .wk-axis i { position: absolute; font-style: normal; transform: translateX(-50%); }
@@ -853,7 +890,7 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .ls-subj .bar { margin-top: 8px; }
 .ls-list { display: block; margin: 0 auto 14px; }
 
-/* Ekle sayfası (components/AddSheet.jsx): Ders / Aktivite, gün çipleri, form, Program yükle */
+/* Ekle sayfası (components/AddSheet.jsx): Ders / Aktivite, gün çipleri, form */
 .fl2 { margin-bottom: 12px; }
 .fl2 > span { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; }
 .daychips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -861,5 +898,3 @@ input[type="time"].time-input::-webkit-date-and-time-value { text-align: left; m
 .daypick { position: relative; display: inline-flex; align-items: center; }
 .daypick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
 .daypick:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
-.add-import { margin: 14px 0 4px; text-align: center; font-size: 13px; color: var(--ink-soft); }
-.linkbtn { min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }

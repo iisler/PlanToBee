@@ -154,15 +154,6 @@ export function flowRows(items, withGaps = true, nowMin = null) {
   return { rows, untimed };
 }
 
-// Ders eklerken önerilen başlangıçlar: o günün en az "mins" dakikalık boşluklarının başı (bugünse şu andan sonrası,
-// 5 dakikaya yuvarlanır). Saatli kayıt yoksa öneri yok. En çok 3 saat ("17:45").
-export function freeSlots(items, mins, nowMin = null) {
-  const { inw } = classify(items);
-  if (!inw.length) return [];
-  const from = nowMin == null ? WS : Math.ceil(nowMin / 5) * 5;
-  return gaps(inw).map(([a, b]) => [Math.max(a, from), b]).filter(([a, b]) => b - a >= (mins || 30)).slice(0, 3).map(([a]) => hm(a));
-}
-
 // ---------- Hafta ızgarası ----------
 // Bir günün pencere içi kayıtları ve boşlukları (Hafta sayfası: şerit ve en uzun boşluk)
 export function weekColumn(events) {
