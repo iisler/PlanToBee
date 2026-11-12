@@ -1,6 +1,6 @@
 # PlanToBee Kullanım Koşulları
 
-Sürüm 2 · Yürürlük tarihi: 06.11.2026
+Sürüm 3 · Yürürlük tarihi: 12.11.2026
 
 PlanToBee uygulamasını ve web sitesini ("Hizmet") bireysel geliştirici olarak **İlker İşler** sunar. Hesap oluşturarak
 bu koşulları kabul etmiş olursun.
@@ -12,18 +12,19 @@ sağlayan ücretsiz bir uygulamadır.
 
 ## 2. Hesap
 
-- Hesabı 18 yaşını doldurmuş bir ebeveyn ya da veli açar.
+- Hesabı 18 yaşını doldurmuş biri açar. Çocuk profilini yalnızca o çocuğun ebeveyni ya da velisi ekleyebilir.
 - Aile hesabına eklediğin profillerden (çocuklar dahil) ve girilen bilgilerden sen sorumlusun.
 - Şifreni ve PIN'lerini gizli tut. Hesabının izinsiz kullanıldığını düşünürsen şifreni değiştir ve bize yaz.
 
 ## 3. Kurallar
 
 Hukuka aykırı içerik giremez, başkasının hesabına girmeye ya da Hizmet'i aksatmaya çalışamazsın. Bu kurallara aykırı
-kullanımda hesap kapatılabilir.
+kullanımda, acil durumlar dışında önceden haber verilerek hesap kapatılabilir.
 
 ## 4. İçeriğin
 
-Girdiğin plan ve notlar senindir; yalnızca Hizmet'i sana sunmak için işlenir.
+Girdiğin plan ve notlar senindir. Bunları yalnızca Hizmet'i sunmak için kullanırız: saklamak, aile üyelerine
+göstermek, yedeklemek ve bildirim göndermek.
 
 ## 5. Sorumluluk
 
@@ -38,12 +39,13 @@ Kişisel verilerin **Aydınlatma Metni ve Gizlilik Politikası**'nda anlatıldı
 ## 7. Hesabın silinmesi
 
 Hesabını ve tüm verilerini istediğin zaman uygulamadan silebilirsin: Ad menüsü › Ailem › Hesabı ve tüm verileri sil.
-Hizmet sona erecekse önceden bilgilendirilirsin.
+Hizmet sona erecekse en az 30 gün önce bilgilendirilirsin; bu sürenin sonunda verilerin silinir.
 
 ## 8. Değişiklikler
 
-Bu koşullar güncellenebilir; güncel sürüm bu sayfada yayımlanır. Önemli değişikliklerde e-postayla ya da uygulama
-içinde bilgilendirilirsin.
+Bu koşullar güncellenebilir; güncel sürüm bu sayfada yayımlanır. Aleyhine olabilecek önemli değişiklikleri yürürlüğe
+girmeden en az 30 gün önce e-postayla ya da uygulama içinde bildiririz. Kabul etmezsen bu süre içinde hesabını ve
+verilerini silebilirsin.
 
 ## 9. Uygulanacak hukuk ve iletişim
 

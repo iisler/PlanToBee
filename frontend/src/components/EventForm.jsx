@@ -61,7 +61,7 @@ function repeatError(rep, start) {
 // { daysOfWeek, startDate: date, untilDate }. scope (tekrarlanan kaydı düzenlerken): 'one' = yalnızca o gün (tekrar
 // bölümü yok, bilgi satırı), 'all' = bütün tekrarlar (bölüm açık ve dolu; body.repeat yine gönderilir).
 // kindsLabel: tür ikonları grubunun erişilebilir adı (Plan kartında "Aktivite ekle").
-// Görev 13: draft ({ kind, title, time, endTime }) sesle eklemedeki "Düzenle"den gelir; tür seçili, alanlar dolu açılır.
+// Görev 13: draft ({ kind, title, time, endTime }) verilirse tür seçili, alanlar dolu açılır.
 // Form kapanınca (İptal ya da başarılı ekleme) onClearDraft.
 export default function EventForm({
   mode = 'add', initial, onSubmit, onCancel, busy = false, events = [], prefill, onClearPrefill, hidePre = false, onTimeChange,
