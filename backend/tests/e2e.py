@@ -192,6 +192,108 @@ def test_register_privacy():
     check("kısa şifre: kayıtlı ve yeni adreste aynı hata", s4 == s5 == 400 and b4 == b5, (s4, b4, s5, b5))
 
 
+def legal_file_versions():
+    """Metin dosyalarındaki sürümler: {doc: [html meta, html'de görünen "Sürüm N", docs/legal md]}."""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+    out = {}
+    for doc, html, md in [("kvkk", "aydinlatma.html", "aydinlatma-ve-gizlilik.md"), ("terms", "kosullar.html", "kullanim-kosullari.md")]:
+        h = open(os.path.join(root, "frontend", "public", "legal", html), encoding="utf-8").read()
+        m = open(os.path.join(root, "docs", "legal", md), encoding="utf-8").read()
+        found = [re.search(r'<meta name="legal-version" content="(\d+)">', h),
+                 re.search(r"Sürüm (\d+)", h.split("<article>", 1)[-1]),
+                 re.search(r"Sürüm (\d+)", m)]
+        out[doc] = [int(x.group(1)) if x else None for x in found]
+    return out
+
+
+def db_exec(sql):
+    out = subprocess.run(PSQL + ["-Atc", sql], capture_output=True, text=True, timeout=30)
+    if out.returncode != 0:
+        raise RuntimeError(out.stderr.strip())
+
+
+def test_legal_versions():
+    print("Yasal metin sürümleri: kayıtta saklanır, eski sürümde yeniden onay (Görev 18)")
+    email, acc = register_and_verify("Surum")
+    s, me = req("GET", "/auth/me", token=acc["token"])
+    legal = (me or {}).get("legal") or {}
+    kv, tv = legal.get("kvkkVersion"), legal.get("termsVersion")
+    check("me.legal: kabul edilen sürüm güncel, yeniden onay yok",
+          s == 200 and kv and tv and legal.get("acceptedKvkkVersion") == kv and legal.get("acceptedTermsVersion") == tv
+          and legal.get("kvkkRequired") is False and legal.get("termsRequired") is False, (s, legal))
+    check("oturum cevabında da legal var", (acc.get("legal") or {}).get("termsVersion") == tv, acc.get("legal"))
+    files = legal_file_versions()
+    check("metinlerdeki sürüm backend ile aynı (html meta, görünen, docs/legal)",
+          files == {"kvkk": [kv] * 3, "terms": [tv] * 3}, (files, kv, tv))
+
+    # Gösterilen sürüm güncel değilse kayıt olmaz; kayıtlı ve yeni adreste aynı cevap
+    plain = {"password": "Sifre.2468", "displayName": "X", **CONSENT}
+    for name, extra in [("farklı aydınlatma", {"kvkkVersion": kv + 1, "termsVersion": tv}),
+                        ("farklı koşullar", {"kvkkVersion": kv, "termsVersion": tv + 1})]:
+        sa, ba = req("POST", "/auth/register", {"email": email, **plain, **extra})
+        sb, bb = req("POST", "/auth/register", {"email": new_email("oldver"), **plain, **extra})
+        check(f"{name} sürümüyle kayıt: 409 consent_outdated, iki adreste aynı",
+              sa == sb == 409 and ba == bb and code_of(ba) == "consent_outdated", (sa, ba, sb, bb))
+    s, b = req("POST", "/auth/register", {"email": new_email("curver"), **plain, "kvkkVersion": kv, "termsVersion": tv})
+    check("güncel sürümle kayıt kabul edildi", s == 200, (s, b))
+
+    if not PSQL:
+        print("  (--psql verilmedi: eski sürümle kayıtlı hesap senaryosu atlandı)")
+        return
+    uid = me["userId"]
+    # Eski sürümle (aydınlatma) ve sürüm kaydı olmadan (koşullar, Görev 18'den önceki hesaplar) kayıtlı hesap
+    db_exec(f"""UPDATE "Users" SET "KvkkVersion" = {kv - 1}, "KvkkReadAt" = NULL, "TermsVersion" = NULL,
+                "TermsAcceptedAt" = NULL WHERE "Id" = '{uid}'""")
+    s, me = req("GET", "/auth/me", token=acc["token"])
+    legal = me.get("legal") or {}
+    check("eski sürüm: me.legal iki metin için yeniden onay istiyor",
+          legal.get("kvkkRequired") is True and legal.get("termsRequired") is True
+          and legal.get("acceptedKvkkVersion") == kv - 1 and legal.get("acceptedTermsVersion") is None, legal)
+    s, dev = login_req({"email": email, "password": "Sifre.2468"})
+    check("girişte de yeniden onay isteniyor", s == 200 and (dev.get("legal") or {}).get("termsRequired") is True,
+          (s, dev.get("legal")))
+
+    s, b = req("POST", "/auth/consents", {}, dev["token"])
+    check("sürümsüz onay 400", s == 400 and code_of(b) == "validation", (s, b))
+    s, b = req("POST", "/auth/consents", {"termsVersion": tv + 1}, dev["token"])
+    check("güncel olmayan sürümle onay 409", s == 409 and code_of(b) == "consent_outdated", (s, b))
+    s, b = req("POST", "/auth/consents", {"kvkkVersion": kv}, None)
+    check("oturumsuz onay 401", s == 401, s)
+    s, b = req("POST", "/auth/consents", {"kvkkVersion": kv}, dev["token"])
+    check("aydınlatma okundu: yalnızca koşullar kaldı",
+          s == 200 and b.get("kvkkRequired") is False and b.get("termsRequired") is True and b.get("acceptedKvkkVersion") == kv, (s, b))
+    s, b = req("POST", "/auth/consents", {"termsVersion": tv}, dev["token"])
+    check("koşullar onaylandı: yeniden onay kalmadı",
+          s == 200 and b.get("kvkkRequired") is False and b.get("termsRequired") is False, (s, b))
+    s, me = req("GET", "/auth/me", token=acc["token"])
+    legal = me.get("legal") or {}
+    check("onaydan sonra me.legal güncel sürümde",
+          legal.get("acceptedKvkkVersion") == kv and legal.get("acceptedTermsVersion") == tv and not legal.get("termsRequired"), legal)
+    n = db_count(f"""SELECT count(*) FROM "Users" WHERE "Id" = '{uid}' AND "KvkkVersion" = {kv} AND "TermsVersion" = {tv}
+                     AND "KvkkReadAt" > now() - interval '10 minutes' AND "TermsAcceptedAt" > now() - interval '10 minutes'""")
+    check("veritabanında sürüm ve onay zamanı yazıldı", n == 1, n)
+
+    # Ailede yalnızca hesap sahibinin profili onaylar; onay diğer cihazları da açar
+    s, own = req("POST", "/family", {"name": "Sürüm Ailesi", "profileName": "Sahip", "pin": "1357",
+                                     "refreshToken": acc["refreshToken"]}, acc["token"])
+    s2, kid = req("POST", "/profiles", {"displayName": "Çocuk", "role": "Child"}, own["token"])
+    check("aile ve çocuk profili kuruldu", s == 200 and s2 == 200, (s, s2))
+    db_exec(f"""UPDATE "Users" SET "TermsVersion" = {tv - 1} WHERE "Id" = '{uid}'""")
+    s, dev = login_req({"email": email, "password": "Sifre.2468"})
+    s, b = req("POST", "/auth/consents", {"termsVersion": tv}, dev["token"])
+    check("profil seçmeden onay 403 profile_required", s == 403 and code_of(b) == "profile_required", (s, b))
+    s, ct = select(dev, kid["id"])
+    check("çocuk profili seçilince de yeniden onay görünüyor", s == 200 and (ct.get("legal") or {}).get("termsRequired") is True,
+          (s, ct.get("legal") if isinstance(ct, dict) else ct))
+    s, b = req("POST", "/auth/consents", {"termsVersion": tv}, ct["token"])
+    check("çocuk profili onaylayamaz: 403 owner_only", s == 403 and code_of(b) == "owner_only", (s, b))
+    s, b = req("POST", "/auth/consents", {"termsVersion": tv}, own["token"])
+    check("hesap sahibinin profili onayladı", s == 200 and b.get("termsRequired") is False, (s, b))
+    s, r = req("POST", "/auth/refresh", {"refreshToken": ct["refreshToken"]})
+    check("diğer cihazda da yeniden onay kalktı", s == 200 and (r.get("legal") or {}).get("termsRequired") is False,
+          (s, r.get("legal") if isinstance(r, dict) else r))
+
+
 def test_login_lockout_parity():
     print("Giriş kilidi: kayıtlı ve olmayan hesapta aynı davranış")
     email, _ = register_and_verify("Kilit")
@@ -1644,7 +1746,7 @@ def main():
     ap.add_argument("--api", default="http://localhost:5102/api")
     ap.add_argument("--emails", required=True, help="API'nin Email:OutputDirectory klasörü")
     ap.add_argument("--psql", default="", help='isteğe bağlı: test veritabanına psql komutu, örn. "psql -d plantobee_e2e" '
-                    "(hesap silmede tablo bazında satır sayımı)")
+                    "(hesap silmede tablo bazında satır sayımı, eski sürümle kayıtlı hesap senaryosu)")
     a = ap.parse_args()
     API, EMAILS = a.api.rstrip("/"), a.emails
     global PSQL
@@ -1656,7 +1758,7 @@ def main():
         print(f"API'ye ulaşılamadı: {e}")
         return 1
 
-    for t in (test_health, test_register_privacy, test_request_limits, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
+    for t in (test_health, test_register_privacy, test_legal_versions, test_request_limits, test_password_policy, test_login_lockout_parity, test_permanent_lockout_and_unlock, test_login_code, test_refresh_tokens, test_profiles_and_plan, test_solo_family, test_events_and_training, test_event_end_time, test_study_start_time, test_series, test_push, test_account_delete):
         try:
             t()
         except Exception as e:  # noqa: BLE001

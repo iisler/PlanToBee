@@ -3,7 +3,8 @@ import Sheet from './Sheet';
 
 // Kayıt ekranında Aydınlatma Metni ve Kullanım Koşulları uygulamanın içinde açılır.
 // Metin public/legal/ altındaki statik sayfadan (kendi dosyamız) okunur; onay düğmesi metnin en sonundadır,
-// yani kullanıcı düğmeye ulaşmak için metni sonuna kadar kaydırır. Düğmeye basınca onAccept çağrılır ve sayfa kapanır.
+// yani kullanıcı düğmeye ulaşmak için metni sonuna kadar kaydırır. Düğmeye basınca onAccept(sürüm) çağrılır ve sayfa kapanır.
+// Sürüm, metindeki <meta name="legal-version"> etiketidir (yoksa null); sunucuya okunan / kabul edilen sürüm olarak gider.
 const LEGAL = `${import.meta.env.BASE_URL}legal/`;
 
 const LEGAL_DOCS = {
@@ -22,10 +23,12 @@ export default function LegalSheet({ doc, onAccept, onClose }) {
     fetch(`${LEGAL}${file}`, { cache: 'no-cache' })
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
       .then((text) => {
-        const article = new DOMParser().parseFromString(text, 'text/html').querySelector('article');
+        const page = new DOMParser().parseFromString(text, 'text/html');
+        const article = page.querySelector('article');
+        const version = Number(page.querySelector('meta[name="legal-version"]')?.content) || null;
         if (!article) throw new Error('article');
         article.querySelector('h1')?.remove();  // başlık sayfanın üst çubuğunda
-        if (alive) setState({ html: article.innerHTML });
+        if (alive) setState({ html: article.innerHTML, version });
       })
       .catch(() => { if (alive) setState({ error: true }); });
     return () => { alive = false; };
@@ -49,7 +52,7 @@ export default function LegalSheet({ doc, onAccept, onClose }) {
           <>
             {/* Kendi statik dosyamız (public/legal/), kullanıcı girdisi değil */}
             <div className="legal-doc" dangerouslySetInnerHTML={{ __html: state.html }} />
-            <button type="button" className="auth-submit legal-accept" onClick={() => { onAccept(); onClose(); }}>{accept}</button>
+            <button type="button" className="auth-submit legal-accept" onClick={() => { onAccept(state.version); onClose(); }}>{accept}</button>
           </>
         )}
       </div>

@@ -818,6 +818,12 @@ namespace PlanToBee.API.Migrations
                     b.Property<int>("IsTermsAccepted")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("KvkkReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("KvkkVersion")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
 
@@ -843,6 +849,12 @@ namespace PlanToBee.API.Migrations
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("TermsVersion")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");

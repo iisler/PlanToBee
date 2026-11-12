@@ -14,4 +14,12 @@ public class User : IdentityUser
     public bool IsTermsAccepted { get; set; }
     // Onayların verildiği an (UTC). Bu alanlardan önce açılmış hesaplarda boştur.
     public DateTime? ConsentsAcceptedAt { get; set; }
+
+    // Okunan / kabul edilen metin sürümü ve zamanı (UTC). Güncel sürüm: Infrastructure/LegalVersions.
+    // Kayıtta ve yeniden onayda (POST /auth/consents) yazılır. Sürüm saklanmadan önce açılmış hesaplarda boştur
+    // (hangi sürümü gördükleri kanıtlanamaz); bu hesaplardan girişten sonra yeniden onay istenir.
+    public int? KvkkVersion { get; set; }
+    public DateTime? KvkkReadAt { get; set; }
+    public int? TermsVersion { get; set; }
+    public DateTime? TermsAcceptedAt { get; set; }
 }

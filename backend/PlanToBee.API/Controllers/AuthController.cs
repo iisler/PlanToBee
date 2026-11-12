@@ -25,6 +25,7 @@ public class AuthController(
     LoginChallenges challenges,
     PasswordResetCodes resetCodes,
     ResetEmails resetEmails,
+    MemberContext members,
     IConfiguration config,
     ILogger<AuthController> logger) : ControllerBase
 {
@@ -41,15 +42,20 @@ public class AuthController(
         // Hesabın var olup olmadığından önce bakılır: eksik onay her adreste aynı hatayı verir.
         if (!dto.AcceptKvkk || !dto.AcceptTerms)
             return Err.BadRequest("consent_required", "Kayıt olmak için Aydınlatma Metni'ni okuduğunu onaylamalı ve Kullanım Koşulları'nı kabul etmelisin.");
+        // Gösterilen metin eskiyse (sayfa açıkken metin güncellendi) kayıt olmaz; kullanıcı yeni metni açıp onaylar.
+        if (dto.KvkkVersion is int kv && kv != LegalVersions.Kvkk || dto.TermsVersion is int tv && tv != LegalVersions.Terms)
+            return ConsentOutdated();
         var email = dto.Email.Trim();
         var accepted = new RegisterAcceptedDto(
             "Kaydını tamamlamak için e-posta adresine bir bağlantı gönderdik. Bağlantıyı açtıktan sonra giriş yapabilirsin. " +
             "E-posta birkaç dakika içinde gelmezse gereksiz (spam) klasörüne bak.", email);
 
+        var now = DateTime.UtcNow;
         var user = new User
         {
             UserName = email, Email = email, DisplayName = displayName, EmailConfirmed = false,
-            IsKvkkChecked = true, IsTermsAccepted = true, ConsentsAcceptedAt = DateTime.UtcNow,
+            IsKvkkChecked = true, IsTermsAccepted = true, ConsentsAcceptedAt = now,
+            KvkkVersion = LegalVersions.Kvkk, KvkkReadAt = now, TermsVersion = LegalVersions.Terms, TermsAcceptedAt = now,
         };
         var passwordErrors = new List<IdentityError>();
         foreach (var validator in userManager.PasswordValidators)
@@ -194,8 +200,55 @@ public class AuthController(
         int? memberId = int.TryParse(User.FindFirst(AuthClaims.Member)?.Value, out var mid) ? mid : null;
         return Ok(new MeDto(user.Id, user.Email!, user.DisplayName, user.EmailConfirmed,
             await tokens.GetFamilySummary(user.Id), await tokens.GetProfileSummary(user.Id, memberId),
-            user.IsKvkkChecked, user.IsTermsAccepted));
+            user.IsKvkkChecked, user.IsTermsAccepted, LegalVersions.StatusOf(user)));
     }
+
+    // Yeniden onay: güncellenen Aydınlatma Metni'nin okunduğu ("Okudum"; açık rıza değildir, KVKK m.10) ve/veya
+    // Kullanım Koşulları'nın kabul edildiği ("Onaylıyorum") sürüm ve zamanla kaydedilir.
+    // Gönderilen sürüm güncel olmalı (değilse 409: istemci eski metni göstermiş). Ailesi olan hesapta yalnızca hesap
+    // sahibinin profili onaylar (hesap silmeyle aynı kural); ailesi olmayan hesap profil seçmeden onaylar.
+    [HttpPost("consents")]
+    [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.Session)]
+    public async Task<IActionResult> AcceptConsents(ConsentDto dto)
+    {
+        var user = await userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+
+        var owner = await members.GetOwnerAsync();
+        if (owner != null)
+        {
+            var current = await members.GetCurrentAsync();
+            if (current == null) return Err.ProfileRequired();
+            if (current.Id != owner.Id)
+                return Err.Forbidden("owner_only", "Yeni metinleri yalnızca hesap sahibi kendi profilinden onaylayabilir.");
+        }
+
+        if (dto.KvkkVersion == null && dto.TermsVersion == null)
+            return Err.BadRequest("validation", "Onaylanan metnin sürümünü gönder.");
+        if (dto.KvkkVersion is int kv && kv != LegalVersions.Kvkk || dto.TermsVersion is int tv && tv != LegalVersions.Terms)
+            return ConsentOutdated();
+
+        var now = DateTime.UtcNow;
+        if (dto.KvkkVersion != null)
+        {
+            user.KvkkVersion = LegalVersions.Kvkk;
+            user.KvkkReadAt = now;
+            user.IsKvkkChecked = true;
+        }
+        if (dto.TermsVersion != null)
+        {
+            user.TermsVersion = LegalVersions.Terms;
+            user.TermsAcceptedAt = now;
+            user.IsTermsAccepted = true;
+        }
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded) return IdentityErrors(result);
+        return Ok(LegalVersions.StatusOf(user));
+    }
+
+    private static ObjectResult ConsentOutdated() =>
+        Err.Conflict("consent_outdated", "Metin güncellendi. Yeni sürümü açıp sonuna kadar okuyarak tekrar onayla.");
 
     // Doğrulama bağlantısındaki userId ve token ile e-postayı doğrular. Oturum gerekmez.
     [HttpPost("verify-email")]
