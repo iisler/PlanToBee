@@ -34,6 +34,15 @@ namespace PlanToBee.API.Migrations
                 table: "Users",
                 type: "integer",
                 nullable: true);
+
+            // Görev 18'den önce onay kutusunu işaretlemiş hesaplar o gün yürürlükteki Sürüm 2'yi kabul etmiş sayılır
+            // (zaman: kayıttaki onay anı). Hiç işaretlememiş hesaplar (ör. içe aktarılanlar) boş kalır.
+            migrationBuilder.Sql("""
+                UPDATE "Users" SET "KvkkVersion" = 2, "KvkkReadAt" = "ConsentsAcceptedAt"
+                WHERE "KvkkVersion" IS NULL AND "IsKvkkChecked" = 1;
+                UPDATE "Users" SET "TermsVersion" = 2, "TermsAcceptedAt" = "ConsentsAcceptedAt"
+                WHERE "TermsVersion" IS NULL AND "IsTermsAccepted" = 1;
+                """);
         }
 
         /// <inheritdoc />

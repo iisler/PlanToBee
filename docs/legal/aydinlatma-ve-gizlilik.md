@@ -1,6 +1,6 @@
 # PlanToBee Aydınlatma Metni ve Gizlilik Politikası
 
-Sürüm 2 · Yürürlük tarihi: 06.11.2026
+Sürüm 3 · Yürürlük tarihi: 12.11.2026
 
 Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. maddesi uyarınca, PlanToBee'yi kullanırken
 kişisel verilerinin nasıl işlendiğini kısaca anlatır. Bu bir bilgilendirmedir; senden onay istemez.

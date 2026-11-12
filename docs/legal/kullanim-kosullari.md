@@ -1,6 +1,6 @@
 # PlanToBee Kullanım Koşulları
 
-Sürüm 2 · Yürürlük tarihi: 06.11.2026
+Sürüm 3 · Yürürlük tarihi: 12.11.2026
 
 PlanToBee uygulamasını ve web sitesini ("Hizmet") bireysel geliştirici olarak **İlker İşler** sunar. Hesap oluşturarak
 bu koşulları kabul etmiş olursun.

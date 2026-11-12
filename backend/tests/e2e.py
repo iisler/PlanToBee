@@ -193,14 +193,13 @@ def test_register_privacy():
 
 
 def legal_file_versions():
-    """Metin dosyalarındaki sürümler: {doc: [html meta, html'de görünen "Sürüm N", docs/legal md]}."""
+    """Metin dosyalarındaki sürümler: {doc: [html'deki "Sürüm N" satırı, docs/legal md]}."""
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
     out = {}
     for doc, html, md in [("kvkk", "aydinlatma.html", "aydinlatma-ve-gizlilik.md"), ("terms", "kosullar.html", "kullanim-kosullari.md")]:
         h = open(os.path.join(root, "frontend", "public", "legal", html), encoding="utf-8").read()
         m = open(os.path.join(root, "docs", "legal", md), encoding="utf-8").read()
-        found = [re.search(r'<meta name="legal-version" content="(\d+)">', h),
-                 re.search(r"Sürüm (\d+)", h.split("<article>", 1)[-1]),
+        found = [re.search(r"Sürüm (\d+)", h.split("<article>", 1)[-1]),
                  re.search(r"Sürüm (\d+)", m)]
         out[doc] = [int(x.group(1)) if x else None for x in found]
     return out
@@ -223,8 +222,8 @@ def test_legal_versions():
           and legal.get("kvkkRequired") is False and legal.get("termsRequired") is False, (s, legal))
     check("oturum cevabında da legal var", (acc.get("legal") or {}).get("termsVersion") == tv, acc.get("legal"))
     files = legal_file_versions()
-    check("metinlerdeki sürüm backend ile aynı (html meta, görünen, docs/legal)",
-          files == {"kvkk": [kv] * 3, "terms": [tv] * 3}, (files, kv, tv))
+    check("metinlerdeki sürüm backend ile aynı (html, docs/legal)",
+          files == {"kvkk": [kv] * 2, "terms": [tv] * 2}, (files, kv, tv))
 
     # Gösterilen sürüm güncel değilse kayıt olmaz; kayıtlı ve yeni adreste aynı cevap
     plain = {"password": "Sifre.2468", "displayName": "X", **CONSENT}
@@ -241,7 +240,7 @@ def test_legal_versions():
         print("  (--psql verilmedi: eski sürümle kayıtlı hesap senaryosu atlandı)")
         return
     uid = me["userId"]
-    # Eski sürümle (aydınlatma) ve sürüm kaydı olmadan (koşullar, Görev 18'den önceki hesaplar) kayıtlı hesap
+    # Eski sürümle (aydınlatma) ve sürüm kaydı olmadan (koşullar; hiç onay vermemiş eski hesap) kayıtlı hesap
     db_exec(f"""UPDATE "Users" SET "KvkkVersion" = {kv - 1}, "KvkkReadAt" = NULL, "TermsVersion" = NULL,
                 "TermsAcceptedAt" = NULL WHERE "Id" = '{uid}'""")
     s, me = req("GET", "/auth/me", token=acc["token"])

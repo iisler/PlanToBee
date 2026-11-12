@@ -13,13 +13,15 @@ Durum: Backend: Tamamlandı · Frontend: Tamamlandı · QA: e2e (GitHub Actions)
 
 ## Kararlar
 1. **Tek kaynak:** Güncel sürümler backend sabitindedir (`Infrastructure/LegalVersions.cs`: `Kvkk`, `Terms`; bugün ikisi
-   de 2). Önyüz güncel sürümü `GET /auth/me` ve oturum açan cevaplardan (`legal`) okur.
-   - Metin dosyaları (`frontend/public/legal/aydinlatma.html`, `kosullar.html`) sürümü `<meta name="legal-version">`
-     ile de taşır; e2e, bu değerlerin ve `docs/legal/*.md` içindeki "Sürüm N" satırının backend ile aynı olduğunu
-     kontrol eder. Metin değişince üçü aynı PR'da artırılır.
+   de 3, yürürlük 12.11.2026). Önyüz güncel sürümü `GET /auth/me` ve oturum açan cevaplardan (`legal`) okur.
+   - Metin dosyalarında (`frontend/public/legal/aydinlatma.html`, `kosullar.html`, `docs/legal/*.md`) sürüm yalnızca
+     "Sürüm N · Yürürlük tarihi" satırındadır; önyüz okunan sürümü bu satırdan alır, e2e satırın backend ile aynı
+     olduğunu kontrol eder. Metin değişince ikisi aynı PR'da artırılır.
 2. **Hesapta saklananlar** (`Users`): `KvkkVersion`, `KvkkReadAt`, `TermsVersion`, `TermsAcceptedAt` (boş olabilir).
    `IsKvkkChecked`, `IsTermsAccepted`, `ConsentsAcceptedAt` (kayıt anı) korunur.
-   - **Mevcut hesaplar geriye dönük doldurulmaz:** hangi sürümü gördükleri kanıtlanamaz; bir kez yeniden onay verirler.
+   - **Mevcut hesaplar:** onay kutusunu işaretlemiş olanlar (`IsKvkkChecked` / `IsTermsAccepted` = 1) Sürüm 2'yi
+     kabul etmiş sayılır (migration doldurur, zaman `ConsentsAcceptedAt`). Hiç işaretlememiş hesaplar (ör. içe
+     aktarılanlar) boş kalır. Güncel sürüm 3 olduğundan herkes girişten sonra bir kez yeniden onay verir.
 3. **Kayıt:** İstemci, kullanıcıya gösterdiği metnin sürümünü gönderir (`kvkkVersion`, `termsVersion`; metindeki
    meta etiketinden okunur). Güncelden farklıysa kayıt `409 consent_outdated` ile reddedilir (hesap aranmadan önce; her
    adreste aynı cevap). Sürüm gönderilmezse (eski istemci) güncel sürüm yazılır.
@@ -39,8 +41,8 @@ Durum: Backend: Tamamlandı · Frontend: Tamamlandı · QA: e2e (GitHub Actions)
 
 ### `legal` nesnesi (me ve oturum açan cevaplar)
 ```json
-{ "kvkkVersion": 2, "termsVersion": 2,
-  "acceptedKvkkVersion": 1, "acceptedTermsVersion": 2,
+{ "kvkkVersion": 3, "termsVersion": 3,
+  "acceptedKvkkVersion": 2, "acceptedTermsVersion": 3,
   "kvkkRequired": true, "termsRequired": false }
 ```
 
@@ -59,7 +61,7 @@ Durum: Backend: Tamamlandı · Frontend: Tamamlandı · QA: e2e (GitHub Actions)
 - [x] Onaydan sonra `me.legal.*Required` false, uygulama açılır.
 - [x] Aydınlatma için düğme "Okudum", koşullar için "Onaylıyorum"; reddetme yolunda "Hesabı sil" var.
 - [x] HTML metinlerindeki ve `docs/legal` içindeki sürüm, backend sabitiyle aynı (e2e kontrol eder).
-- [x] EF migration: dört yeni sütun, geriye dönük doldurma yok.
+- [x] EF migration: dört yeni sütun; onay vermiş mevcut hesaplar Sürüm 2 olarak doldurulur.
 
 ## Kapsam dışı
 - Plan uç noktalarının sunucuda onaya bağlanması.
