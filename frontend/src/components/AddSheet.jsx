@@ -21,7 +21,7 @@ function dayChips() {
 // Ekle ya da Vazgeç'ten sonra Bugün ekranına dönülür (PlanShell).
 // - Ders: StudyForm ("Boş saatler" önerisi 17d'de kaldırıldı: form tek ekrana sığsın). Ders listesi boşsa önce dersler eklenir.
 // - Aktivite: EventForm (tür ikonları, tekrar kuralı).
-// init: { date: 'yyyy-AA-gg', study?: ders taslağı, event?: aktivite taslağı } (taslaklar sesle eklemedeki "Düzenle"den gelir).
+// init: { date: 'yyyy-AA-gg', study?: ders taslağı, event?: aktivite taslağı }; taslak verilirse form dolu açılır.
 // type ('study' | 'event') PlanShell'dedir: ekran açıkken + menüsünden seçilen tür formu değiştirir, gün ve taslak kalır.
 // Ekranda tür seçimi yoktur (17c). weekDays: yüklü haftanın günleri (çakışma uyarısı ve boşluk önerisi; başka
 // haftada boş). onSubmit(gün, type, body) true dönerse sayfa kapanır. Program yükleme alt menüde ayrı düğmedir.

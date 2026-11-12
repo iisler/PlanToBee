@@ -1,5 +1,6 @@
-// Sesle ya da yazıyla hızlı aktivite ekleme (Görev 13). "1 Kasım saat 13:00 ila 15:00 arasına voleybol maçı gir" gibi bir
-// cümleden tarih, başlangıç–bitiş, tür ve ad çıkarılır. Kurallarla cihazda çalışır; metin sunucuya ya da yapay zekâya gitmez.
+// Yazıdan aktivite çözümleme (Görev 13; sesle ekleme 12.11.2026'da kaldırıldı). "1 Kasım saat 13:00 ila 15:00
+// arasına voleybol maçı gir" gibi bir cümleden tarih,
+// başlangıç–bitiş, tür ve ad çıkarılır. Kurallarla cihazda çalışır; metin sunucuya ya da yapay zekâya gitmez.
 // Saf işlevler (React Native'e aynen taşınabilir).
 // parseQuickAdd(metin, bugün, dersler) → { date, time, endTime, kind, title, subject, topic, minutes }
 // - date: "yyyy-AA-gg"; söylenmediyse null (seçili gün kullanılır). Yıl söylenmezse geçmiş tarih gelecek yıla gider.

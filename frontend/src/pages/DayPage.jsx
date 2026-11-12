@@ -5,7 +5,6 @@ import useMutation, { patchEntry, removeEntry } from '../hooks/useMutation';
 import WeekTrail from '../components/WeekTrail';
 import NowCard from '../components/NowCard';
 import DayFlow from '../components/DayFlow';
-import QuickAdd from '../components/QuickAdd';
 import Loading from '../components/Loading';
 import { addDays, dayTitle, dkey, mondayOf, MONTHS, STATUS_SHORT, WEEKDAYS_FULL } from '../utils/format';
 import { deletedText, eventLabel } from '../utils/events';
@@ -43,11 +42,11 @@ function relativeDay(date, today) {
 // Ailenin ortak planıdır; myId: giriş yapan üyenin kimliği (kayıt izleri için).
 // weekDays: seçili haftanın 7 DayDto'su (yükleniyor/hata ise null). refreshKey artınca gün sunucudan yeniden okunur
 // (Ekle sayfasından ya da Dersler sayfasından değişiklik). layerReset değişince (bildirimden gün açıldı) açık ⋯ menüleri kapanır.
-// banner: peteğin altında gösterilecek bant (bildirim izni). onQuickAdd / onQuickEdit: sesle ekleme (PlanShell).
+// banner: peteğin altında gösterilecek bant (bildirim izni).
 // onOpenAdd('study' | 'event'): Ekle sayfasını bu gün için açar. avatar: profil düğmesi.
 export default function DayPage({
   currentDate, setCurrentDate, weekDays, onDayChanged, myId, subjects, onDataChanged, onAccessChanged, layerReset,
-  refreshKey, banner, onQuickAdd, onQuickEdit, onOpenAdd, avatar,
+  refreshKey, banner, onOpenAdd, avatar,
 }) {
   const [day, setDay] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -169,12 +168,13 @@ export default function DayPage({
 
   return (
     <>
-      <QuickAdd date={date} subjects={subjects} onAdd={onQuickAdd} onEdit={onQuickEdit} trailing={avatar}>
+      <div className="dayhead-row">
         <div className="pg-title">
           <span className="pg-over">{relativeDay(currentDate, today)}</span>
           <h1 className="dayhead" ref={headingRef} tabIndex={-1}>{dayTitle(currentDate, today)}</h1>
         </div>
-      </QuickAdd>
+        {avatar}
+      </div>
 
       <WeekTrail monday={monday} currentDate={currentDate} setCurrentDate={setCurrentDate} days={weekDays}
         onStepWeek={(n) => setCurrentDate(d => addDays(mondayOf(d), 7 * n))} />

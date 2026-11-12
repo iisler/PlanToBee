@@ -276,8 +276,6 @@ export default function PlanShell() {
     if (ok) { addedRef.current = true; setCurrentDate(parseKey(key)); }
     return ok;
   }
-  // Sesle eklemedeki "Düzenle": Ekle sayfası o gün ve o taslakla açılır
-  const quickEdit = (key, type, draft) => setAddSheet({ type, date: key, [type]: draft });
 
   // Dersler sayfası: başka bir günün dersinin durumu (iyimser; hata olursa sunucudaki hâl geri gelir)
   async function setLessonStatus(day, entry, status) {
@@ -412,8 +410,6 @@ export default function PlanShell() {
             subjects={subjects}
             onDataChanged={loadWeek}
             onAccessChanged={onAccessChanged}
-            onQuickAdd={addEntry}
-            onQuickEdit={quickEdit}
             onOpenAdd={openAdd}
             avatar={avatar}
           />
