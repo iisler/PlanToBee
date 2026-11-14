@@ -221,7 +221,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout subtitle="Haftalık plan ve takip platformu">
+    <AuthLayout>
       {deletedInfo && <div className="auth-info deleted-info" role="status">Hesabın ve tüm verilerin silindi.</div>}
       <div className="auth-tabs">
         <button className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => switchMode('login')}>Giriş</button>
@@ -238,7 +238,7 @@ export default function LoginPage() {
         )}
         <div className="auth-fl">
           <label htmlFor="email">E-posta</label>
-          <input id="email" type="email" placeholder="ornek@eposta.com" autoComplete="email" value={form.email} onChange={set('email')} required />
+          <input id="email" type="email" autoComplete="email" value={form.email} onChange={set('email')} required />
         </div>
         <div className="auth-fl">
           <label htmlFor="password">Şifre</label>

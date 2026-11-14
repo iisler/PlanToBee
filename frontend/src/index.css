@@ -135,6 +135,8 @@ h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.02em; 
 .auth-card { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 24px 20px 20px; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
 .auth-card h1 { font-size: 30px; font-weight: 800; margin-bottom: 4px; text-align: center; }
 .auth-sub { font-size: 15px; color: var(--ink-soft); margin: 0 0 18px; text-align: center; }
+/* Alt başlık yoksa (giriş ekranı) başlıkla altındaki öğe arasında aynı boşluk kalır */
+.auth-card h1 + :not(.auth-sub) { margin-top: 18px; }
 .auth-tabs { display: flex; gap: 4px; margin-bottom: 18px; padding: 4px; background: var(--chip); border-radius: 16px; }
 .auth-tabs button { flex: 1; min-height: 44px; padding: 0 9px; border-radius: 12px; border: none; background: none; font-weight: 600; font-size: 15px; color: var(--ink-soft); }
 .auth-tabs button.active { background: var(--honey); color: var(--ink); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--ink); }
