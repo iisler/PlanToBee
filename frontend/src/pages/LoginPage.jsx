@@ -245,7 +245,7 @@ export default function LoginPage() {
           <PasswordInput
             id="password"
             aria-describedby={mode === 'register' ? 'register-pw-rules' : undefined}
-            placeholder={mode === 'login' ? 'Şifren' : `En az ${PASSWORD_MIN_LENGTH} karakter`}
+            placeholder={mode === 'login' ? undefined : `En az ${PASSWORD_MIN_LENGTH} karakter`}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             minLength={mode === 'login' ? undefined : PASSWORD_MIN_LENGTH}
             value={form.password}
