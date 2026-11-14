@@ -10,7 +10,11 @@ public record RegisterDto(
     [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")] string? Username,
     // Kayıt formundaki onay kutuları: ikisi de true değilse kayıt reddedilir (consent_required).
     bool AcceptKvkk = false,
-    bool AcceptTerms = false);
+    bool AcceptTerms = false,
+    // Kullanıcıya gösterilen metnin sürümü (metindeki <meta name="legal-version">). Güncelden farklıysa kayıt 409
+    // consent_outdated ile reddedilir; gönderilmezse (eski istemci) güncel sürüm yazılır.
+    [Range(1, 1000)] int? KvkkVersion = null,
+    [Range(1, 1000)] int? TermsVersion = null);
 
 // Uzunluk sınırları: olmayan hesaba yapılan denemede e-posta bellekte tutulur (MissingAccountLockout); sınırsız
 // uzunlukta değerlerle bellek doldurulamasın (docs/backend-inceleme.md, Y1).
@@ -60,10 +64,19 @@ public record AuthResponseDto(
     string Username, // geriye dönük uyumluluk: DisplayName ile aynı
     bool EmailVerified,
     FamilySummaryDto? Family,
-    ProfileSummaryDto? Profile);
+    ProfileSummaryDto? Profile,
+    LegalStatusDto Legal);
 
 public record MeDto(string UserId, string Email, string DisplayName, bool EmailVerified, FamilySummaryDto? Family, ProfileSummaryDto? Profile,
-    bool IsKvkkChecked, bool IsTermsAccepted);
+    bool IsKvkkChecked, bool IsTermsAccepted, LegalStatusDto Legal);
+
+// Yasal metinlerin güncel ve hesabın kabul ettiği sürümleri. *Required: kabul edilen sürüm güncelden eski (ya da yok);
+// istemci uygulamayı açmadan önce yeniden onay ister (docs/tasks/18-yasal-metin-surumu.md).
+public record LegalStatusDto(int KvkkVersion, int TermsVersion, int? AcceptedKvkkVersion, int? AcceptedTermsVersion,
+    bool KvkkRequired, bool TermsRequired);
+
+// Yeniden onay (POST /auth/consents): okunan / kabul edilen metnin sürümü. Gönderilen sürüm güncel olmalı.
+public record ConsentDto([Range(1, 1000)] int? KvkkVersion, [Range(1, 1000)] int? TermsVersion);
 
 // Kayıt cevabı hesap zaten var olsa da aynıdır (hesap varlığı belli olmaz); oturum açılmaz.
 public record RegisterAcceptedDto(string Message, string Email);

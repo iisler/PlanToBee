@@ -8,9 +8,12 @@ import useSlow from '../hooks/useSlow';
 import Loading from '../components/Loading';
 import BusyLabel from '../components/BusyLabel';
 import PasswordInput from '../components/PasswordInput';
-import LegalSheet from '../components/LegalSheet';
+import ConsentChecks from '../components/ConsentChecks';
 import PasswordRules from '../components/PasswordRules';
+import { consentVersion } from '../utils/legal';
 import { PASSWORD_INVALID_TEXT, PASSWORD_MIN_LENGTH, passwordValid } from '../utils/passwordPolicy';
+
+const NO_CONSENT = { kvkk: null, terms: null };
 
 // Giriş ve kayıt. Girişten sonra yönlendirmeyi App (hesap durumu) yapar:
 // doğrulanmamış e-posta → doğrulama ekranı, ailesiz → aile kurma, ikisi de tamamsa uygulama.
@@ -25,10 +28,8 @@ export default function LoginPage() {
   // Kayıttan sonra: { email, message }. Hesap zaten var olsa da aynı ekran gösterilir.
   const [registered, setRegistered] = useState(null);
   const [resendInfo, setResendInfo] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [acceptKvkk, setAcceptKvkk] = useState(false);
-  // Açık yasal metin: 'kvkk' | 'terms' | null. Kutular yalnızca metnin sonundaki düğmeyle işaretlenir.
-  const [legalDoc, setLegalDoc] = useState(null);
+  // Onay kutuları: okunan / kabul edilen metin sürümü ya da null (ConsentChecks). Sürüm kayıtla sunucuya gider.
+  const [consent, setConsent] = useState(NO_CONSENT);
   // Giriş kodu adımı: { challengeId, emailHint, resendAfter }. Şifre doğru girilince e-postaya 6 haneli kod gider.
   const [codeStep, setCodeStep] = useState(null);
   const [code, setCode] = useState('');
@@ -56,23 +57,10 @@ export default function LoginPage() {
 
   const set = (k) => (e) => { setDeletedInfo(false); setForm((f) => ({ ...f, [k]: e.target.value })); };
 
-  // İşaretlemek için metin açılır; işareti kaldırmak doğrudan olur.
-  function onConsentChange(doc, checked) {
-    setError('');
-    if (checked) setLegalDoc(doc);
-    else (doc === 'kvkk' ? setAcceptKvkk : setAcceptTerms)(false);
-  }
-
-  function openLegal(e, doc) {
-    e.preventDefault();  // etiketin kutuyu değiştirmesini engeller
-    setLegalDoc(doc);
-  }
-
   function switchMode(m) {
     setMode(m);
     setDeletedInfo(false);
-    setAcceptTerms(false);
-    setAcceptKvkk(false);
+    setConsent(NO_CONSENT);
     setError('');
     setRegistered(null);
     setResendInfo('');
@@ -104,18 +92,22 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        if (!acceptKvkk || !acceptTerms) {
+        if (consent.kvkk == null || consent.terms == null) {
           setError('Kayıt olmak için Aydınlatma Metni\'ni okuduğunu onaylamalı ve Kullanım Koşulları\'nı kabul etmelisin.');
           setLoading(false);
           return;
         }
-        const data = await register(form.email.trim(), form.password, form.displayName.trim(), { acceptKvkk, acceptTerms });
+        const data = await register(form.email.trim(), form.password, form.displayName.trim(), {
+          kvkkVersion: consentVersion(consent.kvkk), termsVersion: consentVersion(consent.terms),
+        });
         setRegistered({ email: data.email || form.email.trim(), message: data.message });
         setLoading(false);
       }
     } catch (err) {
       setLoading(false);
       if (mode === 'login' && errorCode(err) === 'locked_out') return goUnlock();
+      // Sayfa açıkken metin güncellendi: kutular boşalır, yeni metin açılıp onaylanır.
+      if (errorCode(err) === 'consent_outdated') setConsent(NO_CONSENT);
       setError(errorText(err));
     }
   }
@@ -257,16 +249,7 @@ export default function LoginPage() {
         {mode === 'register' && <PasswordRules id="register-pw-rules" password={form.password} />}
         {mode === 'register' && (
           <>
-            {/* Aydınlatma bir bilgilendirmedir, açık rıza değildir (KVKK m.10): kutu yalnızca okunduğunu kaydeder.
-                İşaretsiz kutuya dokunmak metni açar; kutu metnin sonundaki düğmeyle işaretlenir. İşaretliyken dokunmak kaldırır. */}
-            <label className="terms-check">
-              <input type="checkbox" checked={acceptKvkk} onChange={(e) => onConsentChange('kvkk', e.target.checked)} required />
-              <span>Kişisel verilerimin işlenmesine ilişkin <button type="button" className="link-btn" onClick={(e) => openLegal(e, 'kvkk')}>Aydınlatma Metni</button>'ni okudum.</span>
-            </label>
-            <label className="terms-check">
-              <input type="checkbox" checked={acceptTerms} onChange={(e) => onConsentChange('terms', e.target.checked)} required />
-              <span><button type="button" className="link-btn" onClick={(e) => openLegal(e, 'terms')}>Kullanım Koşulları</button>'nı kabul ediyorum.</span>
-            </label>
+            <ConsentChecks value={consent} onChange={(v) => { setConsent(v); setError(''); }} />
           </>
         )}
         {error && <div className="auth-error" role="alert">{error}</div>}
@@ -276,10 +259,6 @@ export default function LoginPage() {
         {slow && <Loading />}
         {mode === 'register' && <div className="auth-hint">Kayıttan sonra e-posta adresine bir doğrulama bağlantısı gönderilir.</div>}
       </form>
-      {legalDoc && (
-        <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)}
-          onAccept={() => { (legalDoc === 'kvkk' ? setAcceptKvkk : setAcceptTerms)(true); setError(''); }} />
-      )}
     </AuthLayout>
   );
 }

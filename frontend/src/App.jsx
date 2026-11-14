@@ -9,12 +9,14 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import VerifyPendingPage from './pages/VerifyPendingPage';
 import CreateFamilyPage from './pages/CreateFamilyPage';
 import ProfilePickerPage from './pages/ProfilePickerPage';
+import ConsentPage from './pages/ConsentPage';
 import PlanShell from './pages/PlanShell';
 import AuthLayout from './components/AuthLayout';
 import Loading from './components/Loading';
 
 // Hesap durumuna göre doğru ekranı seçer: oturum yok → giriş, e-posta doğrulanmamış → doğrulama,
 // aile yok → aile kurma, profil seçilmemiş (ya da "Profil değiştir") → "Kim kullanıyor?", aksi halde uygulama.
+// Yasal metin güncellendiyse uygulamadan önce yeniden onay sayfası açılır (hesap sahibi onaylar; bkz. accountStatus).
 function Gate() {
   const { user, meError, refreshMe, logout, switching } = useAuth();
   const status = accountStatus(user);
@@ -38,8 +40,10 @@ function Gate() {
   );
 
   const screen = status === 'unverified' ? <VerifyPendingPage />
+    : status === 'consent' && !switching ? <ConsentPage />
     : status === 'nofamily' ? <CreateFamilyPage />
     : status === 'noprofile' || switching ? <ProfilePickerPage />
+    : status === 'consent-other' ? <ConsentPage other />
     // Profil değişince ana ekran baştan kurulur (kayıt izleri ve yetkiler profile göre)
     : <PlanShell key={user.profile.id} />;
 

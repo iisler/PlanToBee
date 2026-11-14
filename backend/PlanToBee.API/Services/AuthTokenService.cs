@@ -129,7 +129,8 @@ public class AuthTokenService(UserManager<User> userManager, AppDbContext db, IC
     {
         var profile = await GetProfileSummary(user.Id, memberId);
         return new(await CreateToken(user, profile?.Id), refresh, (int)AccessLifetime.TotalSeconds,
-            user.Email!, user.DisplayName, user.DisplayName, user.EmailConfirmed, await GetFamilySummary(user.Id), profile);
+            user.Email!, user.DisplayName, user.DisplayName, user.EmailConfirmed, await GetFamilySummary(user.Id), profile,
+            LegalVersions.StatusOf(user));
     }
 
     private async Task<string> CreateToken(User user, int? memberId)

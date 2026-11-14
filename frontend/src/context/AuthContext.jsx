@@ -8,7 +8,8 @@ export const ACCOUNT_DELETED_KEY = 'plantobee:account-deleted';
 
 const AuthContext = createContext(null);
 
-// Kullanıcı nesnesi: { email, displayName, emailVerified, family: { id, name }|null, profile: { id, displayName, role, isOwner }|null }
+// Kullanıcı nesnesi: { email, displayName, emailVerified, family: { id, name }|null, profile: { id, displayName, role, isOwner }|null,
+//   legal: { kvkkVersion, termsVersion, acceptedKvkkVersion, acceptedTermsVersion, kvkkRequired, termsRequired } }
 // emailVerified === undefined ise durum henüz sunucudan okunmadı demektir. profile, bu cihazda seçili profildir.
 // Belirteçler kullanıcı nesnesinde değil, yalnızca localStorage'da tutulur (api/client.js onları yeniler).
 function readStoredUser() {
@@ -55,6 +56,7 @@ export function AuthProvider({ children }) {
       emailVerified: !!data.emailVerified,
       family: data.family ?? null,
       profile: data.profile ?? null,
+      legal: data.legal ?? null,
     });
   }, [setUser]);
 
@@ -69,6 +71,7 @@ export function AuthProvider({ children }) {
         emailVerified: !!r.data.emailVerified,
         family: r.data.family ?? null,
         profile: r.data.profile ?? null,
+        legal: r.data.legal ?? null,
       });
       return r.data;
     } catch (err) {
@@ -98,11 +101,21 @@ export function AuthProvider({ children }) {
   }
 
   // Kayıt oturum açmaz: cevap, hesap zaten var olsa da aynıdır ("e-postana bağlantı gönderdik").
-  // acceptKvkk / acceptTerms: kayıt formundaki onay kutuları; sunucu ikisi true değilse kaydı reddeder.
-  async function register(email, password, displayName, { acceptKvkk, acceptTerms }) {
-    const res = await client.post('/auth/register', { email, password, displayName, acceptKvkk, acceptTerms });
+  // Kayıt formundaki onay kutuları: ikisi de işaretlenmeden kayıt olunmaz. kvkkVersion / termsVersion: kullanıcıya
+  // gösterilen metnin sürümü; güncelden farklıysa sunucu 409 consent_outdated döner.
+  async function register(email, password, displayName, { kvkkVersion, termsVersion }) {
+    const res = await client.post('/auth/register', {
+      email, password, displayName, acceptKvkk: true, acceptTerms: true, kvkkVersion, termsVersion,
+    });
     return res.data;
   }
+
+  // Güncellenen metinlerin yeniden onayı (POST /auth/consents). Cevap güncel legal durumudur.
+  const acceptConsents = useCallback(async ({ kvkkVersion, termsVersion }) => {
+    const res = await client.post('/auth/consents', { kvkkVersion, termsVersion });
+    setUser((u) => u && { ...u, legal: res.data });
+    return res.data;
+  }, [setUser]);
 
   const startSwitch = useCallback(() => setSwitching(true), []);
   const cancelSwitch = useCallback(() => setSwitching(false), []);
@@ -158,7 +171,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, meError, login, verifyLoginCode, resendLoginCode, register, logout, accountDeleted, applyAuth, refreshMe, selectProfile,
+      user, meError, login, verifyLoginCode, resendLoginCode, register, acceptConsents, logout, accountDeleted, applyAuth, refreshMe, selectProfile,
       switching, startSwitch, cancelSwitch,
     }}>
       {children}
